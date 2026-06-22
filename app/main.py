@@ -1,0 +1,102 @@
+import logging
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from pydantic import BaseModel
+
+from app.config import CORS_ORIGINS, DEV_UI_PATH
+from app.routers import drives, files, ota
+from auth import sessions, store as auth_store
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    from drives import hotplug
+    hotplug.start()
+    yield
+
+
+_version_file = Path(__file__).parent.parent / "VERSION"
+_VERSION = _version_file.read_text().strip() if _version_file.exists() else "dev"
+
+app = FastAPI(
+    title="LiteLayer",
+    description="Secure self-hosted NAS backend for Raspberry Pi",
+    version=_VERSION,
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(drives.router)
+app.include_router(files.router)
+app.include_router(ota.router)
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/api/login")
+def login(req: LoginRequest, response: Response):
+    if not auth_store.verify_password(req.username, req.password):
+        raise HTTPException(401, "Invalid credentials")
+    token = sessions.create_session(req.username)
+    response.set_cookie(
+        key="litelayer_session",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=False,   # Caddy handles TLS termination; set True if serving HTTPS directly
+        max_age=86400,
+    )
+    return {"token": token, "username": req.username}
+
+
+@app.post("/api/logout")
+def logout(request: Request, response: Response):
+    token = request.cookies.get("litelayer_session")
+    if token:
+        sessions.delete_session(token)
+    response.delete_cookie("litelayer_session")
+    return {"status": "ok"}
+
+
+@app.get("/api/me")
+def me(request: Request):
+    """Quick auth check — returns 401 if not logged in, username otherwise."""
+    from app.deps import require_auth
+    from fastapi import Cookie
+    token = request.cookies.get("litelayer_session")
+    auth = request.headers.get("authorization", "")
+    if not token and auth.startswith("Bearer "):
+        token = auth[7:]
+    if not token:
+        raise HTTPException(401, "Not authenticated")
+    username = sessions.validate_session(token)
+    if not username:
+        raise HTTPException(401, "Session expired")
+    return {"username": username}
+
+
+@app.get("/", include_in_schema=False)
+def serve_ui():
+    ui = DEV_UI_PATH / "index.html"
+    if ui.exists():
+        return FileResponse(ui)
+    return JSONResponse({"message": "LiteLayer API — dev UI not present"})

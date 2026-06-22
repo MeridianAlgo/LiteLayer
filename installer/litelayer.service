@@ -1,0 +1,26 @@
+[Unit]
+Description=LiteLayer NAS Backend
+Documentation=https://github.com/your-org/litelayer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/litelayer
+ExecStart=/opt/litelayer/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=litelayer
+
+# Privileged for mount/umount
+User=root
+Group=root
+
+# Tight environment
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/litelayer/env
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=LiteLayer OTA Update Check
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/litelayer/installer/update.sh --auto
+User=root
+StandardOutput=append:/var/log/litelayer/update.log
+StandardError=append:/var/log/litelayer/update.log
