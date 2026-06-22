@@ -734,6 +734,10 @@
         <div class="user-avatar" id="user-avatar">A</div>
         <span id="user-name">admin</span>
       </div>
+      <button id="ota-btn" class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="openOta()" title="Check for updates">
+        <span id="ota-badge" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:transparent;vertical-align:middle"></span>
+        Updates
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
     </div>
   </header>
@@ -880,6 +884,7 @@ function showLogin() {
 function showApp() {
   hide('view-login');
   show('view-app');
+  startOtaPoll();
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => {
@@ -1230,6 +1235,54 @@ function setView(v) {
 }
 
 // ── Boot ────────────────────────────────────────────────────────────────────
+// ── OTA / Updates (dev UI helper) ───────────────────────────────────────────
+let _ota_timer = null;
+async function checkOtaStatus() {
+  try {
+    const r = await api('/api/ota/status');
+    if (!r) return null;
+    const d = await r.json();
+    renderOta(d);
+    return d;
+  } catch (e) { return null; }
+}
+
+function renderOta(d) {
+  const badge = document.getElementById('ota-badge');
+  const btn = document.getElementById('ota-btn');
+  if (!d) { badge.style.background = 'transparent'; btn.title = 'Check for updates'; return; }
+  if (d.update_available) {
+    badge.style.background = 'var(--yellow)';
+    btn.title = `Update available: ${d.latest_sha} — click to apply`;
+  } else if (d.github_reachable) {
+    badge.style.background = 'var(--green)';
+    btn.title = `Up to date (${d.current_sha})`;
+  } else {
+    badge.style.background = 'transparent';
+    btn.title = 'GitHub unreachable';
+  }
+}
+
+function startOtaPoll(intervalMs = 60000) {
+  if (_ota_timer) return; // already running
+  checkOtaStatus();
+  _ota_timer = setInterval(checkOtaStatus, intervalMs);
+}
+
+async function openOta() {
+  const d = await checkOtaStatus();
+  if (!d) { toast('Could not contact OTA endpoint', 'error'); return; }
+  if (d.update_available) {
+    if (!confirm('Update available. Apply now?')) return;
+    const r = await api('/api/ota/update', { method: 'POST' });
+    if (!r) return;
+    if (r.ok) { toast('Update started — service will restart', 'success', 5000); }
+    else { const j = await r.json(); toast(j.detail || 'Update failed', 'error', 5000); }
+  } else {
+    toast(d.github_reachable ? 'No update available' : 'GitHub unreachable', 'info', 2500);
+  }
+}
+
 checkAuth();
 </script>
 </body>

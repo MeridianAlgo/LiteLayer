@@ -18,6 +18,53 @@ bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteL
 Supports Pi 3 → Pi 5, 32-bit and 64-bit Raspberry Pi OS (Bullseye+, Bookworm recommended).
 The installer asks for an admin password and which VPN (if any) to set up.
 
+Pre-install checklist — prepare your Pi
+
+- MicroSD card (8GB+ recommended) or NVMe HAT for Pi 5
+- A machine with SD card writer (Windows / macOS / Linux)
+- Network access (Ethernet or Wi‑Fi). For headless Wi‑Fi, you'll need to configure Wi‑Fi on the image before first boot.
+
+Step-by-step: flash Raspberry Pi OS and run the one-liner
+
+1. Download Raspberry Pi Imager from https://www.raspberrypi.com/software/ and install it on your laptop/desktop.
+2. Run Raspberry Pi Imager and choose the OS:
+  - For modern Pi (Pi 4 / Pi 5): choose "Raspberry Pi OS (other) → Raspberry Pi OS (64-bit)" (Bookworm or Bullseye)
+  - For older Pi or if you need 32-bit compatibility: choose the 32-bit image.
+3. Select your SD card and click the gear icon (Advanced options) to:
+  - enable SSH
+  - set a hostname (optional)
+  - configure Wi‑Fi (SSID, password, country) if you plan a headless setup
+  - set locale/timezone if you want
+  Save and write the image to the card.
+
+Alternative (headless without Imager advanced options):
+ - After writing the image, create an empty file named `ssh` in the boot partition to enable SSH on first boot.
+ - For Wi‑Fi, create a `wpa_supplicant.conf` in the boot partition with your network details (see Raspberry Pi docs).
+
+4. Insert the SD card into the Pi and power it on. Wait ~60s for first-boot setup.
+5. Find the Pi's IP address from your router, mDNS (hostname.local), or by scanning (e.g. `nmap -sn 192.168.1.0/24`).
+6. SSH into the Pi (default user `pi`, or the account you configured) and update the system:
+
+```bash
+ssh pi@<pi-ip>
+sudo apt update && sudo apt upgrade -y
+```
+
+7. Run the LiteLayer installer one-liner on the Pi (this is the same command above):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteLayer/main/installer/install.sh)
+```
+
+Headless / scripted install (example with env vars):
+
+```bash
+LITELAYER_PASSWORD=yourpassword LITELAYER_VPN=tailscale \
+  bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteLayer/main/installer/install.sh)
+```
+
+VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `none`
+
 ### Headless / scripted install
 
 ```bash
