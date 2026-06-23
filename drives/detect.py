@@ -32,6 +32,9 @@ KNOWN_FS = {
     "erofs",
 }
 
+# Device name prefixes that are never real storage drives
+_SKIP_PREFIXES = ("loop", "zram", "ram", "dm-", "md", "sr", "nbd", "zd")
+
 _system_devs_cache: set[str] | None = None
 
 
@@ -103,13 +106,18 @@ def _walk_lsblk(devices: list[dict], sys_devs: set[str]) -> list[dict]:
 
         # Skip system disk at any level
         if full in sys_devs:
-            # Still walk children — they're also excluded below
             if "children" in dev:
                 _walk_lsblk(dev["children"], sys_devs)
             continue
 
+        # Skip virtual/synthetic block devices (loop mounts, zram swap, device-mapper, etc.)
+        if any(name.startswith(p) for p in _SKIP_PREFIXES):
+            if "children" in dev:
+                results.extend(_walk_lsblk(dev["children"], sys_devs))
+            continue
+
         # Include partitions or whole-disk devices that have a filesystem
-        if devtype in ("part", "disk", "loop") and fstype:
+        if devtype in ("part", "disk") and fstype:
             hotplug = _truthy(dev.get("hotplug", False)) or _truthy(dev.get("rm", False))
             tran = (dev.get("tran") or "").lower()
             is_external = hotplug or tran in ("usb", "ieee1394")

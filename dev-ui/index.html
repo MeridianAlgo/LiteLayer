@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,9 +10,11 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  /* ── Dark theme (default) ── */
   :root {
     --bg:           #0b0a14;
     --bg2:          #0e0c1a;
+    --bg3:          #13101f;
     --surface:      rgba(255,255,255,0.04);
     --surface-h:    rgba(255,255,255,0.07);
     --surface-a:    rgba(255,255,255,0.10);
@@ -34,58 +36,57 @@
     --radius-sm:    8px;
   }
 
-  html, body { height: 100%; }
+  /* ── Light theme ── */
+  [data-theme="light"] {
+    --bg:           #f5f4fe;
+    --bg2:          #ece9ff;
+    --bg3:          #e4e0fc;
+    --surface:      rgba(0,0,0,0.04);
+    --surface-h:    rgba(0,0,0,0.07);
+    --surface-a:    rgba(0,0,0,0.11);
+    --border:       rgba(0,0,0,0.09);
+    --border-h:     rgba(0,0,0,0.18);
+    --text:         #1c1635;
+    --text-2:       #5a4fa0;
+    --text-3:       #9888c8;
+    --red-dim:      rgba(239,68,68,0.1);
+  }
 
+  html, body { height: 100%; }
   body {
     font-family: 'Inter', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
-    display: flex;
-    flex-direction: column;
+    display: flex; flex-direction: column;
     overflow: hidden;
+    transition: background 0.2s, color 0.2s;
   }
 
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.2); border-radius: 99px; }
 
   /* ── Login ── */
   #view-login {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    flex: 1; display: flex; align-items: center; justify-content: center;
     background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.18) 0%, transparent 70%), var(--bg);
   }
-
   .login-card {
-    width: 100%; max-width: 380px;
-    padding: 40px 36px 36px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    backdrop-filter: blur(24px);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    width: 100%; max-width: 380px; padding: 40px 36px 36px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    backdrop-filter: blur(24px); box-shadow: 0 20px 60px rgba(0,0,0,0.3);
     animation: fadeUp 0.4s ease;
   }
-
   .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
-  .login-logo svg { flex-shrink: 0; }
-  .login-logo-text {
-    font-size: 22px; font-weight: 700; letter-spacing: -0.5px;
-    background: linear-gradient(135deg, #a78bfa, #818cf8);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
+  .login-logo-text { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; background: linear-gradient(135deg, #a78bfa, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .login-sub { font-size: 13px; color: var(--text-3); margin-top: 1px; }
 
+  /* ── Forms ── */
   .field { margin-bottom: 14px; }
-  .field label {
-    display: block; font-size: 12px; font-weight: 500; color: var(--text-2);
-    margin-bottom: 6px; letter-spacing: 0.3px; text-transform: uppercase;
-  }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; letter-spacing: 0.3px; text-transform: uppercase; }
   .field input {
-    width: 100%; padding: 11px 14px;
-    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    width: 100%; padding: 10px 13px;
+    background: var(--surface); border: 1px solid var(--border);
     border-radius: var(--radius-sm); color: var(--text);
     font-size: 14px; font-family: inherit; outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -100,19 +101,17 @@
     cursor: pointer; transition: opacity 0.15s, transform 0.1s; white-space: nowrap;
   }
   .btn:active { transform: scale(0.97); }
-
-  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; box-shadow: 0 2px 12px rgba(124,58,237,0.4); }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; box-shadow: 0 2px 12px var(--accent-glow); }
   .btn-primary:hover { opacity: 0.9; }
   .btn-ghost { background: var(--surface); color: var(--text-2); border: 1px solid var(--border); }
   .btn-ghost:hover { background: var(--surface-h); color: var(--text); border-color: var(--border-h); }
-
   .btn-sm { padding: 6px 11px; font-size: 12px; }
   .btn-xs { padding: 4px 8px; font-size: 11px; }
   .btn-full { width: 100%; margin-top: 8px; }
   .flex-1 { flex: 1; }
 
-  .login-error {
-    margin-top: 12px; padding: 10px 14px;
+  .form-error {
+    margin-top: 10px; padding: 9px 13px;
     background: var(--red-dim); border: 1px solid rgba(239,68,68,0.25);
     border-radius: var(--radius-sm); color: var(--red); font-size: 13px; display: none;
   }
@@ -121,110 +120,69 @@
   #view-app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
   .topbar {
-    display: flex; align-items: center; padding: 0 20px;
-    height: 52px; border-bottom: 1px solid var(--border);
-    background: rgba(11,10,20,0.9); backdrop-filter: blur(16px);
-    flex-shrink: 0; z-index: 100; gap: 12px;
+    display: flex; align-items: center; padding: 0 18px;
+    height: 50px; border-bottom: 1px solid var(--border);
+    background: var(--bg); flex-shrink: 0; z-index: 100; gap: 10px;
+    transition: background 0.2s;
   }
-
   .topbar-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
-  .topbar-logo-text {
-    font-size: 15px; font-weight: 700; letter-spacing: -0.4px;
-    background: linear-gradient(135deg, #a78bfa, #818cf8);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
+  .topbar-logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.4px; background: linear-gradient(135deg, #a78bfa, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
   .topbar-sep { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; }
-  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 7px; }
-
-  .user-pill {
-    display: flex; align-items: center; gap: 7px;
-    padding: 3px 10px 3px 5px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 99px; font-size: 12px; color: var(--text-2);
-  }
-  .user-avatar {
-    width: 21px; height: 21px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 700; color: white;
-  }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
   /* ── OTA banner ── */
   .ota-banner {
-    padding: 8px 20px; display: flex; align-items: center; gap: 12px;
-    font-size: 13px; flex-shrink: 0;
-    background: linear-gradient(90deg, rgba(245,158,11,0.1), rgba(245,158,11,0.04));
-    border-bottom: 1px solid rgba(245,158,11,0.2);
-    animation: fadeIn 0.3s ease;
+    padding: 8px 18px; display: flex; align-items: center; gap: 12px; font-size: 13px; flex-shrink: 0;
+    background: linear-gradient(90deg, rgba(245,158,11,0.1), transparent);
+    border-bottom: 1px solid rgba(245,158,11,0.2); animation: fadeIn 0.3s ease;
   }
   .ota-banner-icon { color: #f59e0b; flex-shrink: 0; }
   .ota-banner-text { flex: 1; }
   .ota-banner-text strong { color: #f59e0b; margin-right: 6px; }
   .ota-banner-text span { color: var(--text-2); font-size: 12px; }
-  .ota-banner-actions { display: flex; gap: 7px; flex-shrink: 0; }
+  .ota-banner-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
-  /* ── App body: sidebar + content ── */
+  /* ── Layout ── */
   .app-body { flex: 1; display: flex; overflow: hidden; }
 
   /* ── Sidebar ── */
   .sidebar {
-    width: 256px; flex-shrink: 0;
+    width: 254px; flex-shrink: 0;
     background: var(--bg2); border-right: 1px solid var(--border);
     display: flex; flex-direction: column; overflow: hidden;
+    transition: background 0.2s;
   }
-
-  .sidebar-hdr {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 13px 14px 9px; flex-shrink: 0;
-  }
+  .sidebar-hdr { display: flex; align-items: center; justify-content: space-between; padding: 12px 13px 8px; flex-shrink: 0; }
   .sidebar-label { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 1px; font-family: var(--mono); }
-
-  .sidebar-refresh {
+  .icon-btn {
     width: 22px; height: 22px; border-radius: 5px; border: none;
     background: transparent; color: var(--text-3); cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     transition: background 0.15s, color 0.15s;
   }
-  .sidebar-refresh:hover { background: var(--surface-h); color: var(--text-2); }
-
-  .drives-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+  .icon-btn:hover { background: var(--surface-h); color: var(--text-2); }
+  .drives-list { flex: 1; overflow-y: auto; padding: 0 7px 10px; }
 
   /* ── Sidebar drive card ── */
   .sb-drive {
-    padding: 11px 11px 9px; border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 10px 8px; border: 1px solid var(--border); border-radius: 10px;
     margin-bottom: 6px; transition: border-color 0.15s, background 0.15s;
-    background: rgba(255,255,255,0.02);
+    background: rgba(128,128,128,0.02);
   }
   .sb-drive:hover { border-color: var(--border-h); background: var(--surface); }
-  .sb-drive.active { border-color: rgba(124,58,237,0.45); background: rgba(124,58,237,0.06); }
-
+  .sb-drive.active { border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
   .sb-drive-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-  .sb-drive-icon {
-    width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
-    display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(79,70,229,0.18));
-    border: 1px solid rgba(124,58,237,0.12);
-  }
+  .sb-drive-icon { width: 27px; height: 27px; border-radius: 7px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); }
   .sb-drive-info { flex: 1; min-width: 0; }
-  .sb-drive-name {
-    font-size: 13px; font-weight: 600; letter-spacing: -0.2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
+  .sb-drive-name { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sb-drive.active .sb-drive-name { color: var(--accent-light); }
   .sb-drive-dev { font-size: 10px; color: var(--text-3); font-family: var(--mono); margin-top: 1px; }
-
-  .sb-fs-tag {
-    font-size: 9px; font-weight: 700; font-family: var(--mono); text-transform: uppercase;
-    padding: 2px 5px; border-radius: 4px; flex-shrink: 0;
-    background: rgba(124,58,237,0.12); color: var(--accent-light); border: 1px solid rgba(124,58,237,0.2);
-  }
-
-  .sb-bar-track { height: 3px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; margin-bottom: 4px; }
+  .sb-fs-tag { font-size: 9px; font-weight: 700; font-family: var(--mono); text-transform: uppercase; padding: 2px 5px; border-radius: 4px; flex-shrink: 0; }
+  .sb-bar-track { height: 3px; background: var(--surface-h); border-radius: 99px; overflow: hidden; margin-bottom: 4px; }
   .sb-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-light)); transition: width 0.6s; }
   .sb-bar-fill.warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
   .sb-bar-fill.crit { background: linear-gradient(90deg, #ef4444, #f87171); }
   .sb-bar-stats { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); font-family: var(--mono); }
-
   .sb-drive-actions { display: flex; gap: 5px; margin-top: 8px; }
 
   /* ── Content pane ── */
@@ -232,101 +190,58 @@
 
   /* ── File toolbar ── */
   .files-toolbar {
-    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    display: flex; align-items: center; gap: 8px; padding: 7px 15px;
     border-bottom: 1px solid var(--border); flex-shrink: 0;
-    background: rgba(11,10,20,0.4);
+    background: color-mix(in srgb, var(--bg) 60%, transparent);
   }
-
-  .ft-breadcrumb {
-    display: flex; align-items: center; gap: 3px;
-    font-family: var(--mono); font-size: 12px; color: var(--text-3);
-    flex: 1; min-width: 0; overflow: hidden;
-  }
+  .ft-breadcrumb { display: flex; align-items: center; gap: 3px; font-family: var(--mono); font-size: 12px; color: var(--text-3); flex: 1; min-width: 0; overflow: hidden; }
   .ft-breadcrumb .crumb-sep { opacity: 0.35; padding: 0 1px; }
-  .ft-breadcrumb a {
-    color: var(--text-3); text-decoration: none; white-space: nowrap; cursor: pointer;
-    padding: 2px 5px; border-radius: 4px; transition: color 0.12s, background 0.12s;
-  }
+  .ft-breadcrumb a { color: var(--text-3); text-decoration: none; white-space: nowrap; cursor: pointer; padding: 2px 5px; border-radius: 4px; transition: color 0.12s, background 0.12s; }
   .ft-breadcrumb a:hover { color: var(--text-2); background: var(--surface); }
   .ft-breadcrumb .crumb-current { color: var(--text); font-weight: 500; white-space: nowrap; }
 
   .search-wrap { position: relative; flex-shrink: 0; }
   .search-wrap svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
   .search-input {
-    height: 29px; padding: 0 10px 0 27px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); color: var(--text);
-    font-size: 12px; font-family: var(--mono); outline: none;
-    width: 140px; transition: width 0.2s, border-color 0.15s;
+    height: 28px; padding: 0 10px 0 27px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text); font-size: 12px; font-family: var(--mono);
+    outline: none; width: 138px; transition: width 0.2s, border-color 0.15s;
   }
   .search-input::placeholder { color: var(--text-3); }
-  .search-input:focus { width: 200px; border-color: rgba(124,58,237,0.5); }
+  .search-input:focus { width: 196px; border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
 
-  .view-toggle {
-    display: flex; background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0;
-  }
-  .view-toggle button {
-    padding: 5px 8px; background: none; border: none; color: var(--text-3);
-    cursor: pointer; transition: background 0.15s, color 0.15s; display: flex; align-items: center;
-  }
+  .view-toggle { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0; }
+  .view-toggle button { padding: 5px 8px; background: none; border: none; color: var(--text-3); cursor: pointer; transition: background 0.15s, color 0.15s; display: flex; align-items: center; }
   .view-toggle button.active { background: var(--surface-a); color: var(--text); }
   .view-toggle button:hover:not(.active) { color: var(--text-2); }
 
   /* ── Selection bar ── */
-  .sel-bar {
-    display: flex; align-items: center; gap: 9px; padding: 6px 16px;
-    background: rgba(124,58,237,0.07); border-bottom: 1px solid rgba(124,58,237,0.18);
-    font-size: 12px; color: var(--accent-light); flex-shrink: 0;
-  }
+  .sel-bar { display: flex; align-items: center; gap: 8px; padding: 5px 15px; background: color-mix(in srgb, var(--accent) 8%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); font-size: 12px; color: var(--accent-light); flex-shrink: 0; }
   .sel-bar-label { flex: 1; font-family: var(--mono); }
 
   /* ── Files area ── */
-  .files-area { flex: 1; overflow-y: auto; padding: 12px 16px 20px; }
+  .files-area { flex: 1; overflow-y: auto; padding: 11px 14px 18px; }
 
-  /* ── File list header ── */
-  .file-list-header {
-    display: flex; align-items: center; gap: 10px; padding: 3px 8px 6px;
-    font-size: 10px; font-weight: 700; color: var(--text-3);
-    text-transform: uppercase; letter-spacing: 0.6px; font-family: var(--mono);
-    border-bottom: 1px solid var(--border); margin-bottom: 2px; user-select: none;
-  }
-
+  /* ── File list ── */
+  .file-list-header { display: flex; align-items: center; gap: 10px; padding: 3px 8px 6px; font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; font-family: var(--mono); border-bottom: 1px solid var(--border); margin-bottom: 2px; user-select: none; }
   .file-list { display: flex; flex-direction: column; gap: 1px; }
-
-  .file-row {
-    display: flex; align-items: center; gap: 9px; padding: 7px 8px;
-    border-radius: 7px; cursor: pointer; border: 1px solid transparent;
-    transition: background 0.1s; user-select: none;
-  }
+  .file-row { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 7px; cursor: pointer; border: 1px solid transparent; transition: background 0.1s; user-select: none; }
   .file-row:hover { background: var(--surface-h); }
-  .file-row.selected { background: rgba(124,58,237,0.09); border-color: rgba(124,58,237,0.18); }
-
-  .file-row-check {
-    width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--text-3);
-    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-    opacity: 0; transition: opacity 0.1s, background 0.1s, border-color 0.1s;
-  }
+  .file-row.selected { background: color-mix(in srgb, var(--accent) 9%, transparent); border-color: color-mix(in srgb, var(--accent) 20%, transparent); }
+  .file-row-check { width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--text-3); flex-shrink: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.1s, background 0.1s, border-color 0.1s; }
   .file-row:hover .file-row-check { opacity: 1; }
   .file-row.selected .file-row-check { opacity: 1; background: var(--accent); border-color: var(--accent); }
-
   .file-row-name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .file-row-date { font-size: 11px; color: var(--text-3); width: 108px; text-align: right; flex-shrink: 0; font-family: var(--mono); }
   .file-row-size { font-size: 11px; color: var(--text-3); width: 66px; text-align: right; flex-shrink: 0; font-family: var(--mono); }
   .file-row-dl { opacity: 0; transition: opacity 0.12s; flex-shrink: 0; }
   .file-row:hover .file-row-dl { opacity: 1; }
 
-  /* ── Grid view ── */
-  .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 7px; }
-  .file-cell {
-    padding: 13px 9px 11px; background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius-sm); display: flex; flex-direction: column;
-    align-items: center; gap: 7px; cursor: pointer;
-    transition: background 0.1s, border-color 0.1s, transform 0.1s;
-    text-align: center; user-select: none;
-  }
+  /* ── Grid ── */
+  .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(106px, 1fr)); gap: 7px; }
+  .file-cell { padding: 13px 9px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; gap: 7px; cursor: pointer; transition: background 0.1s, border-color 0.1s, transform 0.1s; text-align: center; user-select: none; }
   .file-cell:hover { background: var(--surface-h); border-color: var(--border-h); transform: translateY(-1px); }
-  .file-cell.selected { background: rgba(124,58,237,0.09); border-color: rgba(124,58,237,0.28); }
+  .file-cell.selected { background: color-mix(in srgb, var(--accent) 9%, transparent); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
   .file-cell-name { font-size: 11px; font-weight: 500; word-break: break-all; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--text-2); }
   .file-cell-size { font-size: 10px; color: var(--text-3); font-family: var(--mono); }
 
@@ -335,51 +250,32 @@
   .fi-wrap-lg { width: 42px; height: 42px; border-radius: 10px; }
 
   /* ── Empty state ── */
-  .empty-state {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 72px 20px; gap: 11px; color: var(--text-3); font-size: 14px; text-align: center;
-  }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 68px 20px; gap: 11px; color: var(--text-3); font-size: 14px; text-align: center; }
   .empty-state svg { opacity: 0.22; }
 
   /* ── Context menu ── */
-  .ctx-menu {
-    position: fixed; z-index: 500; background: #1c1930;
-    border: 1px solid var(--border-h); border-radius: 10px; padding: 4px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.65); min-width: 164px; animation: fadeIn 0.1s ease;
-  }
-  .ctx-item {
-    display: flex; align-items: center; gap: 9px; padding: 7px 11px;
-    border-radius: 6px; font-size: 13px; color: var(--text-2); cursor: pointer;
-    transition: background 0.1s, color 0.1s;
-  }
+  .ctx-menu { position: fixed; z-index: 500; background: var(--bg3); border: 1px solid var(--border-h); border-radius: 10px; padding: 4px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); min-width: 162px; animation: fadeIn 0.1s ease; }
+  .ctx-item { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 6px; font-size: 13px; color: var(--text-2); cursor: pointer; transition: background 0.1s, color 0.1s; }
   .ctx-item:hover { background: var(--surface-h); color: var(--text); }
   .ctx-item svg { flex-shrink: 0; color: var(--text-3); }
   .ctx-sep { height: 1px; background: var(--border); margin: 3px 4px; }
 
   /* ── Toast ── */
-  #toast-container {
-    position: fixed; bottom: 18px; right: 18px;
-    display: flex; flex-direction: column; gap: 7px;
-    z-index: 9999; pointer-events: none;
-  }
-  .toast {
-    padding: 10px 15px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
-    backdrop-filter: blur(12px); box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    animation: slideIn 0.25s ease; pointer-events: auto;
-    display: flex; align-items: center; gap: 9px;
-  }
+  #toast-container { position: fixed; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 7px; z-index: 9999; pointer-events: none; }
+  .toast { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; backdrop-filter: blur(12px); box-shadow: 0 4px 20px rgba(0,0,0,0.3); animation: slideIn 0.25s ease; pointer-events: auto; display: flex; align-items: center; gap: 9px; }
   .toast.success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: var(--green); }
   .toast.error   { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.3);  color: var(--red); }
-  .toast.info    { background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); color: var(--accent-light); }
+  .toast.info    { background: color-mix(in srgb, var(--accent) 15%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); color: var(--accent-light); }
 
   /* ── Misc ── */
-  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.15); border-top-color: currentColor; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+  .spinner { width: 13px; height: 13px; border: 2px solid rgba(128,128,128,0.2); border-top-color: currentColor; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
   .skeleton { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-h) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
   .hidden { display: none !important; }
 
   @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fadeUp  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+  @keyframes slideInRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
   @keyframes spin    { to { transform: rotate(360deg); } }
   @keyframes shimmer { to { background-position: -200% 0; } }
 
@@ -390,7 +286,7 @@
   .iv-filename { flex: 1; font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .iv-counter { font-size: 12px; color: rgba(255,255,255,0.45); flex-shrink: 0; font-family: var(--mono); }
   .iv-hcontrols { display: flex; gap: 4px; flex-shrink: 0; }
-  .iv-btn { width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; font-size: 15px; }
+  .iv-btn { width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; font-size: 14px; }
   .iv-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
   .iv-zoom-pct { font-size: 11px; color: rgba(255,255,255,0.5); min-width: 38px; text-align: center; align-self: center; font-family: var(--mono); }
   .iv-canvas { flex: 1; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; user-select: none; }
@@ -398,23 +294,78 @@
   .iv-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 88px; z-index: 2; border: none; cursor: pointer; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s, opacity 0.2s; opacity: 0; }
   .iv-backdrop:hover .iv-nav { opacity: 1; }
   .iv-nav:hover { background: rgba(255,255,255,0.16); color: #fff; }
-  .iv-nav-prev { left: 12px; }
-  .iv-nav-next { right: 12px; }
+  .iv-nav-prev { left: 12px; } .iv-nav-next { right: 12px; }
   .iv-footer { position: absolute; bottom: 0; left: 0; right: 0; z-index: 3; display: flex; align-items: center; justify-content: center; gap: 20px; padding: 8px 16px; background: linear-gradient(to top, rgba(0,0,0,0.65), transparent); font-size: 11px; color: rgba(255,255,255,0.35); opacity: 0; transition: opacity 0.2s; font-family: var(--mono); }
   .iv-backdrop:hover .iv-footer { opacity: 1; }
 
-  /* ── Modal ── */
-  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; animation: fadeIn 0.15s ease; }
-  .modal { background: #110f1e; border: 1px solid var(--border-h); border-radius: 16px; padding: 28px 28px 24px; width: 100%; max-width: 400px; box-shadow: 0 24px 80px rgba(0,0,0,0.7); animation: fadeUp 0.2s ease; }
-  .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; letter-spacing: -0.3px; }
-  .modal-footer { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+  /* ── PDF Viewer ── */
+  .pv-wrap { flex: 1; padding: 0; display: flex; align-items: stretch; background: #525659; }
+  #pv-frame { width: 100%; height: 100%; border: none; }
+  .pv-loading { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 14px; color: rgba(255,255,255,0.4); font-size: 13px; }
+
+  /* ── Settings overlay (right drawer) ── */
+  .settings-overlay {
+    position: fixed; inset: 0; z-index: 900;
+    background: rgba(0,0,0,0.55); backdrop-filter: blur(3px);
+    display: flex; align-items: stretch; animation: fadeIn 0.15s ease;
+  }
+  .settings-panel {
+    width: 440px; max-width: 100%; margin-left: auto;
+    background: var(--bg); border-left: 1px solid var(--border-h);
+    display: flex; flex-direction: column; overflow: hidden;
+    animation: slideInRight 0.2s ease;
+    transition: background 0.2s;
+  }
+  .settings-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 22px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .settings-hdr-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+  .settings-hdr-sub { font-size: 12px; color: var(--text-3); margin-top: 2px; font-family: var(--mono); }
+  .settings-tabs { display: flex; gap: 2px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .stab-btn { padding: 6px 14px; border: none; border-radius: var(--radius-sm); background: transparent; color: var(--text-3); font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .stab-btn:hover { color: var(--text-2); background: var(--surface); }
+  .stab-btn.active { background: var(--surface-a); color: var(--text); }
+  .settings-body { flex: 1; overflow-y: auto; padding: 22px; }
+
+  /* ── Settings: Appearance ── */
+  .settings-section { margin-bottom: 26px; }
+  .settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
+
+  .theme-row { display: flex; gap: 10px; }
+  .theme-card {
+    flex: 1; border: 2px solid var(--border); border-radius: 10px; padding: 10px;
+    cursor: pointer; transition: border-color 0.15s; text-align: center;
+  }
+  .theme-card:hover { border-color: var(--border-h); }
+  .theme-card.active { border-color: var(--accent); }
+  .theme-preview { height: 52px; border-radius: 6px; margin-bottom: 8px; overflow: hidden; position: relative; }
+  .tp-dark  { background: #0b0a14; }
+  .tp-light { background: #f5f4fe; }
+  .tp-bar   { height: 10px; position: absolute; top: 0; left: 0; right: 0; }
+  .tp-dark  .tp-bar { background: #110f1e; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .tp-light .tp-bar { background: #ece9ff; border-bottom: 1px solid rgba(0,0,0,0.08); }
+  .tp-sidebar { width: 28%; position: absolute; left: 0; top: 10px; bottom: 0; }
+  .tp-dark  .tp-sidebar { background: #0e0c1a; border-right: 1px solid rgba(255,255,255,0.06); }
+  .tp-light .tp-sidebar { background: #ece9ff; border-right: 1px solid rgba(0,0,0,0.07); }
+  .tp-dot { width: 6px; height: 6px; border-radius: 99px; position: absolute; right: 8px; bottom: 8px; }
+  .theme-card-label { font-size: 12px; font-weight: 500; color: var(--text-2); }
+
+  .accent-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .accent-swatch {
+    aspect-ratio: 1; border-radius: 8px; border: 2px solid transparent;
+    cursor: pointer; transition: transform 0.15s, border-color 0.15s;
+  }
+  .accent-swatch:hover { transform: scale(1.12); }
+  .accent-swatch.active { border-color: var(--text); }
+
+  /* ── Settings: Account ── */
   .divider-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
   .divider-label::before, .divider-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
   @media (max-width: 640px) {
     .sidebar { display: none; }
-    .files-toolbar { padding: 7px 10px; }
-    .files-area { padding: 10px; }
+    .settings-panel { width: 100%; }
     .file-row-date { display: none; }
   }
 </style>
@@ -425,17 +376,13 @@
 <div id="view-login" class="hidden">
   <div class="login-card">
     <div class="login-logo">
-      <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-        <rect width="36" height="36" rx="10" fill="url(#lg1)"/>
-        <path d="M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z" fill="white" opacity="0.9"/>
-        <defs><linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs>
-      </svg>
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="10" fill="url(#lg1)"/><path d="M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z" fill="white" opacity="0.9"/><defs><linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs></svg>
       <div><div class="login-logo-text">LiteLayer</div><div class="login-sub">Storage Backend</div></div>
     </div>
     <div class="field"><label>Username</label><input id="login-user" type="text" placeholder="admin" autocomplete="username" autocapitalize="off"></div>
     <div class="field"><label>Password</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="btn btn-primary btn-full" id="login-btn" onclick="doLogin()">Sign In</button>
-    <div id="login-error" class="login-error"></div>
+    <div id="login-error" class="form-error"></div>
   </div>
 </div>
 
@@ -444,22 +391,18 @@
 
   <header class="topbar">
     <a class="topbar-logo" href="#">
-      <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
-        <rect width="36" height="36" rx="10" fill="url(#lg2)"/>
-        <path d="M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z" fill="white" opacity="0.9"/>
-        <defs><linearGradient id="lg2" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs>
-      </svg>
+      <svg width="24" height="24" viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="10" fill="url(#lg2)"/><path d="M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z" fill="white" opacity="0.9"/><defs><linearGradient id="lg2" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs></svg>
       <span class="topbar-logo-text">LiteLayer</span>
     </a>
     <div class="topbar-sep"></div>
     <span style="font-size:10px;font-family:var(--mono);color:var(--text-3);letter-spacing:0.6px">NAS</span>
     <div class="topbar-right">
-      <div class="user-pill"><div class="user-avatar" id="user-avatar">A</div><span id="user-name">admin</span></div>
       <button id="ota-btn" class="btn btn-ghost btn-sm" onclick="openOta()" title="Check for updates">
         <span id="ota-badge" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:transparent;vertical-align:middle"></span>Updates
       </button>
       <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="Settings">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Settings
       </button>
       <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
     </div>
@@ -476,26 +419,21 @@
   </div>
 
   <div class="app-body">
-
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-hdr">
         <span class="sidebar-label">Drives</span>
-        <button class="sidebar-refresh" onclick="loadDrives()" title="Refresh">
+        <button class="icon-btn" onclick="loadDrives()" title="Refresh">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
         </button>
       </div>
       <div class="drives-list" id="drives-list"></div>
     </aside>
 
-    <!-- Content pane -->
+    <!-- Content -->
     <div class="content-pane">
-
-      <!-- Toolbar -->
       <div class="files-toolbar">
-        <nav class="ft-breadcrumb" id="breadcrumb">
-          <span class="crumb-current" style="color:var(--text-3)">Select a drive</span>
-        </nav>
+        <nav class="ft-breadcrumb" id="breadcrumb"><span class="crumb-current" style="color:var(--text-3)">Select a drive</span></nav>
         <div class="search-wrap">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input id="file-search" class="search-input" placeholder="Filter…" oninput="filterFiles(this.value)" autocomplete="off">
@@ -510,34 +448,25 @@
         </div>
       </div>
 
-      <!-- Selection bar -->
       <div id="sel-bar" class="sel-bar hidden">
         <span class="sel-bar-label" id="sel-label"></span>
         <button class="btn btn-ghost btn-xs" onclick="clearSel()">Clear</button>
         <button class="btn btn-primary btn-xs" onclick="downloadSelected()">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          Download selected
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download selected
         </button>
       </div>
 
-      <!-- Welcome state -->
       <div id="view-welcome" class="files-area">
         <div class="empty-state">
-          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-            <path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/>
-            <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-          </svg>
+          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg>
           <div style="font-size:15px;font-weight:600;color:var(--text-2)">No drive selected</div>
           <div style="font-size:12px">Mount a drive from the sidebar, then click Browse</div>
         </div>
       </div>
 
-      <!-- File browser -->
       <div id="files-area" class="files-area hidden">
         <div id="files-container"></div>
       </div>
-
     </div>
   </div>
 </div>
@@ -548,11 +477,11 @@
     <span class="iv-filename" id="iv-filename"></span>
     <span class="iv-counter" id="iv-counter"></span>
     <div class="iv-hcontrols">
-      <button class="iv-btn" onclick="ivZoomOut()" title="Zoom out (-)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button class="iv-btn" onclick="ivZoomOut()" title="-"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       <span class="iv-zoom-pct" id="iv-zoom-pct">100%</span>
-      <button class="iv-btn" onclick="ivZoomIn()" title="Zoom in (+)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button class="iv-btn" onclick="ivZoomIn()" title="+"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       <button class="iv-btn" onclick="ivFit()" title="Fit (F)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></button>
-      <button class="iv-btn" onclick="ivActual()" title="Actual (0)">1:1</button>
+      <button class="iv-btn" onclick="ivActual()" title="1:1 (0)">1:1</button>
       <button class="iv-btn" onclick="ivDownloadCurrent()" title="Download"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
       <button class="iv-btn" onclick="closeImageViewer()" title="Close (Esc)" style="color:rgba(255,255,255,0.5)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
@@ -565,25 +494,84 @@
   <div class="iv-footer"><span id="iv-filesize"></span><span id="iv-dims"></span><span id="iv-modified"></span></div>
 </div>
 
-<!-- Settings Modal -->
-<div id="settings-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeSettings()">
-  <div class="modal">
-    <h3>Account Settings</h3>
-    <div class="field"><label>Current Password <span style="color:var(--red)">*</span></label><input id="settings-cur-pass" type="password" placeholder="Required to save changes" autocomplete="current-password"></div>
-    <div class="divider-label">Change Username</div>
-    <div class="field"><label>New Username</label><input id="settings-new-user" type="text" placeholder="Leave blank to keep current" autocapitalize="off"></div>
-    <div class="divider-label">Change Password</div>
-    <div class="field"><label>New Password</label><input id="settings-new-pass" type="password" placeholder="Leave blank to keep current" autocomplete="new-password"></div>
-    <div class="field"><label>Confirm New Password</label><input id="settings-conf-pass" type="password" placeholder="Repeat new password" autocomplete="new-password"></div>
-    <div id="settings-error" class="login-error"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
-      <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">Save Changes</button>
+<!-- PDF Viewer -->
+<div id="pdf-viewer" class="iv-backdrop hidden">
+  <div class="iv-header">
+    <span class="iv-filename" id="pv-filename"></span>
+    <div class="iv-hcontrols">
+      <button class="iv-btn" onclick="pvDownload()" title="Download"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
+      <button class="iv-btn" onclick="closePdfViewer()" title="Close (Esc)" style="color:rgba(255,255,255,0.5)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+  </div>
+  <div class="pv-wrap" id="pv-wrap">
+    <div class="pv-loading" id="pv-loading">
+      <span class="spinner" style="width:20px;height:20px;border-width:2.5px"></span>
+      <span>Loading PDF…</span>
+    </div>
+    <iframe id="pv-frame" style="display:none;width:100%;height:100%;border:none"></iframe>
+  </div>
+</div>
+
+<!-- Settings panel -->
+<div id="settings-overlay" class="settings-overlay hidden" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-panel">
+    <div class="settings-hdr">
+      <div>
+        <div class="settings-hdr-title">Settings</div>
+        <div class="settings-hdr-sub" id="settings-username-display"></div>
+      </div>
+      <button class="iv-btn" style="background:var(--surface);color:var(--text-2)" onclick="closeSettings()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="settings-tabs">
+      <button id="stab-btn-appearance" class="stab-btn active" onclick="setSettingsTab('appearance')">Appearance</button>
+      <button id="stab-btn-account" class="stab-btn" onclick="setSettingsTab('account')">Account</button>
+    </div>
+    <div class="settings-body">
+
+      <!-- Appearance -->
+      <div id="stab-appearance">
+        <div class="settings-section">
+          <div class="settings-section-title">Theme</div>
+          <div class="theme-row">
+            <button id="theme-card-dark" class="theme-card active" onclick="applyTheme('dark')">
+              <div class="theme-preview tp-dark"><div class="tp-bar"></div><div class="tp-sidebar"></div><div class="tp-dot" style="background:#7c3aed"></div></div>
+              <div class="theme-card-label">Dark</div>
+            </button>
+            <button id="theme-card-light" class="theme-card" onclick="applyTheme('light')">
+              <div class="theme-preview tp-light"><div class="tp-bar"></div><div class="tp-sidebar"></div><div class="tp-dot" style="background:#7c3aed"></div></div>
+              <div class="theme-card-label">Light</div>
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Accent Color</div>
+          <div class="accent-grid" id="accent-grid"></div>
+        </div>
+      </div>
+
+      <!-- Account -->
+      <div id="stab-account" class="hidden">
+        <div class="field">
+          <label>Current Password <span style="color:var(--red)">*</span></label>
+          <input id="settings-cur-pass" type="password" placeholder="Required to save changes" autocomplete="current-password">
+        </div>
+        <div class="divider-label">Change Username</div>
+        <div class="field"><label>New Username</label><input id="settings-new-user" type="text" placeholder="Leave blank to keep current" autocapitalize="off"></div>
+        <div class="divider-label">Change Password</div>
+        <div class="field"><label>New Password</label><input id="settings-new-pass" type="password" placeholder="Leave blank to keep current" autocomplete="new-password"></div>
+        <div class="field"><label>Confirm New Password</label><input id="settings-conf-pass" type="password" placeholder="Repeat new password" autocomplete="new-password"></div>
+        <div id="settings-error" class="form-error"></div>
+        <div style="margin-top:16px;display:flex;justify-content:flex-end">
+          <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">Save Changes</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Context menu -->
 <div id="ctx-menu" class="ctx-menu hidden"></div>
 <div id="toast-container"></div>
 
@@ -595,303 +583,316 @@ let currentDriveLabel = '';
 let currentPath       = '/';
 let fileView          = 'list';
 let authToken         = null;
+let currentUsername   = '';
 let dirEntries        = [];
-let _filtered         = null;   // null = show all
+let _filtered         = null;
 let _sel              = new Set();
 let _lastClickIdx     = -1;
 
-// ── Utils ────────────────────────────────────────────────────────────────────
+// ── Theme / Accent ────────────────────────────────────────────────────────────
 
-function fmt(bytes) {
-  if (!bytes) return '—';
-  const u = ['B','KB','MB','GB','TB']; let i = 0;
-  while (bytes >= 1024 && i < u.length - 1) { bytes /= 1024; i++; }
-  return bytes.toFixed(i > 1 ? 1 : 0) + ' ' + u[i];
+const ACCENTS = [
+  { id:'purple', c:'#7c3aed', c2:'#4f46e5', glow:'rgba(124,58,237,0.35)', light:'#a78bfa', label:'Purple' },
+  { id:'indigo', c:'#4338ca', c2:'#3730a3', glow:'rgba(67,56,202,0.35)',  light:'#818cf8', label:'Indigo' },
+  { id:'blue',   c:'#2563eb', c2:'#1d4ed8', glow:'rgba(37,99,235,0.35)',  light:'#60a5fa', label:'Blue'   },
+  { id:'teal',   c:'#0d9488', c2:'#0f766e', glow:'rgba(13,148,136,0.35)', light:'#2dd4bf', label:'Teal'   },
+  { id:'rose',   c:'#e11d48', c2:'#be123c', glow:'rgba(225,29,72,0.35)',  light:'#fb7185', label:'Rose'   },
+  { id:'amber',  c:'#d97706', c2:'#b45309', glow:'rgba(217,119,6,0.35)',  light:'#fbbf24', label:'Amber'  },
+];
+
+let _currentAccent = 'purple';
+let _currentTheme  = 'dark';
+
+function applyTheme(t) {
+  _currentTheme = t;
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('ll-theme', t);
+  // Update theme cards
+  document.getElementById('theme-card-dark')?.classList.toggle('active', t==='dark');
+  document.getElementById('theme-card-light')?.classList.toggle('active', t==='light');
+}
+
+function applyAccent(id) {
+  const a = ACCENTS.find(x=>x.id===id) || ACCENTS[0];
+  _currentAccent = id;
+  const r = document.documentElement;
+  r.style.setProperty('--accent', a.c);
+  r.style.setProperty('--accent2', a.c2);
+  r.style.setProperty('--accent-glow', a.glow);
+  r.style.setProperty('--accent-light', a.light);
+  localStorage.setItem('ll-accent', id);
+  document.querySelectorAll('.accent-swatch').forEach(el => el.classList.toggle('active', el.dataset.accent===id));
+}
+
+function buildAccentGrid() {
+  const grid = document.getElementById('accent-grid');
+  if (!grid) return;
+  grid.innerHTML = ACCENTS.map(a => `
+    <button class="accent-swatch${a.id===_currentAccent?' active':''}" data-accent="${a.id}"
+      style="background:${a.c}" title="${a.label}" onclick="applyAccent('${a.id}')"></button>
+  `).join('');
+}
+
+// Init persisted preferences
+(function() {
+  const t = localStorage.getItem('ll-theme') || 'dark';
+  const ac = localStorage.getItem('ll-accent') || 'purple';
+  applyTheme(t);
+  applyAccent(ac);
+})();
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+
+function fmt(b) {
+  if (!b) return '—';
+  const u=['B','KB','MB','GB','TB']; let i=0;
+  while (b>=1024&&i<u.length-1){b/=1024;i++;}
+  return b.toFixed(i>1?1:0)+' '+u[i];
 }
 
 function fmtDate(ts) {
   if (!ts) return '';
-  return new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  return new Date(ts*1000).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
 }
 
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 function fileIconCfg(name, isDir) {
-  if (isDir) return { color:'#7c3aed', bg:'rgba(124,58,237,0.15)', icon:'<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>' };
-  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (isDir) return {color:'#7c3aed',bg:'rgba(124,58,237,0.15)',icon:'<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>'};
+  const ext=(name.split('.').pop()||'').toLowerCase();
   if (['jpg','jpeg','png','gif','webp','svg','heic','raw','tiff','bmp','avif','ico'].includes(ext))
-    return { color:'#f97316', bg:'rgba(249,115,22,0.12)', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>' };
+    return {color:'#f97316',bg:'rgba(249,115,22,0.12)',icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>'};
+  if (ext==='pdf')
+    return {color:'#ef4444',bg:'rgba(239,68,68,0.12)',icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>'};
   if (['mp4','mov','avi','mkv','wmv','flv','m4v','webm'].includes(ext))
-    return { color:'#3b82f6', bg:'rgba(59,130,246,0.12)', icon:'<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>' };
+    return {color:'#3b82f6',bg:'rgba(59,130,246,0.12)',icon:'<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>'};
   if (['mp3','flac','wav','aac','ogg','m4a','wma'].includes(ext))
-    return { color:'#ec4899', bg:'rgba(236,72,153,0.12)', icon:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>' };
-  if (ext === 'pdf')
-    return { color:'#ef4444', bg:'rgba(239,68,68,0.12)', icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>' };
+    return {color:'#ec4899',bg:'rgba(236,72,153,0.12)',icon:'<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>'};
   if (['py','js','ts','jsx','tsx','html','css','sh','rb','go','rs','c','cpp','java','php','vue','json','yaml','yml','xml','toml','ini','sql'].includes(ext))
-    return { color:'#10b981', bg:'rgba(16,185,129,0.12)', icon:'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>' };
+    return {color:'#10b981',bg:'rgba(16,185,129,0.12)',icon:'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'};
   if (['zip','tar','gz','7z','rar','bz2','xz'].includes(ext))
-    return { color:'#f59e0b', bg:'rgba(245,158,11,0.12)', icon:'<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>' };
+    return {color:'#f59e0b',bg:'rgba(245,158,11,0.12)',icon:'<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>'};
   if (['doc','docx','xls','xlsx','ppt','pptx','txt','md','log','csv'].includes(ext))
-    return { color:'#60a5fa', bg:'rgba(96,165,250,0.12)', icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>' };
-  return { color:'#9b8fcf', bg:'rgba(155,143,207,0.1)', icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>' };
+    return {color:'#60a5fa',bg:'rgba(96,165,250,0.12)',icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'};
+  return {color:'#9b8fcf',bg:'rgba(155,143,207,0.1)',icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>'};
 }
 
-function fileIconHtml(name, isDir, size=15, xc='') {
-  const c = fileIconCfg(name, isDir);
-  return `<div class="fi-wrap ${xc}" style="background:${c.bg};color:${c.color}"><svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg></div>`;
+function fileIconHtml(name, isDir, sz=15, xc='') {
+  const c=fileIconCfg(name,isDir);
+  return `<div class="fi-wrap ${xc}" style="background:${c.bg};color:${c.color}"><svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg></div>`;
 }
 
-function show(id)  { document.getElementById(id).classList.remove('hidden'); }
-function hide(id)  { document.getElementById(id).classList.add('hidden'); }
+function show(id) { document.getElementById(id).classList.remove('hidden'); }
+function hide(id) { document.getElementById(id).classList.add('hidden'); }
 
 function toast(msg, type='info', dur=3500) {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.innerHTML = `<span>${{success:'✓',error:'✕',info:'ℹ'}[type]||''}</span><span>${msg}</span>`;
+  const el=document.createElement('div'); el.className=`toast ${type}`;
+  el.innerHTML=`<span>${{success:'✓',error:'✕',info:'ℹ'}[type]||''}</span><span>${msg}</span>`;
   document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity 0.3s'; setTimeout(()=>el.remove(),300); }, dur);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity 0.3s';setTimeout(()=>el.remove(),300);},dur);
 }
 
 async function api(path, opts={}) {
-  const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-  const r = await fetch(API + path, {...opts, headers, credentials:'include'});
-  if (r.status === 401) { showLogin(); return null; }
+  const headers={'Content-Type':'application/json',...(opts.headers||{})};
+  if (authToken) headers['Authorization']=`Bearer ${authToken}`;
+  const r=await fetch(API+path,{...opts,headers,credentials:'include'});
+  if (r.status===401){showLogin();return null;}
   return r;
 }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
+// ── Auth ──────────────────────────────────────────────────────────────────────
 
 async function checkAuth() {
   try {
-    const r = await fetch(API + '/api/me', { credentials:'include' });
-    if (r.ok) { const d = await r.json(); setUser(d.username); showApp(); loadDrives(); return; }
+    const r=await fetch(API+'/api/me',{credentials:'include'});
+    if (r.ok){const d=await r.json();setUser(d.username);showApp();loadDrives();return;}
   } catch {}
   showLogin();
 }
 
 function setUser(u) {
-  document.getElementById('user-name').textContent = u;
-  document.getElementById('user-avatar').textContent = u[0].toUpperCase();
+  currentUsername = u;
+  document.getElementById('settings-username-display').textContent = u;
 }
 
 function showLogin() { hide('view-app'); show('view-login'); setTimeout(()=>document.getElementById('login-user').focus(),50); }
 function showApp()   { hide('view-login'); show('view-app'); startOtaPoll(); }
 
-document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
-document.getElementById('login-user').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('login-pass').focus(); });
+document.getElementById('login-pass').addEventListener('keydown', e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('login-user').addEventListener('keydown', e=>{if(e.key==='Enter')document.getElementById('login-pass').focus();});
 
 async function doLogin() {
-  const btn=document.getElementById('login-btn'), err=document.getElementById('login-error');
-  const username=document.getElementById('login-user').value.trim(), password=document.getElementById('login-pass').value;
-  if (!username||!password) { err.textContent='Enter username and password.'; err.style.display='block'; return; }
-  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Signing in…'; err.style.display='none';
+  const btn=document.getElementById('login-btn'),err=document.getElementById('login-error');
+  const username=document.getElementById('login-user').value.trim(),password=document.getElementById('login-pass').value;
+  if (!username||!password){err.textContent='Enter username and password.';err.style.display='block';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Signing in…';err.style.display='none';
   try {
-    const r = await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({username,password})});
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail||'Login failed');
+    const r=await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({username,password})});
+    const data=await r.json(); if(!r.ok)throw new Error(data.detail||'Login failed');
     authToken=data.token; setUser(username); showApp(); loadDrives();
-  } catch(e) {
-    err.textContent=e.message; err.style.display='block'; btn.disabled=false; btn.textContent='Sign In';
-  }
+  } catch(e){err.textContent=e.message;err.style.display='block';btn.disabled=false;btn.textContent='Sign In';}
 }
 
 async function doLogout() {
   await api('/api/logout',{method:'POST'}); authToken=null; showLogin(); toast('Signed out','info',2000);
 }
 
-// ── Drives / Sidebar ─────────────────────────────────────────────────────────
+// ── Drives ────────────────────────────────────────────────────────────────────
 
 async function loadDrives() {
-  const list = document.getElementById('drives-list');
-  list.innerHTML = '<div class="skeleton" style="height:108px;border-radius:10px;margin:0 2px 6px"></div>'.repeat(2);
-  const r = await api('/api/drives');
-  if (!r) return;
-  const drives = await r.json();
-  if (!drives.length) {
-    list.innerHTML = `<div style="padding:18px 8px;text-align:center;font-size:11px;color:var(--text-3)">No drives detected<br><br>Plug in a USB drive<br>and click ↻</div>`;
+  const list=document.getElementById('drives-list');
+  list.innerHTML='<div class="skeleton" style="height:106px;border-radius:10px;margin:0 2px 6px"></div>'.repeat(2);
+  const r=await api('/api/drives'); if(!r) return;
+  const drives=await r.json();
+  if (!drives.length){
+    list.innerHTML=`<div style="padding:18px 8px;text-align:center;font-size:11px;color:var(--text-3)">No drives detected<br><br>Plug in a USB drive<br>and click ↻</div>`;
     return;
   }
-  list.innerHTML = drives.map(d => sbDriveCard(d)).join('');
+  list.innerHTML=drives.map(d=>sbDriveCard(d)).join('');
 }
 
 function sbDriveCard(d) {
-  const used=d.used_bytes||0, total=d.size_bytes||1;
-  const pct=total>0?Math.round(used/total*100):0;
-  const barCls=pct>90?'crit':pct>75?'warn':'';
-  const mounted=d.state!=='unmounted';
-  const active=d.id===currentDriveId;
+  const used=d.used_bytes||0,total=d.size_bytes||1,pct=total>0?Math.round(used/total*100):0;
+  const barCls=pct>90?'crit':pct>75?'warn':'',mounted=d.state!=='unmounted',active=d.id===currentDriveId;
   const fsColors={ntfs:'#60a5fa',exfat:'#34d399',vfat:'#f472b6',fat32:'#f472b6',ext4:'#a78bfa',ext3:'#a78bfa',btrfs:'#fb923c',xfs:'#facc15',hfsplus:'#94a3b8','iso9660':'#94a3b8'};
   const fc=fsColors[(d.fstype||'').toLowerCase()]||'#a78bfa';
   return `<div class="sb-drive${active?' active':''}" id="sbcard-${esc(d.id)}">
     <div class="sb-drive-top">
       <div class="sb-drive-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg></div>
-      <div class="sb-drive-info">
-        <div class="sb-drive-name" title="${esc(d.label)}">${esc(d.label)}</div>
-        <div class="sb-drive-dev">${esc(d.device)}</div>
-      </div>
-      <div class="sb-fs-tag" style="background:${fc}18;color:${fc};border-color:${fc}33">${esc(d.fstype)}</div>
+      <div class="sb-drive-info"><div class="sb-drive-name" title="${esc(d.label)}">${esc(d.label)}</div><div class="sb-drive-dev">${esc(d.device)}</div></div>
+      <div class="sb-fs-tag" style="background:${fc}18;color:${fc};border:1px solid ${fc}33">${esc(d.fstype)}</div>
     </div>
-    ${mounted?`<div class="sb-bar-wrap"><div class="sb-bar-track"><div class="sb-bar-fill ${barCls}" style="width:${pct}%"></div></div><div class="sb-bar-stats"><span>${fmt(used)}</span><span>${fmt(d.free_bytes)} free</span></div></div>`:''}
+    ${mounted?`<div><div class="sb-bar-track"><div class="sb-bar-fill ${barCls}" style="width:${pct}%"></div></div><div class="sb-bar-stats"><span>${fmt(used)}</span><span>${fmt(d.free_bytes)} free</span></div></div>`:''}
     <div class="sb-drive-actions">
       ${mounted
-        ?`<button class="btn btn-ghost btn-xs flex-1" onclick="browseFiles('${esc(d.id)}','${esc(d.label)}')">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Browse
-          </button>
-          <button class="btn btn-ghost btn-xs" onclick="unmountDrive('${esc(d.id)}')" title="Eject">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 9l6 6m0-6l-6 6"/><circle cx="12" cy="12" r="9"/></svg>
-          </button>`
-        :`<button class="btn btn-primary btn-xs flex-1" onclick="mountDrive('${esc(d.id)}')">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Mount
-          </button>`}
+        ?`<button class="btn btn-ghost btn-xs flex-1" onclick="browseFiles('${esc(d.id)}','${esc(d.label)}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Browse</button>
+           <button class="btn btn-ghost btn-xs" onclick="unmountDrive('${esc(d.id)}')" title="Eject"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 9l6 6m0-6l-6 6"/><circle cx="12" cy="12" r="9"/></svg></button>`
+        :`<button class="btn btn-primary btn-xs flex-1" onclick="mountDrive('${esc(d.id)}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Mount</button>`}
     </div>
   </div>`;
 }
 
 async function mountDrive(id) {
   toast('Mounting…','info',1500);
-  const r=await api(`/api/drives/${id}/mount`,{method:'POST'});
-  if (!r) return;
-  if (r.ok) { toast('Drive mounted','success'); loadDrives(); }
-  else { const d=await r.json(); toast(d.detail||'Mount failed','error',5000); }
+  const r=await api(`/api/drives/${id}/mount`,{method:'POST'}); if(!r) return;
+  if (r.ok){toast('Drive mounted','success');loadDrives();}
+  else{const d=await r.json();toast(d.detail||'Mount failed','error',5000);}
 }
 
 async function unmountDrive(id) {
   toast('Ejecting…','info',1500);
-  const r=await api(`/api/drives/${id}/unmount`,{method:'POST'});
-  if (!r) return;
-  if (r.ok) {
+  const r=await api(`/api/drives/${id}/unmount`,{method:'POST'}); if(!r) return;
+  if (r.ok){
     toast('Drive ejected safely','success');
-    if (currentDriveId===id) { currentDriveId=null; hide('files-area'); show('view-welcome'); setBreadcrumb([]); }
+    if(currentDriveId===id){currentDriveId=null;hide('files-area');show('view-welcome');setBreadcrumb([]);}
     loadDrives();
-  } else { const d=await r.json(); toast(d.detail||'Unmount failed','error',5000); }
+  } else{const d=await r.json();toast(d.detail||'Unmount failed','error',5000);}
 }
 
-// ── File browser ─────────────────────────────────────────────────────────────
+// ── File browser ──────────────────────────────────────────────────────────────
 
 function browseFiles(driveId, driveLabel) {
-  currentDriveId=driveId; currentDriveLabel=driveLabel; currentPath='/';
-  _filtered=null; document.getElementById('file-search').value='';
-  hide('view-welcome'); show('files-area');
+  currentDriveId=driveId;currentDriveLabel=driveLabel;currentPath='/';
+  _filtered=null;document.getElementById('file-search').value='';
+  hide('view-welcome');show('files-area');
   document.querySelectorAll('.sb-drive').forEach(el=>el.classList.remove('active'));
   const card=document.getElementById(`sbcard-${driveId}`);
-  if (card) card.classList.add('active');
+  if(card)card.classList.add('active');
   loadFiles('/');
   setBreadcrumb([{label:driveLabel,path:'/'}]);
 }
 
 function setBreadcrumb(crumbs) {
   const nav=document.getElementById('breadcrumb');
-  if (!crumbs.length) { nav.innerHTML=`<span class="crumb-current" style="color:var(--text-3)">Select a drive</span>`; return; }
+  if(!crumbs.length){nav.innerHTML=`<span class="crumb-current" style="color:var(--text-3)">Select a drive</span>`;return;}
   const parts=[];
   crumbs.forEach((c,i)=>{
-    if (i>0) parts.push(`<span class="crumb-sep">/</span>`);
-    if (i<crumbs.length-1) parts.push(`<a onclick="loadFiles('${esc(c.path)}')">${esc(c.label)}</a>`);
+    if(i>0)parts.push(`<span class="crumb-sep">/</span>`);
+    if(i<crumbs.length-1)parts.push(`<a onclick="loadFiles('${esc(c.path)}')">${esc(c.label)}</a>`);
     else parts.push(`<span class="crumb-current">${esc(c.label)}</span>`);
   });
   nav.innerHTML=parts.join('');
 }
 
 async function loadFiles(path) {
-  currentPath=path; _filtered=null;
+  currentPath=path;_filtered=null;
   document.getElementById('file-search').value='';
   clearSel(false);
   const container=document.getElementById('files-container');
-  container.innerHTML='<div class="skeleton" style="height:34px;margin-bottom:2px;border-radius:7px"></div>'.repeat(7);
+  container.innerHTML='<div class="skeleton" style="height:33px;margin-bottom:2px;border-radius:7px"></div>'.repeat(8);
   const r=await api(`/api/files?drive=${currentDriveId}&path=${encodeURIComponent(path)}`);
-  if (!r) return;
-  if (!r.ok) { const d=await r.json(); toast(d.detail||'Failed to load directory','error'); container.innerHTML=`<div class="empty-state">${esc(d.detail||'Error')}</div>`; return; }
-  const data=await r.json(); dirEntries=data.entries; renderFiles(dirEntries,path);
+  if(!r) return;
+  if(!r.ok){const d=await r.json();toast(d.detail||'Failed to load','error');container.innerHTML=`<div class="empty-state">${esc(d.detail||'Error')}</div>`;return;}
+  const data=await r.json();dirEntries=data.entries;renderFiles(dirEntries,path);
 }
 
 function filterFiles(q) {
-  if (!dirEntries.length) return;
+  if(!dirEntries.length) return;
   const lq=q.trim().toLowerCase();
   _filtered=lq?dirEntries.filter(e=>e.name.toLowerCase().includes(lq)):null;
-  clearSel(false); renderFiles(_filtered||dirEntries,currentPath);
+  clearSel(false);renderFiles(_filtered||dirEntries,currentPath);
 }
 
 // ── Selection ─────────────────────────────────────────────────────────────────
 
 function handleFileClick(idx, e) {
-  const entries=_filtered||dirEntries;
-  const entry=entries[idx];
-  if (!entry) return;
+  const entries=_filtered||dirEntries, entry=entries[idx];
+  if(!entry) return;
 
-  if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
-    if (entry.is_dir) { openDir(entry.path, entry.name); return; }
-    if (isImageFile(entry.name)) {
-      const fi=dirEntries.findIndex(x=>x.path===entry.path);
-      openImageViewer(fi>=0?fi:idx); return;
-    }
-    downloadFile(entry.path, entry.name); return;
+  if(!e.shiftKey&&!e.ctrlKey&&!e.metaKey){
+    if(entry.is_dir){openDir(entry.path,entry.name);return;}
+    if(isImageFile(entry.name)){const fi=dirEntries.findIndex(x=>x.path===entry.path);openImageViewer(fi>=0?fi:idx);return;}
+    if(isPdfFile(entry.name)){const fi=dirEntries.findIndex(x=>x.path===entry.path);openPdfViewer(fi>=0?fi:idx);return;}
+    downloadFile(entry.path,entry.name);return;
   }
 
-  if (e.shiftKey && _lastClickIdx>=0) {
-    const lo=Math.min(_lastClickIdx,idx), hi=Math.max(_lastClickIdx,idx);
+  if(e.shiftKey&&_lastClickIdx>=0){
+    const lo=Math.min(_lastClickIdx,idx),hi=Math.max(_lastClickIdx,idx);
     const next=new Set(_sel);
-    for (let i=lo;i<=hi;i++) { const k=(entries[i]||{}).path; if(k) next.add(k); }
-    _sel=next; updateSelBar(); renderFiles(entries,currentPath); return;
+    for(let i=lo;i<=hi;i++){const k=(entries[i]||{}).path;if(k)next.add(k);}
+    _sel=next;updateSelBar();renderFiles(entries,currentPath);return;
   }
 
-  if (e.ctrlKey||e.metaKey) {
-    if (_sel.has(entry.path)) _sel.delete(entry.path); else _sel.add(entry.path);
-    _lastClickIdx=idx; updateSelBar(); renderFiles(entries,currentPath); return;
+  if(e.ctrlKey||e.metaKey){
+    if(_sel.has(entry.path))_sel.delete(entry.path);else _sel.add(entry.path);
+    _lastClickIdx=idx;updateSelBar();renderFiles(entries,currentPath);return;
   }
 }
 
 function updateSelBar() {
-  const bar=document.getElementById('sel-bar'), label=document.getElementById('sel-label');
-  if (!_sel.size) { bar.classList.add('hidden'); return; }
+  const bar=document.getElementById('sel-bar'),label=document.getElementById('sel-label');
+  if(!_sel.size){bar.classList.add('hidden');return;}
   bar.classList.remove('hidden');
   label.textContent=`${_sel.size} item${_sel.size!==1?'s':''} selected`;
 }
 
 function clearSel(rerender=true) {
-  _sel.clear(); _lastClickIdx=-1;
+  _sel.clear();_lastClickIdx=-1;
   document.getElementById('sel-bar').classList.add('hidden');
-  if (rerender&&dirEntries.length) renderFiles(_filtered||dirEntries,currentPath);
+  if(rerender&&dirEntries.length)renderFiles(_filtered||dirEntries,currentPath);
 }
 
 async function downloadSelected() {
   const toDownload=dirEntries.filter(e=>!e.is_dir&&_sel.has(e.path));
-  if (!toDownload.length) { toast('No files selected','info',2000); return; }
-  for (const e of toDownload) downloadFile(e.path,e.name);
+  if(!toDownload.length){toast('No files selected','info',2000);return;}
+  for(const e of toDownload)downloadFile(e.path,e.name);
   toast(`Downloading ${toDownload.length} file${toDownload.length!==1?'s':''}…`,'success',2500);
 }
 
-// ── Render ───────────────────────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────────────────────
 
 function renderFiles(entries, path) {
   const container=document.getElementById('files-container');
-  if (!entries.length) {
+  if(!entries.length){
     const noMatch=_filtered!==null;
     container.innerHTML=`<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${noMatch?'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>':'<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>'}</svg><div>${noMatch?'No results':'Empty folder'}</div></div>`;
     return;
   }
+  const upRow=path!=='/'?`<div class="file-row" onclick="navigateUp()"><div class="file-row-check"></div><div class="fi-wrap" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-row-name" style="color:var(--text-3);font-size:12px">..</div><div class="file-row-date"></div><div class="file-row-size"></div><div class="file-row-dl"></div></div>`:'';
+  const upCell=path!=='/'?`<div class="file-cell" onclick="navigateUp()"><div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-cell-name">..</div></div>`:'';
 
-  const upRow=path!=='/'?`<div class="file-row" onclick="navigateUp()">
-    <div class="file-row-check"></div>
-    <div class="fi-wrap" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
-    <div class="file-row-name" style="color:var(--text-3);font-size:12px">..</div>
-    <div class="file-row-date"></div><div class="file-row-size"></div><div class="file-row-dl"></div>
-  </div>`:'';
-
-  const upCell=path!=='/'?`<div class="file-cell" onclick="navigateUp()">
-    <div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
-    <div class="file-cell-name">..</div>
-  </div>`:'';
-
-  if (fileView==='list') {
-    container.innerHTML=`<div class="file-list-header">
-      <div style="width:14px"></div><div style="width:26px"></div>
-      <div class="flex-1">Name</div>
-      <div style="width:108px;text-align:right">Modified</div>
-      <div style="width:66px;text-align:right">Size</div>
-      <div style="width:26px"></div>
-    </div>
+  if(fileView==='list'){
+    container.innerHTML=`<div class="file-list-header"><div style="width:14px"></div><div style="width:26px"></div><div class="flex-1">Name</div><div style="width:108px;text-align:right">Modified</div><div style="width:66px;text-align:right">Size</div><div style="width:26px"></div></div>
     <div class="file-list">${upRow}${entries.map((e,i)=>{
       const sel=_sel.has(e.path);
       return `<div class="file-row${sel?' selected':''}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false">
@@ -919,33 +920,31 @@ function openDir(path, name) {
   _sel.clear();
   const segs=path.split('/').filter(Boolean);
   const crumbs=[{label:currentDriveLabel,path:'/'}];
-  let built='';
-  segs.forEach(s=>{ built+='/'+s; crumbs.push({label:s,path:built}); });
-  setBreadcrumb(crumbs); loadFiles(path);
+  let built=''; segs.forEach(s=>{built+='/'+s;crumbs.push({label:s,path:built});});
+  setBreadcrumb(crumbs);loadFiles(path);
 }
 
 function navigateUp() {
   const parts=currentPath.split('/').filter(Boolean);
-  if (!parts.length) return;
+  if(!parts.length)return;
   parts.pop();
-  const parent=parts.length?'/'+parts.join('/'): '/';
-  openDir(parent, parts.length?parts[parts.length-1]:currentDriveLabel);
+  openDir(parts.length?'/'+parts.join('/'):'/');
 }
 
 function downloadFile(path, name) {
   const url=`${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(path)}`;
-  if (authToken) {
+  if(authToken){
     toast(`Downloading ${name}…`,'info',2000);
     fetch(url,{headers:{Authorization:`Bearer ${authToken}`},credentials:'include'})
       .then(r=>r.blob()).then(blob=>{
         const burl=URL.createObjectURL(blob);
-        const a=document.createElement('a'); a.href=burl; a.download=name; a.click();
+        const a=document.createElement('a');a.href=burl;a.download=name;a.click();
         setTimeout(()=>URL.revokeObjectURL(burl),10000);
       }).catch(()=>toast('Download failed','error'));
     return;
   }
-  const a=document.createElement('a'); a.href=url; a.download=name;
-  document.body.appendChild(a); a.click(); a.remove();
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
   toast(`Downloading ${name}…`,'info',2000);
 }
 
@@ -953,129 +952,110 @@ function setView(v) {
   fileView=v;
   document.getElementById('toggle-list').classList.toggle('active',v==='list');
   document.getElementById('toggle-grid').classList.toggle('active',v==='grid');
-  if (currentDriveId) renderFiles(_filtered||dirEntries,currentPath);
+  if(currentDriveId)renderFiles(_filtered||dirEntries,currentPath);
 }
 
 // ── Context menu ──────────────────────────────────────────────────────────────
 
 function showCtxMenu(e, idx) {
   closeCtxMenu();
-  const entries=_filtered||dirEntries;
-  const entry=entries[idx];
-  if (!entry) return;
-  if (!_sel.has(entry.path)) { _sel.clear(); _sel.add(entry.path); updateSelBar(); renderFiles(entries,currentPath); }
-
+  const entries=_filtered||dirEntries,entry=entries[idx];
+  if(!entry)return;
+  if(!_sel.has(entry.path)){_sel.clear();_sel.add(entry.path);updateSelBar();renderFiles(entries,currentPath);}
   const items=[];
-  if (entry.is_dir) {
+  if(entry.is_dir){
     items.push(`<div class="ctx-item" onclick="openDir('${esc(entry.path)}','${esc(entry.name)}');closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Open folder</div>`);
   } else {
-    if (isImageFile(entry.name)) {
-      const fi=dirEntries.findIndex(x=>x.path===entry.path);
-      items.push(`<div class="ctx-item" onclick="openImageViewer(${fi>=0?fi:idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>View image</div>`);
-    }
+    if(isImageFile(entry.name)){const fi=dirEntries.findIndex(x=>x.path===entry.path);items.push(`<div class="ctx-item" onclick="openImageViewer(${fi>=0?fi:idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>View image</div>`);}
+    if(isPdfFile(entry.name)){const fi=dirEntries.findIndex(x=>x.path===entry.path);items.push(`<div class="ctx-item" onclick="openPdfViewer(${fi>=0?fi:idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>View PDF</div>`);}
     items.push(`<div class="ctx-item" onclick="downloadFile('${esc(entry.path)}','${esc(entry.name)}');closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</div>`);
   }
-  if (_sel.size>1) {
-    items.push(`<div class="ctx-sep"></div>`);
-    items.push(`<div class="ctx-item" onclick="downloadSelected();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download ${_sel.size} selected</div>`);
-  }
+  if(_sel.size>1){items.push(`<div class="ctx-sep"></div>`);items.push(`<div class="ctx-item" onclick="downloadSelected();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download ${_sel.size} selected</div>`);}
   items.push(`<div class="ctx-sep"></div>`);
   items.push(`<div class="ctx-item" onclick="clearSel();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Deselect all</div>`);
-
   const menu=document.getElementById('ctx-menu');
-  menu.innerHTML=items.join(''); menu.classList.remove('hidden');
-  const vw=window.innerWidth, vh=window.innerHeight, mw=168, mh=items.length*34;
+  menu.innerHTML=items.join('');menu.classList.remove('hidden');
+  const vw=window.innerWidth,vh=window.innerHeight,mw=166,mh=items.length*34;
   menu.style.left=(e.clientX+mw>vw?e.clientX-mw:e.clientX)+'px';
   menu.style.top=(e.clientY+mh>vh?e.clientY-mh:e.clientY)+'px';
 }
-
-function closeCtxMenu() { document.getElementById('ctx-menu').classList.add('hidden'); }
-document.addEventListener('click', closeCtxMenu);
-document.addEventListener('keydown', e=>{
-  if (e.key==='Escape') { closeCtxMenu(); if ((e.target||{}).tagName!=='INPUT') clearSel(); }
-  if ((e.target||{}).tagName==='INPUT' || !currentDriveId) return;
-  if ((e.ctrlKey||e.metaKey) && e.key==='a') {
+function closeCtxMenu(){document.getElementById('ctx-menu').classList.add('hidden');}
+document.addEventListener('click',closeCtxMenu);
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeCtxMenu();if((e.target||{}).tagName!=='INPUT')clearSel();}
+  if((e.target||{}).tagName==='INPUT'||!currentDriveId)return;
+  if((e.ctrlKey||e.metaKey)&&e.key==='a'){
     e.preventDefault();
     const entries=_filtered||dirEntries;
-    _sel=new Set(entries.map(x=>x.path)); _lastClickIdx=entries.length-1;
-    updateSelBar(); renderFiles(entries,currentPath);
+    _sel=new Set(entries.map(x=>x.path));_lastClickIdx=entries.length-1;
+    updateSelBar();renderFiles(entries,currentPath);
   }
 });
 
 // ── OTA ───────────────────────────────────────────────────────────────────────
 
 let _ota_timer=null;
-
-async function checkOtaStatus() {
-  try { const r=await api('/api/ota/status'); if(!r) return null; const d=await r.json(); renderOta(d); return d; }
-  catch { return null; }
+async function checkOtaStatus(){
+  try{const r=await api('/api/ota/status');if(!r)return null;const d=await r.json();renderOta(d);return d;}
+  catch{return null;}
 }
-
-function renderOta(d) {
-  const badge=document.getElementById('ota-badge'), btn=document.getElementById('ota-btn'), banner=document.getElementById('ota-banner');
-  if (!d) { badge.style.background='transparent'; return; }
-  if (d.update_available) {
-    badge.style.background='var(--yellow)'; btn.title='Update available';
-    if (banner&&!banner.dataset.dismissed) {
+function renderOta(d){
+  const badge=document.getElementById('ota-badge'),btn=document.getElementById('ota-btn'),banner=document.getElementById('ota-banner');
+  if(!d){badge.style.background='transparent';return;}
+  if(d.update_available){
+    badge.style.background='var(--yellow)';
+    if(banner&&!banner.dataset.dismissed){
       const desc=document.getElementById('ota-banner-desc');
-      if (desc) desc.textContent=d.current_version?` — v${d.current_version} → ${d.latest_sha.slice(0,7)}`:` — ${d.latest_sha.slice(0,7)}`;
+      if(desc)desc.textContent=d.current_version?` — v${d.current_version} → ${d.latest_sha.slice(0,7)}`:` — ${d.latest_sha.slice(0,7)}`;
       banner.classList.remove('hidden');
     }
-  } else if (d.github_reachable) {
-    badge.style.background='var(--green)'; btn.title='Up to date'; if(banner) banner.classList.add('hidden');
-  } else { badge.style.background='transparent'; }
+  } else if(d.github_reachable){
+    badge.style.background='var(--green)';if(banner)banner.classList.add('hidden');
+  } else {badge.style.background='transparent';}
 }
-
-async function applyOtaFromBanner() {
-  const r=await api('/api/ota/update',{method:'POST'}); if(!r) return;
+async function applyOtaFromBanner(){
+  const r=await api('/api/ota/update',{method:'POST'});if(!r)return;
   document.getElementById('ota-banner').classList.add('hidden');
-  if (r.ok) toast('Update started — service will restart shortly','success',6000);
-  else { const j=await r.json(); toast(j.detail||'Update failed','error',5000); }
+  if(r.ok)toast('Update started — service will restart','success',6000);
+  else{const j=await r.json();toast(j.detail||'Update failed','error',5000);}
 }
-
-function dismissOtaBanner() { const b=document.getElementById('ota-banner'); b.classList.add('hidden'); b.dataset.dismissed='1'; }
-
-function startOtaPoll(ms=60000) {
-  if (_ota_timer) return; checkOtaStatus(); _ota_timer=setInterval(checkOtaStatus,ms);
-}
-
-async function openOta() {
+function dismissOtaBanner(){const b=document.getElementById('ota-banner');b.classList.add('hidden');b.dataset.dismissed='1';}
+function startOtaPoll(ms=60000){if(_ota_timer)return;checkOtaStatus();_ota_timer=setInterval(checkOtaStatus,ms);}
+async function openOta(){
   const d=await checkOtaStatus();
-  if (!d) { toast('Could not contact OTA endpoint','error'); return; }
-  if (d.update_available) {
-    if (!confirm('Update available. Apply now?')) return;
+  if(!d){toast('Could not contact OTA endpoint','error');return;}
+  if(d.update_available){
+    if(!confirm('Update available. Apply now?'))return;
     const r=await api('/api/ota/update',{method:'POST'});
-    if (r?.ok) toast('Update started — service will restart','success',5000);
-    else { const j=await r?.json(); toast(j?.detail||'Update failed','error',5000); }
-  } else { toast(d.github_reachable?'No update available':'GitHub unreachable','info',2500); }
+    if(r?.ok)toast('Update started — service will restart','success',5000);
+    else{const j=await r?.json();toast(j?.detail||'Update failed','error',5000);}
+  }else toast(d.github_reachable?'No update available':'GitHub unreachable','info',2500);
 }
 
 // ── Image Viewer ──────────────────────────────────────────────────────────────
 
 const IV_EXTS=new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif']);
-let _ivBlobUrl=null, _ivIndex=0, _ivImages=[];
-let _ivZoom=1, _ivTx=0, _ivTy=0, _ivDragging=false, _ivDrag0={x:0,y:0,tx:0,ty:0};
+let _ivBlobUrl=null,_ivIndex=0,_ivImages=[];
+let _ivZoom=1,_ivTx=0,_ivTy=0,_ivDragging=false,_ivDrag0={x:0,y:0,tx:0,ty:0};
 
-function isImageFile(name) { return IV_EXTS.has((name.split('.').pop()||'').toLowerCase()); }
+function isImageFile(name){return IV_EXTS.has((name.split('.').pop()||'').toLowerCase());}
 
-function openImageViewer(dirIdx) {
+function openImageViewer(dirIdx){
   _ivImages=dirEntries.map((e,i)=>({...e,dirIdx:i})).filter(e=>!e.is_dir&&isImageFile(e.name));
-  _ivIndex=_ivImages.findIndex(e=>e.dirIdx===dirIdx); if(_ivIndex<0)_ivIndex=0;
-  show('image-viewer'); document.body.style.overflow='hidden';
-  document.addEventListener('keydown',_ivKey); _ivLoad();
+  _ivIndex=_ivImages.findIndex(e=>e.dirIdx===dirIdx);if(_ivIndex<0)_ivIndex=0;
+  show('image-viewer');document.body.style.overflow='hidden';
+  document.addEventListener('keydown',_ivKey);_ivLoad();
 }
-
-function closeImageViewer() {
-  hide('image-viewer'); document.body.style.overflow='';
+function closeImageViewer(){
+  hide('image-viewer');document.body.style.overflow='';
   document.removeEventListener('keydown',_ivKey);
   if(_ivBlobUrl){URL.revokeObjectURL(_ivBlobUrl);_ivBlobUrl=null;}
   document.getElementById('iv-img').src='';
 }
-
-async function _ivLoad() {
-  const entry=_ivImages[_ivIndex]; if(!entry) return;
+async function _ivLoad(){
+  const entry=_ivImages[_ivIndex];if(!entry)return;
   const img=document.getElementById('iv-img');
-  img.style.opacity='0'; _ivZoom=1;_ivTx=0;_ivTy=0;_ivApply();
+  img.style.opacity='0';_ivZoom=1;_ivTx=0;_ivTy=0;_ivApply();
   document.getElementById('iv-filename').textContent=entry.name;
   document.getElementById('iv-counter').textContent=`${_ivIndex+1} / ${_ivImages.length}`;
   document.getElementById('iv-filesize').textContent=entry.size_bytes?fmt(entry.size_bytes):'';
@@ -1084,81 +1064,121 @@ async function _ivLoad() {
   document.getElementById('iv-prev').style.visibility=_ivIndex>0?'':'hidden';
   document.getElementById('iv-next').style.visibility=_ivIndex<_ivImages.length-1?'':'hidden';
   if(_ivBlobUrl){URL.revokeObjectURL(_ivBlobUrl);_ivBlobUrl=null;}
-  try {
+  try{
     const url=`${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
     const r=await fetch(url,{headers:authToken?{Authorization:`Bearer ${authToken}`}:{},credentials:'include'});
-    const blob=await r.blob(); _ivBlobUrl=URL.createObjectURL(blob);
+    const blob=await r.blob();_ivBlobUrl=URL.createObjectURL(blob);
     img.onload=()=>{img.style.opacity='1';document.getElementById('iv-dims').textContent=`${img.naturalWidth}×${img.naturalHeight}`;};
     img.src=_ivBlobUrl;
-  } catch { toast('Could not load image','error'); }
+  }catch{toast('Could not load image','error');}
 }
-
 function ivNav(d){const n=_ivIndex+d;if(n>=0&&n<_ivImages.length){_ivIndex=n;_ivLoad();}}
 function ivDownloadCurrent(){const e=_ivImages[_ivIndex];if(e)downloadFile(e.path,e.name);}
-
-function _ivKey(e) {
+function _ivKey(e){
   if(e.key==='Escape')closeImageViewer();
-  else if(e.key==='ArrowLeft')ivNav(-1);
-  else if(e.key==='ArrowRight')ivNav(1);
-  else if(e.key==='+'||e.key==='=')ivZoomIn();
-  else if(e.key==='-')ivZoomOut();
-  else if(e.key==='f'||e.key==='F')ivFit();
-  else if(e.key==='0')ivActual();
+  else if(e.key==='ArrowLeft')ivNav(-1);else if(e.key==='ArrowRight')ivNav(1);
+  else if(e.key==='+'||e.key==='=')ivZoomIn();else if(e.key==='-')ivZoomOut();
+  else if(e.key==='f'||e.key==='F')ivFit();else if(e.key==='0')ivActual();
 }
-
-function _ivApply() {
+function _ivApply(){
   const img=document.getElementById('iv-img');
   img.style.transform=`translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`;
   document.getElementById('iv-zoom-pct').textContent=Math.round(_ivZoom*100)+'%';
   img.style.cursor=_ivZoom>1?'grab':'default';
 }
-
 function ivZoomIn(){_ivZoom=Math.min(_ivZoom*1.25,10);_ivApply();}
 function ivZoomOut(){_ivZoom=Math.max(_ivZoom/1.25,0.1);if(_ivZoom<=1){_ivTx=0;_ivTy=0;}_ivApply();}
 function ivFit(){_ivZoom=1;_ivTx=0;_ivTy=0;_ivApply();}
-function ivActual(){
-  const img=document.getElementById('iv-img');if(!img.naturalWidth)return;
-  _ivZoom=img.naturalWidth/document.getElementById('iv-canvas').offsetWidth;
-  _ivTx=0;_ivTy=0;_ivApply();
-}
-function ivWheel(e){
-  e.preventDefault();
-  _ivZoom=Math.max(0.1,Math.min(10,_ivZoom*(e.deltaY>0?0.85:1.18)));
-  if(_ivZoom<=1){_ivTx=0;_ivTy=0;}_ivApply();
-}
+function ivActual(){const img=document.getElementById('iv-img');if(!img.naturalWidth)return;_ivZoom=img.naturalWidth/document.getElementById('iv-canvas').offsetWidth;_ivTx=0;_ivTy=0;_ivApply();}
+function ivWheel(e){e.preventDefault();_ivZoom=Math.max(0.1,Math.min(10,_ivZoom*(e.deltaY>0?0.85:1.18)));if(_ivZoom<=1){_ivTx=0;_ivTy=0;}_ivApply();}
 function ivDragStart(e){if(e.button!==0||_ivZoom<=1)return;_ivDragging=true;_ivDrag0={x:e.clientX,y:e.clientY,tx:_ivTx,ty:_ivTy};document.getElementById('iv-img').style.cursor='grabbing';}
 function ivDragMove(e){if(!_ivDragging)return;_ivTx=_ivDrag0.tx+(e.clientX-_ivDrag0.x);_ivTy=_ivDrag0.ty+(e.clientY-_ivDrag0.y);document.getElementById('iv-img').style.transform=`translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`;}
 function ivDragEnd(){_ivDragging=false;if(_ivZoom>1)document.getElementById('iv-img').style.cursor='grab';}
 
-// ── Settings ──────────────────────────────────────────────────────────────────
+// ── PDF Viewer ────────────────────────────────────────────────────────────────
 
-function openSettings() {
+const PDF_EXTS=new Set(['pdf']);
+let _pvBlobUrl=null,_pvEntry=null;
+
+function isPdfFile(name){return PDF_EXTS.has((name.split('.').pop()||'').toLowerCase());}
+
+async function openPdfViewer(dirIdx){
+  const entry=dirEntries[dirIdx];if(!entry)return;
+  _pvEntry=entry;
+  show('pdf-viewer');document.body.style.overflow='hidden';
+  document.getElementById('pv-filename').textContent=entry.name;
+  const frame=document.getElementById('pv-frame'),loading=document.getElementById('pv-loading');
+  frame.style.display='none';loading.style.display='flex';
+  frame.src='';
+  if(_pvBlobUrl){URL.revokeObjectURL(_pvBlobUrl);_pvBlobUrl=null;}
+  try{
+    const url=`${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
+    const r=await fetch(url,{headers:authToken?{Authorization:`Bearer ${authToken}`}:{},credentials:'include'});
+    const blob=await r.blob();
+    _pvBlobUrl=URL.createObjectURL(new Blob([blob],{type:'application/pdf'}));
+    frame.src=_pvBlobUrl;
+    frame.onload=()=>{loading.style.display='none';frame.style.display='block';};
+  }catch{toast('Could not load PDF','error');closePdfViewer();}
+}
+function closePdfViewer(){
+  hide('pdf-viewer');document.body.style.overflow='';
+  document.getElementById('pv-frame').src='';
+  document.getElementById('pv-frame').style.display='none';
+  if(_pvBlobUrl){URL.revokeObjectURL(_pvBlobUrl);_pvBlobUrl=null;}
+  _pvEntry=null;
+}
+function pvDownload(){if(_pvEntry)downloadFile(_pvEntry.path,_pvEntry.name);}
+
+// Close PDF viewer on Escape
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!document.getElementById('pdf-viewer').classList.contains('hidden'))closePdfViewer();
+});
+
+// ── Settings panel ────────────────────────────────────────────────────────────
+
+let _settingsTab='appearance';
+
+function openSettings(){
+  buildAccentGrid();
+  applyTheme(_currentTheme);  // sync cards
+  document.getElementById('settings-username-display').textContent=currentUsername;
+  // Reset account form
   ['settings-cur-pass','settings-new-user','settings-new-pass','settings-conf-pass'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('settings-error').style.display='none';
-  show('settings-modal'); setTimeout(()=>document.getElementById('settings-cur-pass').focus(),50);
+  setSettingsTab('appearance');
+  show('settings-overlay');
 }
-function closeSettings() { hide('settings-modal'); }
 
-async function saveSettings() {
+function closeSettings(){hide('settings-overlay');}
+
+function setSettingsTab(tab){
+  _settingsTab=tab;
+  ['appearance','account'].forEach(t=>{
+    document.getElementById(`stab-${t}`)?.classList.toggle('hidden',t!==tab);
+    document.getElementById(`stab-btn-${t}`)?.classList.toggle('active',t===tab);
+  });
+}
+
+async function saveSettings(){
   const cur=document.getElementById('settings-cur-pass').value;
   const user=document.getElementById('settings-new-user').value.trim();
   const pass=document.getElementById('settings-new-pass').value;
   const conf=document.getElementById('settings-conf-pass').value;
-  const err=document.getElementById('settings-error'), btn=document.getElementById('settings-save-btn');
+  const err=document.getElementById('settings-error'),btn=document.getElementById('settings-save-btn');
   err.style.display='none';
-  if (!cur) { err.textContent='Current password is required.'; err.style.display='block'; return; }
-  if (pass&&pass!==conf) { err.textContent='New passwords do not match.'; err.style.display='block'; return; }
-  if (pass&&pass.length<8) { err.textContent='New password must be at least 8 characters.'; err.style.display='block'; return; }
-  if (!user&&!pass) { err.textContent='Nothing to change.'; err.style.display='block'; return; }
-  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Saving…';
-  try {
+  if(!cur){err.textContent='Current password is required.';err.style.display='block';return;}
+  if(pass&&pass!==conf){err.textContent='New passwords do not match.';err.style.display='block';return;}
+  if(pass&&pass.length<8){err.textContent='New password must be at least 8 characters.';err.style.display='block';return;}
+  if(!user&&!pass){err.textContent='Nothing to change.';err.style.display='block';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Saving…';
+  try{
     const r=await api('/api/auth/update-credentials',{method:'POST',body:JSON.stringify({current_password:cur,new_username:user||null,new_password:pass||null})});
-    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'Failed to save');
+    const d=await r.json();if(!r.ok)throw new Error(d.detail||'Failed');
     closeSettings();
-    if (d.relogin_required) { toast('Username changed — please sign in again','info',3000); setTimeout(()=>{authToken=null;showLogin();},1500); }
-    else toast('Credentials updated','success');
-  } catch(e) { err.textContent=e.message; err.style.display='block'; }
-  finally { btn.disabled=false; btn.textContent='Save Changes'; }
+    if(d.relogin_required){toast('Username changed — please sign in again','info',3000);setTimeout(()=>{authToken=null;showLogin();},1500);}
+    else{setUser(user||currentUsername);toast('Credentials updated','success');}
+  }catch(e){err.textContent=e.message;err.style.display='block';}
+  finally{btn.disabled=false;btn.textContent='Save Changes';}
 }
 
 checkAuth();

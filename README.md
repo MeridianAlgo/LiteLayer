@@ -142,9 +142,11 @@ On any device on the same network, open:
 http://litelayer.local
 ```
 
-Or use the IP shown at the end of the installer: `http://192.168.1.xx`
+`litelayer.local` is broadcast on your LAN via mDNS (installed automatically). No need to know the IP — works on macOS, iOS, Android, Linux, and Windows 10+.
 
-> **Use `http://` not `https://`** for direct LAN access — no certificate warning, no browser block. HTTPS is available at port 443 for VPN clients that need it, but plain HTTP on port 80 is the easiest way in.
+If it doesn't resolve (some corporate/managed networks block mDNS), use the IP shown at the end of the installer: `http://192.168.1.xx`
+
+> **Use `http://` not `https://`** — plain HTTP on port 80 has no certificate warning. HTTPS on port 443 is available for VPN clients that need TLS.
 
 Log in with:
 - **Username:** `admin`

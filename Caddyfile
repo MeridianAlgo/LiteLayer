@@ -4,9 +4,11 @@
     email admin@litelayer.local
 }
 
-# ── HTTP — direct LAN access (no cert required) ───────────────────────────────
-# Open http://<pi-ip> or http://litelayer.local — no cert warnings.
-:80 {
+# ── HTTP — LAN access via mDNS hostname or IP (no cert warnings) ─────────────
+# Primary: http://litelayer.local  (mDNS — works on any device on the LAN)
+# Fallback: http://<pi-ip>         (use if mDNS fails on the client)
+# http:// prefix disables Caddy's automatic HTTPS for these blocks.
+http://litelayer.local, http://litelayer, :80 {
     reverse_proxy localhost:8000
     encode gzip zstd
     header {
