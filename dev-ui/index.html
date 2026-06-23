@@ -659,6 +659,29 @@
   @keyframes spin    { to { transform: rotate(360deg); } }
   @keyframes shimmer { to { background-position: -200% 0; } }
 
+  /* ── Modal ── */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 24px; animation: fadeIn 0.15s ease;
+  }
+  .modal {
+    background: #110f1e; border: 1px solid var(--border-h);
+    border-radius: 16px; padding: 28px 28px 24px; width: 100%;
+    max-width: 400px; box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+    animation: fadeUp 0.2s ease;
+  }
+  .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; letter-spacing: -0.3px; }
+  .modal-footer { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+  .divider-label {
+    font-size: 11px; font-weight: 600; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    margin: 18px 0 10px; display: flex; align-items: center; gap: 8px;
+  }
+  .divider-label::before, .divider-label::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
   /* ── File type icons ── */
   .fi-wrap {
     width: 32px; height: 32px; border-radius: 8px;
@@ -760,6 +783,9 @@
         <span id="ota-badge" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:transparent;vertical-align:middle"></span>
         Updates
       </button>
+      <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="Account settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
     </div>
   </header>
@@ -826,6 +852,41 @@
     </div>
 
   </main>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h3>Account Settings</h3>
+
+    <div class="field">
+      <label>Current Password <span style="color:var(--red)">*</span></label>
+      <input id="settings-cur-pass" type="password" placeholder="Required to save changes" autocomplete="current-password">
+    </div>
+
+    <div class="divider-label">Change Username</div>
+    <div class="field">
+      <label>New Username</label>
+      <input id="settings-new-user" type="text" placeholder="Leave blank to keep current" autocapitalize="off">
+    </div>
+
+    <div class="divider-label">Change Password</div>
+    <div class="field">
+      <label>New Password</label>
+      <input id="settings-new-pass" type="password" placeholder="Leave blank to keep current" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label>Confirm New Password</label>
+      <input id="settings-conf-pass" type="password" placeholder="Repeat new password" autocomplete="new-password">
+    </div>
+
+    <div id="settings-error" class="login-error"></div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
+      <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">Save Changes</button>
+    </div>
+  </div>
 </div>
 
 <!-- Toast container -->
@@ -1348,6 +1409,55 @@ async function openOta() {
     else { const j = await r.json(); toast(j.detail || 'Update failed', 'error', 5000); }
   } else {
     toast(d.github_reachable ? 'No update available' : 'GitHub unreachable', 'info', 2500);
+  }
+}
+
+// ── Settings / Credentials ──────────────────────────────────────────────────
+function openSettings() {
+  ['settings-cur-pass','settings-new-user','settings-new-pass','settings-conf-pass'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('settings-error').style.display = 'none';
+  show('settings-modal');
+  setTimeout(() => document.getElementById('settings-cur-pass').focus(), 50);
+}
+
+function closeSettings() { hide('settings-modal'); }
+
+async function saveSettings() {
+  const cur  = document.getElementById('settings-cur-pass').value;
+  const user = document.getElementById('settings-new-user').value.trim();
+  const pass = document.getElementById('settings-new-pass').value;
+  const conf = document.getElementById('settings-conf-pass').value;
+  const err  = document.getElementById('settings-error');
+  const btn  = document.getElementById('settings-save-btn');
+
+  err.style.display = 'none';
+  if (!cur) { err.textContent = 'Current password is required.'; err.style.display = 'block'; return; }
+  if (pass && pass !== conf) { err.textContent = 'New passwords do not match.'; err.style.display = 'block'; return; }
+  if (pass && pass.length < 8) { err.textContent = 'New password must be at least 8 characters.'; err.style.display = 'block'; return; }
+  if (!user && !pass) { err.textContent = 'Nothing to change — enter a new username or password.'; err.style.display = 'block'; return; }
+
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+  try {
+    const r = await api('/api/auth/update-credentials', {
+      method: 'POST',
+      body: JSON.stringify({ current_password: cur, new_username: user || null, new_password: pass || null }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Failed to save');
+    closeSettings();
+    if (d.relogin_required) {
+      toast('Username changed — please sign in again', 'info', 3000);
+      setTimeout(() => { authToken = null; showLogin(); }, 1500);
+    } else {
+      toast('Credentials updated', 'success');
+    }
+  } catch (e) {
+    err.textContent = e.message;
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Changes';
   }
 }
 

@@ -1,13 +1,15 @@
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from app.config import CORS_ORIGINS, DEV_UI_PATH
+from app.deps import require_auth
 from app.routers import drives, files, ota
 from auth import sessions, store as auth_store
 
@@ -92,6 +94,30 @@ def me(request: Request):
     if not username:
         raise HTTPException(401, "Session expired")
     return {"username": username}
+
+
+class UpdateCredentialsRequest(BaseModel):
+    current_password: str
+    new_username: Optional[str] = None
+    new_password: Optional[str] = None
+
+
+@app.post("/api/auth/update-credentials")
+def update_credentials(req: UpdateCredentialsRequest, username: str = Depends(require_auth)):
+    if not auth_store.verify_password(username, req.current_password):
+        raise HTTPException(401, "Current password is incorrect")
+    new_pass = req.new_password or None
+    if new_pass and len(new_pass) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
+    new_user = (req.new_username or "").strip() or username
+    if new_user != username:
+        auth_store.rename_user(username, new_user)
+    if new_pass:
+        auth_store.set_password(new_user, new_pass)
+    if new_user != username:
+        sessions.invalidate_user(username)
+        return {"status": "ok", "relogin_required": True}
+    return {"status": "ok", "relogin_required": False}
 
 
 @app.get("/", include_in_schema=False)

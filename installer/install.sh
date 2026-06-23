@@ -110,34 +110,38 @@ chmod 755 "$MOUNT_ROOT" "$LOG_DIR"
 header "VPN / Mesh Network"
 
 if [[ -z "${LITELAYER_VPN:-}" ]]; then
-  echo "  LiteLayer binds on all interfaces. Any VPN that routes to this Pi works"
-  echo "  automatically — but we can install and configure one for you now."
+  echo "  LiteLayer is accessible on your LAN at http://<pi-ip> as soon as install"
+  echo "  finishes. To reach it from anywhere, pick a VPN or Cloudflare Tunnel:"
   echo ""
-  echo "  1) None    — LAN only (add VPN later, docs/vpn.md)"
-  echo "  2) Tailscale  — easiest; 100 devices free; managed by Tailscale"
-  echo "  3) ZeroTier   — self-hostable; 25 devices free on managed"
-  echo "  4) Netbird    — open-source WireGuard-based; self-hostable"
-  echo "  5) WireGuard  — manual config; most control"
+  echo "  1) None            — LAN only (you can add remote access later)"
+  echo "  2) Tailscale       — easiest; free for 100 devices"
+  echo "  3) ZeroTier        — self-hostable; 25 devices free"
+  echo "  4) Netbird         — open-source WireGuard mesh; self-hostable"
+  echo "  5) WireGuard       — manual config, most control"
+  echo "  6) Cloudflare Tunnel — no open ports; free *.trycloudflare.com URL"
   echo ""
-  read -rp "  Your choice [1-5, default 1]: " VPN_RAW
+  read -rp "  Your choice [1-6, default 1]: " VPN_RAW
   case "${VPN_RAW:-1}" in
-    2) LITELAYER_VPN="tailscale" ;;
-    3) LITELAYER_VPN="zerotier"  ;;
-    4) LITELAYER_VPN="netbird"   ;;
-    5) LITELAYER_VPN="wireguard" ;;
-    *) LITELAYER_VPN="none"      ;;
+    2) LITELAYER_VPN="tailscale"  ;;
+    3) LITELAYER_VPN="zerotier"   ;;
+    4) LITELAYER_VPN="netbird"    ;;
+    5) LITELAYER_VPN="wireguard"  ;;
+    6) LITELAYER_VPN="cloudflare" ;;
+    *) LITELAYER_VPN="none"       ;;
   esac
 fi
 
 _install_tailscale() {
   step "Installing Tailscale…"
   curl -fsSL https://tailscale.com/install.sh | sh
-  info "Tailscale installed."
-  echo ""
-  echo "  Next: run  sudo tailscale up  and follow the auth URL."
-  echo "  Then expose LiteLayer over Tailscale HTTPS:"
-  echo "    sudo tailscale serve --bg https / http://localhost:8000"
-  echo ""
+  info "Tailscale installed — connecting now…"
+  if [[ -n "${TAILSCALE_AUTH_KEY:-}" ]]; then
+    tailscale up --authkey="$TAILSCALE_AUTH_KEY" --accept-routes
+    info "Tailscale connected via auth key."
+  else
+    tailscale up --accept-routes || true
+    info "Follow the URL above to complete Tailscale auth, then LiteLayer is reachable at your Tailscale IP."
+  fi
   echo "LITELAYER_VPN_TYPE=tailscale" >> "$CONFIG_DIR/env"
 }
 
@@ -145,38 +149,67 @@ _install_zerotier() {
   step "Installing ZeroTier…"
   curl -fsSL https://install.zerotier.com | bash
   info "ZeroTier installed."
-  echo ""
-  echo "  Next: run  sudo zerotier-cli join <network-id>"
-  echo "  Find your network ID at https://my.zerotier.com"
-  echo ""
+  if [[ -n "${ZEROTIER_NETWORK_ID:-}" ]]; then
+    zerotier-cli join "$ZEROTIER_NETWORK_ID"
+    info "Joined ZeroTier network $ZEROTIER_NETWORK_ID — approve the device in your ZeroTier dashboard."
+  else
+    echo "  Join your network:  sudo zerotier-cli join <network-id>"
+    echo "  Find your network ID at https://my.zerotier.com"
+  fi
   echo "LITELAYER_VPN_TYPE=zerotier" >> "$CONFIG_DIR/env"
 }
 
 _install_netbird() {
   step "Installing Netbird…"
   curl -fsSL https://pkgs.netbird.io/install.sh | bash
-  info "Netbird installed."
-  echo ""
-  echo "  Next: run  sudo netbird up  and follow the setup URL."
-  echo ""
+  info "Netbird installed — connecting now…"
+  if [[ -n "${NETBIRD_SETUP_KEY:-}" ]]; then
+    netbird up --setup-key="$NETBIRD_SETUP_KEY"
+    info "Netbird connected via setup key."
+  else
+    netbird up || true
+    info "Follow the URL above to complete Netbird auth, then LiteLayer is reachable at your Netbird IP."
+  fi
   echo "LITELAYER_VPN_TYPE=netbird" >> "$CONFIG_DIR/env"
 }
 
 _install_wireguard() {
   step "Installing WireGuard…"
   apt-get install -y --no-install-recommends wireguard wireguard-tools
-  info "WireGuard installed. Configure /etc/wireguard/wg0.conf manually."
+  info "WireGuard installed. Configure /etc/wireguard/wg0.conf, then: sudo wg-quick up wg0"
   echo "  See docs/vpn.md for setup guidance."
   echo "LITELAYER_VPN_TYPE=wireguard" >> "$CONFIG_DIR/env"
 }
 
+_install_cloudflare() {
+  step "Installing cloudflared…"
+  # Official Cloudflare APT repo
+  curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
+    | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+  echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] \
+https://pkg.cloudflare.com/cloudflared $(. /etc/os-release && echo "$VERSION_CODENAME") main" \
+    | tee /etc/apt/sources.list.d/cloudflared.list >/dev/null
+  apt-get update -qq
+  apt-get install -y cloudflared
+  # Quick Tunnel service — no Cloudflare account needed
+  cp "$INSTALL_DIR/installer/litelayer-cloudflare.service" /etc/systemd/system/
+  systemctl daemon-reload
+  systemctl enable --now litelayer-cloudflare
+  info "Cloudflare Quick Tunnel running."
+  echo "  Your Pi is reachable at a free *.trycloudflare.com URL (changes on restart)."
+  echo "  Find URL:  journalctl -u litelayer-cloudflare | grep trycloudflare.com"
+  echo "  For a permanent custom domain, see docs/vpn.md#cloudflare-tunnel"
+  echo "LITELAYER_VPN_TYPE=cloudflare" >> "$CONFIG_DIR/env"
+}
+
 case "$LITELAYER_VPN" in
-  tailscale) _install_tailscale ;;
-  zerotier)  _install_zerotier  ;;
-  netbird)   _install_netbird   ;;
-  wireguard) _install_wireguard ;;
-  *)         info "Skipping VPN — LAN-only. Add later per docs/vpn.md"
-             echo "LITELAYER_VPN_TYPE=none" >> "$CONFIG_DIR/env" 2>/dev/null || true ;;
+  tailscale)  _install_tailscale  ;;
+  zerotier)   _install_zerotier   ;;
+  netbird)    _install_netbird    ;;
+  wireguard)  _install_wireguard  ;;
+  cloudflare) _install_cloudflare ;;
+  *)          info "No VPN — LiteLayer accessible on LAN at http://<pi-ip>"
+              echo "LITELAYER_VPN_TYPE=none" >> "$CONFIG_DIR/env" ;;
 esac
 
 # ── Application files ────────────────────────────────────────────────────────
@@ -285,9 +318,23 @@ systemctl enable --now caddy
 systemctl reload caddy 2>/dev/null || systemctl restart caddy
 info "Caddy running"
 
+# ── Health check ─────────────────────────────────────────────────────────────
+header "Verifying"
+sleep 3
+if systemctl is-active --quiet litelayer; then
+  info "litelayer.service is running"
+else
+  warn "litelayer.service did not start. Check logs:"
+  journalctl -u litelayer -n 20 --no-pager 2>/dev/null || true
+fi
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/me 2>/dev/null | grep -qE "^(200|401)$"; then
+  info "API responding on http://localhost:8000"
+else
+  warn "API not responding yet — it may still be starting (check: journalctl -u litelayer -f)"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 LOCAL_IP=$(hostname -I | awk '{print $1}')
-HOSTNAME=$(hostname)
 VERSION=$(cat "$INSTALL_DIR/VERSION" 2>/dev/null || echo "dev")
 
 echo ""
@@ -295,32 +342,33 @@ echo -e "${C}╔═════════════════════�
 echo -e "${C}║         LiteLayer $VERSION — Ready!                     ║${NC}"
 echo -e "${C}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "  ${G}Local UI${NC}     https://${LOCAL_IP}"
-echo -e "  ${G}API docs${NC}     https://${LOCAL_IP}/docs"
-echo -e "  ${G}Username${NC}     admin"
+echo -e "  ${G}Open in browser${NC}  http://${LOCAL_IP}"
+echo -e "  ${G}API docs${NC}         http://${LOCAL_IP}/docs"
+echo -e "  ${G}Username${NC}         admin"
 echo ""
 
 case "${LITELAYER_VPN:-none}" in
   tailscale)
-    echo -e "  ${Y}Tailscale${NC}    run: sudo tailscale up"
-    echo "             then: sudo tailscale serve --bg https / http://localhost:8000"
+    echo -e "  ${Y}Tailscale${NC}   If not connected above, run: sudo tailscale up"
     ;;
   zerotier)
-    echo -e "  ${Y}ZeroTier${NC}     run: sudo zerotier-cli join <network-id>"
+    echo -e "  ${Y}ZeroTier${NC}    Join your network: sudo zerotier-cli join <network-id>"
     ;;
   netbird)
-    echo -e "  ${Y}Netbird${NC}      run: sudo netbird up"
+    echo -e "  ${Y}Netbird${NC}     If not connected above, run: sudo netbird up"
     ;;
   wireguard)
-    echo -e "  ${Y}WireGuard${NC}    configure: /etc/wireguard/wg0.conf"
-    echo "             then: sudo wg-quick up wg0"
+    echo -e "  ${Y}WireGuard${NC}   Configure /etc/wireguard/wg0.conf, then: sudo wg-quick up wg0"
+    ;;
+  cloudflare)
+    echo -e "  ${Y}Cloudflare${NC}  Find your public URL:"
+    echo "              journalctl -u litelayer-cloudflare | grep trycloudflare.com"
     ;;
 esac
 
 echo ""
 echo -e "  ${G}Logs${NC}         journalctl -u litelayer -f"
 echo -e "  ${G}Update now${NC}   sudo $INSTALL_DIR/installer/update.sh"
-echo -e "  ${G}OTA status${NC}   GET https://${LOCAL_IP}/api/ota/status"
 echo ""
-echo -e "  Plug in a USB drive and open the UI to browse it."
+echo -e "  Plug in a USB drive, open the URL above, and log in."
 echo ""

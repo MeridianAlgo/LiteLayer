@@ -1,0 +1,18 @@
+[Unit]
+Description=LiteLayer Cloudflare Quick Tunnel
+Documentation=https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
+After=network-online.target litelayer.service
+Wants=network-online.target
+Requires=litelayer.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/cloudflared tunnel --url http://localhost:8000
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=litelayer-cloudflare
+
+[Install]
+WantedBy=multi-user.target

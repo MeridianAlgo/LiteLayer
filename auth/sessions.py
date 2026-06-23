@@ -25,3 +25,8 @@ def validate_session(token: str) -> str | None:
 
 def delete_session(token: str) -> None:
     _sessions.pop(token, None)
+
+
+def invalidate_user(username: str) -> None:
+    for t in [t for t, (u, _) in _sessions.items() if u == username]:
+        _sessions.pop(t, None)

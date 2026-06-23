@@ -37,5 +37,13 @@ def set_password(username: str, password: str) -> None:
     _save(data)
 
 
+def rename_user(old: str, new: str) -> None:
+    data = _load()
+    if old not in data:
+        raise KeyError(old)
+    data[new] = data.pop(old)
+    _save(data)
+
+
 def has_any_user() -> bool:
     return bool(_load())

@@ -136,19 +136,21 @@ When you see `✓ LiteLayer is running`, it's ready.
 
 ### Step 5 — Open LiteLayer in your browser
 
-On any device on the same network (or connected VPN), open:
+On any device on the same network, open:
 
 ```
-https://litelayer.local
+http://litelayer.local
 ```
 
-Or substitute the Pi's IP address: `https://192.168.1.xx`
+Or use the IP shown at the end of the installer: `http://192.168.1.xx`
 
-**Expected TLS warning:** Your browser will show "Your connection is not private" or similar. This is normal — Caddy uses a locally-signed certificate. Click **Advanced** → **Proceed to litelayer.local (unsafe)** to continue.
+> **Use `http://` not `https://`** for direct LAN access — no certificate warning, no browser block. HTTPS is available at port 443 for VPN clients that need it, but plain HTTP on port 80 is the easiest way in.
 
 Log in with:
 - **Username:** `admin`
 - **Password:** the password you set during install
+
+You can change your username and password any time from the **Settings** (gear icon) in the top-right corner of the UI.
 
 Plug in a USB drive and click **Refresh** — it will appear automatically.
 
