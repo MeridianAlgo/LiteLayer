@@ -87,7 +87,7 @@ Pass the session as an HttpOnly cookie (`litelayer_session`) or as
   "update_available": true,
   "update_running":   false,
   "github_reachable": true,
-  "changelog_url":    "https://github.com/MeridianAlgo-Developer/LiteLayer/commits/main"
+  "changelog_url":    "https://github.com/MeridianAlgo/LiteLayer/commits/main"
 }
 ```
 

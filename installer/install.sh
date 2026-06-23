@@ -4,15 +4,25 @@
 #  Works on Raspberry Pi 3 → Pi 5 (ARM64 + ARMv7), Raspberry Pi OS Bullseye+
 #
 #  One-liner install (preserves stdin for interactive prompts):
-#    bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteLayer/main/installer/install.sh)
+#    bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh)
 #
 #  Pre-set choices via env vars for fully non-interactive use:
 #    LITELAYER_VPN=tailscale LITELAYER_PASSWORD=mypass bash <(curl ...)
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# ── Auto-escalate to root ────────────────────────────────────────────────────
+# When run via bash <(curl ...) we can't just tell the user to add sudo to a
+# local file, so we re-download and exec under sudo automatically.
+if [[ $EUID -ne 0 ]]; then
+  echo "[→] Installer needs root — re-running with sudo (password may be required)..."
+  _TMP=$(mktemp /tmp/litelayer-install.XXXXXXXX.sh)
+  curl -fsSL "https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh" > "$_TMP"
+  exec sudo -E bash "$_TMP" "$@"
+fi
+
 # ── Constants ────────────────────────────────────────────────────────────────
-REPO_URL="https://github.com/MeridianAlgo-Developer/LiteLayer.git"
+REPO_URL="https://github.com/MeridianAlgo/LiteLayer.git"
 BRANCH="main"
 INSTALL_DIR="/opt/litelayer"
 CONFIG_DIR="/etc/litelayer"
@@ -31,8 +41,6 @@ die()     { echo -e "${R}[✗]${NC} $*" >&2; exit 1; }
 header()  { echo -e "\n${C}── $* ──${NC}"; }
 
 # ── Pre-flight ───────────────────────────────────────────────────────────────
-[[ $EUID -eq 0 ]] || die "Run as root:  sudo bash install.sh  (or use the one-liner)"
-
 ARCH=$(uname -m)
 header "LiteLayer Installer"
 echo "  Architecture : $ARCH"
@@ -92,6 +100,11 @@ apt-get install -y --no-install-recommends "${PKGS[@]}" 2>/dev/null \
   || warn "Some filesystem packages failed — they'll fall back to kernel auto-detect"
 
 info "System packages installed"
+
+# ── Create directories early so VPN functions can write to CONFIG_DIR ────────
+mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$MOUNT_ROOT" "$LOG_DIR"
+chmod 700 "$CONFIG_DIR"
+chmod 755 "$MOUNT_ROOT" "$LOG_DIR"
 
 # ── VPN mesh selection ───────────────────────────────────────────────────────
 header "VPN / Mesh Network"
@@ -168,9 +181,6 @@ esac
 
 # ── Application files ────────────────────────────────────────────────────────
 header "Application"
-mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$MOUNT_ROOT" "$LOG_DIR"
-chmod 700 "$CONFIG_DIR"
-chmod 755 "$MOUNT_ROOT" "$LOG_DIR"
 
 # Is this a git repo (direct clone) or a tarball/curl install?
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)" || SCRIPT_DIR=""

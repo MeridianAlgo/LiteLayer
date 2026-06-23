@@ -19,7 +19,7 @@ The installer asks which VPN to set up:
 
 To pre-select for scripted/headless installs:
 ```bash
-LITELAYER_VPN=tailscale bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteLayer/main/installer/install.sh)
+LITELAYER_VPN=tailscale bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh)
 ```
 
 ---

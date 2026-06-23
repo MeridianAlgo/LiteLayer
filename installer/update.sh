@@ -10,7 +10,7 @@ INSTALL_DIR="/opt/litelayer"
 LOG_DIR="/var/log/litelayer"
 LOG="$LOG_DIR/update.log"
 BRANCH="main"
-REPO="https://github.com/MeridianAlgo-Developer/LiteLayer.git"
+REPO="https://github.com/MeridianAlgo/LiteLayer.git"
 
 AUTO=0; CHECK_ONLY=0
 for arg in "$@"; do

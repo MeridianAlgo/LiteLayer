@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/ota", tags=["ota"])
 
 INSTALL_DIR = Path("/opt/litelayer")
 UPDATE_LOG  = Path("/var/log/litelayer/update.log")
-REPO_URL    = "https://github.com/MeridianAlgo-Developer/LiteLayer.git"
+REPO_URL    = "https://github.com/MeridianAlgo/LiteLayer.git"
 BRANCH      = "main"
 
 _update_running = False
