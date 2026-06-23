@@ -12,64 +12,155 @@ Plug in any drive with any filesystem — browse and download files from any dev
 ## One-liner install
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteLayer/main/installer/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh)
 ```
 
 Supports Pi 3 → Pi 5, 32-bit and 64-bit Raspberry Pi OS (Bullseye+, Bookworm recommended).
-The installer asks for an admin password and which VPN (if any) to set up.
 
-Pre-install checklist — prepare your Pi
+---
 
-- MicroSD card (8GB+ recommended) or NVMe HAT for Pi 5
-- A machine with SD card writer (Windows / macOS / Linux)
-- Network access (Ethernet or Wi‑Fi). For headless Wi‑Fi, you'll need to configure Wi‑Fi on the image before first boot.
+## Complete Setup Guide: Pi → LiteLayer
 
-Step-by-step: flash Raspberry Pi OS and run the one-liner
+Everything from zero to a working NAS. About 15–20 minutes total.
 
-1. Download Raspberry Pi Imager from https://www.raspberrypi.com/software/ and install it on your laptop/desktop.
-2. Run Raspberry Pi Imager and choose the OS:
-  - For modern Pi (Pi 4 / Pi 5): choose "Raspberry Pi OS (other) → Raspberry Pi OS (64-bit)" (Bookworm or Bullseye)
-  - For older Pi or if you need 32-bit compatibility: choose the 32-bit image.
-3. Select your SD card and click the gear icon (Advanced options) to:
-  - enable SSH
-  - set a hostname (optional)
-  - configure Wi‑Fi (SSID, password, country) if you plan a headless setup
-  - set locale/timezone if you want
-  Save and write the image to the card.
+### What you need
 
-Alternative (headless without Imager advanced options):
- - After writing the image, create an empty file named `ssh` in the boot partition to enable SSH on first boot.
- - For Wi‑Fi, create a `wpa_supplicant.conf` in the boot partition with your network details (see Raspberry Pi docs).
+| Item | Notes |
+|------|-------|
+| Raspberry Pi | Pi 3B+, Pi 4, Pi 4B, Pi Zero 2W, or Pi 5 |
+| MicroSD card | 8 GB minimum; class 10 / A1 or faster |
+| Power supply | Official Pi PSU — cheap cables cause random crashes |
+| Network connection | Ethernet cable (easier) or Wi-Fi credentials |
+| Another computer | Windows, macOS, or Linux — to write the SD image |
 
-4. Insert the SD card into the Pi and power it on. Wait ~60s for first-boot setup.
-5. Find the Pi's IP address from your router, mDNS (hostname.local), or by scanning (e.g. `nmap -sn 192.168.1.0/24`).
-6. SSH into the Pi (default user `pi`, or the account you configured) and update the system:
+---
+
+### Step 1 — Flash Raspberry Pi OS
+
+**1.1** Download **Raspberry Pi Imager** from https://www.raspberrypi.com/software/ and install it.
+
+**1.2** Open Imager. You'll see three buttons: **CHOOSE DEVICE**, **CHOOSE OS**, **CHOOSE STORAGE**.
+
+**1.3** Click **CHOOSE DEVICE** and select your Pi model.
+
+**1.4** Click **CHOOSE OS**:
+- → **"Raspberry Pi OS (other)"**
+- → **"Raspberry Pi OS Lite (64-bit)"** — headless, no desktop, ideal for a NAS
+- If you have a Pi 3 or older and see issues, choose the 32-bit Lite version instead.
+
+**1.5** Click **CHOOSE STORAGE** and select your microSD card.
+> ⚠️ This will erase everything on that card — double-check the device name before proceeding.
+
+**1.6** Click **NEXT** → **EDIT SETTINGS** when prompted. Fill in all tabs:
+
+*General tab:*
+- ✅ **Set hostname** — e.g. `litelayer` (you'll access it as `litelayer.local`)
+- ✅ **Set username and password** — username `pi`, choose a strong password
+- ✅ **Configure wireless LAN** — enter your Wi-Fi SSID, password, and country code (skip if using Ethernet)
+- ✅ **Set locale** — your timezone and keyboard layout
+
+*Services tab:*
+- ✅ **Enable SSH** → **"Use password authentication"**
+
+Click **SAVE**, then **YES** to confirm writing.
+
+**1.7** Wait 3–5 minutes while Imager writes and verifies. When it says "Write successful", click **CONTINUE** and safely eject the card.
+
+---
+
+### Step 2 — First boot
+
+**2.1** Insert the microSD card into your Pi.
+
+**2.2** If using Ethernet, plug the cable in now. Then plug in power.
+
+**2.3** Wait **60–90 seconds** for the first-boot setup to complete. The green activity LED will stop blinking rapidly when it's done.
+
+**2.4** Find the Pi's IP address — try each of these until one works:
 
 ```bash
-ssh pi@<pi-ip>
+# Option A: mDNS (works on most home networks)
+ping litelayer.local
+
+# Option B: check your router admin page
+# Usually at http://192.168.1.1 or http://192.168.0.1 → look for "Connected devices"
+
+# Option C: network scan (replace subnet to match yours)
+nmap -sn 192.168.1.0/24
+```
+
+---
+
+### Step 3 — SSH in and update
+
+Open a terminal on your computer and connect:
+
+```bash
+ssh pi@litelayer.local
+# Or use the IP address: ssh pi@192.168.1.xx
+```
+
+The first time you connect, type `yes` to accept the host key fingerprint, then enter your password.
+
+Once logged in, update the system:
+
+```bash
 sudo apt update && sudo apt upgrade -y
 ```
 
-7. Run the LiteLayer installer one-liner on the Pi (this is the same command above):
+This takes 2–5 minutes. Don't skip it — kernel updates are important for filesystem driver support (ntfs3, exfat, etc.).
+
+---
+
+### Step 4 — Run the LiteLayer installer
+
+In the same SSH session, run the one-liner:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteLayer/main/installer/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh)
 ```
 
-Headless / scripted install (example with env vars):
+The installer will:
+1. Install system dependencies (git, python3, caddy, exfatprogs, …)
+2. Prompt you to set an admin password for the LiteLayer web UI
+3. Ask which VPN to set up — or choose **None** to skip (you can add VPN later)
+4. Clone LiteLayer into `/opt/litelayer`
+5. Create and enable a systemd service so LiteLayer starts automatically on every boot
+6. Start the service immediately
 
-```bash
-LITELAYER_PASSWORD=yourpassword LITELAYER_VPN=tailscale \
-  bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteLayer/main/installer/install.sh)
+Total time: **3–8 minutes** depending on connection speed.
+
+When you see `✓ LiteLayer is running`, it's ready.
+
+---
+
+### Step 5 — Open LiteLayer in your browser
+
+On any device on the same network (or connected VPN), open:
+
+```
+https://litelayer.local
 ```
 
-VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `none`
+Or substitute the Pi's IP address: `https://192.168.1.xx`
+
+**Expected TLS warning:** Your browser will show "Your connection is not private" or similar. This is normal — Caddy uses a locally-signed certificate. Click **Advanced** → **Proceed to litelayer.local (unsafe)** to continue.
+
+Log in with:
+- **Username:** `admin`
+- **Password:** the password you set during install
+
+Plug in a USB drive and click **Refresh** — it will appear automatically.
+
+---
 
 ### Headless / scripted install
 
+Skip interactive prompts using environment variables:
+
 ```bash
-LITELAYER_PASSWORD=yourpassword LITELAYER_VPN=tailscale \
-  bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo-Developer/LiteLayer/main/installer/install.sh)
+LITELAYER_PASSWORD=yourpassword LITELAYER_VPN=none \
+  bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh)
 ```
 
 VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `none`
@@ -81,7 +172,7 @@ VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `none`
 - **Detects any drive you plug in** — ext4, ntfs, exfat, vfat, btrfs, xfs, hfsplus, iso9660, udf, f2fs, and more; kernel auto-detect as final fallback
 - **Mounts read-only by default** — your data is never modified or formatted
 - **Browse and download** from any browser on your LAN or VPN
-- **Updates itself** — OTA via GitHub, daily check, one-command apply
+- **Updates itself** — OTA via GitHub, daily check, one-command apply from the UI
 
 ---
 
@@ -144,8 +235,6 @@ VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `none`
 
 Interactive Swagger UI at `https://<pi-ip>/docs` after install.
 
-Quick reference:
-
 ```
 POST /api/login                          sign in
 GET  /api/drives                         list drives
@@ -165,7 +254,7 @@ POST /api/ota/update                     apply update
 → See **[docs/vpn.md](docs/vpn.md)** for full setup per provider.
 
 Caddy binds on all interfaces — any VPN works without app changes.
-Supported (installer can set up): Tailscale · ZeroTier · Netbird · WireGuard · OpenVPN · Cloudflare Tunnel (documented seam).
+Supported (installer can set up): Tailscale · ZeroTier · Netbird · WireGuard · Cloudflare Tunnel (documented seam).
 
 ---
 
@@ -173,15 +262,14 @@ Supported (installer can set up): Tailscale · ZeroTier · Netbird · WireGuard 
 
 → See **[docs/ota.md](docs/ota.md)** for details.
 
+The UI shows an update banner automatically when a new version is available. Click **Apply update** to update in place.
+
 ```bash
-# Check for update
-GET https://<pi-ip>/api/ota/status
-
-# Apply via API
-POST https://<pi-ip>/api/ota/update
-
 # Apply via CLI
 sudo /opt/litelayer/installer/update.sh
+
+# Check only
+sudo /opt/litelayer/installer/update.sh --check
 ```
 
 Auto-check runs daily at 03:00 via `litelayer-update.timer`.
@@ -197,7 +285,7 @@ Auto-check runs daily at 03:00 via `litelayer-update.timer`.
 ## Development (non-Pi)
 
 ```bash
-git clone https://github.com/MeridianAlgo-Developer/LiteLayer
+git clone https://github.com/MeridianAlgo/LiteLayer
 cd LiteLayer
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
