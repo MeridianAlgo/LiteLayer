@@ -6,13 +6,13 @@
 <title>LiteLayer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
     --bg:           #0b0a14;
-    --bg2:          #110f1e;
+    --bg2:          #0e0c1a;
     --surface:      rgba(255,255,255,0.04);
     --surface-h:    rgba(255,255,255,0.07);
     --surface-a:    rgba(255,255,255,0.10);
@@ -23,741 +23,136 @@
     --accent-glow:  rgba(124,58,237,0.35);
     --accent-light: #a78bfa;
     --green:        #10b981;
-    --green-dim:    rgba(16,185,129,0.15);
     --yellow:       #f59e0b;
-    --yellow-dim:   rgba(245,158,11,0.15);
     --red:          #ef4444;
     --red-dim:      rgba(239,68,68,0.15);
     --text:         #f0eeff;
     --text-2:       #9b8fcf;
     --text-3:       #5c5380;
+    --mono:         'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     --radius:       14px;
     --radius-sm:    8px;
-    --shadow:       0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
   }
+
+  html, body { height: 100%; }
 
   body {
     font-family: 'Inter', system-ui, sans-serif;
     background: var(--bg);
     color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
-  /* ── Scrollbar ── */
-  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 99px; }
 
   /* ── Login ── */
   #view-login {
-    min-height: 100vh;
+    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.18) 0%, transparent 70%),
-                var(--bg);
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.18) 0%, transparent 70%), var(--bg);
   }
 
   .login-card {
-    width: 100%;
-    max-width: 380px;
+    width: 100%; max-width: 380px;
     padding: 40px 36px 36px;
     background: rgba(255,255,255,0.04);
     border: 1px solid var(--border);
     border-radius: 20px;
     backdrop-filter: blur(24px);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
     animation: fadeUp 0.4s ease;
   }
 
-  .login-logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 32px;
-  }
-
+  .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
   .login-logo svg { flex-shrink: 0; }
-
   .login-logo-text {
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.5px;
+    font-size: 22px; font-weight: 700; letter-spacing: -0.5px;
     background: linear-gradient(135deg, #a78bfa, #818cf8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-
-  .login-sub {
-    font-size: 13px;
-    color: var(--text-3);
-    margin-top: 1px;
-  }
+  .login-sub { font-size: 13px; color: var(--text-3); margin-top: 1px; }
 
   .field { margin-bottom: 14px; }
-
   .field label {
-    display: block;
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--text-2);
-    margin-bottom: 6px;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
+    display: block; font-size: 12px; font-weight: 500; color: var(--text-2);
+    margin-bottom: 6px; letter-spacing: 0.3px; text-transform: uppercase;
   }
-
   .field input {
-    width: 100%;
-    padding: 11px 14px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    color: var(--text);
-    font-size: 14px;
-    font-family: inherit;
-    outline: none;
+    width: 100%; padding: 11px 14px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-size: 14px; font-family: inherit; outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
   }
+  .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
-  .field input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-glow);
-  }
-
+  /* ── Buttons ── */
   .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 11px 18px;
-    border: none;
-    border-radius: var(--radius-sm);
-    font-size: 14px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    transition: opacity 0.15s, transform 0.1s, box-shadow 0.2s;
-    white-space: nowrap;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 10px 16px; border: none; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 600; font-family: inherit;
+    cursor: pointer; transition: opacity 0.15s, transform 0.1s; white-space: nowrap;
   }
   .btn:active { transform: scale(0.97); }
 
-  .btn-primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: #fff;
-    box-shadow: 0 2px 12px rgba(124,58,237,0.4);
-  }
-  .btn-primary:hover { opacity: 0.9; box-shadow: 0 4px 20px rgba(124,58,237,0.55); }
-
-  .btn-ghost {
-    background: var(--surface);
-    color: var(--text-2);
-    border: 1px solid var(--border);
-  }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; box-shadow: 0 2px 12px rgba(124,58,237,0.4); }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-ghost { background: var(--surface); color: var(--text-2); border: 1px solid var(--border); }
   .btn-ghost:hover { background: var(--surface-h); color: var(--text); border-color: var(--border-h); }
 
-  .btn-danger {
-    background: var(--red-dim);
-    color: var(--red);
-    border: 1px solid rgba(239,68,68,0.25);
-  }
-  .btn-danger:hover { background: rgba(239,68,68,0.25); }
-
-  .btn-sm { padding: 7px 13px; font-size: 12px; }
+  .btn-sm { padding: 6px 11px; font-size: 12px; }
+  .btn-xs { padding: 4px 8px; font-size: 11px; }
   .btn-full { width: 100%; margin-top: 8px; }
+  .flex-1 { flex: 1; }
 
   .login-error {
-    margin-top: 12px;
-    padding: 10px 14px;
-    background: var(--red-dim);
-    border: 1px solid rgba(239,68,68,0.25);
-    border-radius: var(--radius-sm);
-    color: var(--red);
-    font-size: 13px;
-    display: none;
+    margin-top: 12px; padding: 10px 14px;
+    background: var(--red-dim); border: 1px solid rgba(239,68,68,0.25);
+    border-radius: var(--radius-sm); color: var(--red); font-size: 13px; display: none;
   }
 
   /* ── App shell ── */
-  #view-app {
-    display: flex;
-    flex-direction: column;
-    min-height: 100vh;
-  }
+  #view-app { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
   .topbar {
-    display: flex;
-    align-items: center;
-    padding: 0 24px;
-    height: 60px;
-    border-bottom: 1px solid var(--border);
-    background: rgba(11,10,20,0.8);
-    backdrop-filter: blur(16px);
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    gap: 16px;
+    display: flex; align-items: center; padding: 0 20px;
+    height: 52px; border-bottom: 1px solid var(--border);
+    background: rgba(11,10,20,0.9); backdrop-filter: blur(16px);
+    flex-shrink: 0; z-index: 100; gap: 12px;
   }
 
-  .topbar-logo {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    text-decoration: none;
-  }
-
+  .topbar-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; flex-shrink: 0; }
   .topbar-logo-text {
-    font-size: 17px;
-    font-weight: 700;
-    letter-spacing: -0.4px;
+    font-size: 15px; font-weight: 700; letter-spacing: -0.4px;
     background: linear-gradient(135deg, #a78bfa, #818cf8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
-
-  .topbar-sep {
-    width: 1px;
-    height: 20px;
-    background: var(--border);
-  }
-
-  .topbar-breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    color: var(--text-2);
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .topbar-breadcrumb span { color: var(--text-3); }
-
-  .topbar-breadcrumb a {
-    color: var(--text-2);
-    text-decoration: none;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 200px;
-    cursor: pointer;
-  }
-  .topbar-breadcrumb a:hover { color: var(--text); }
-  .topbar-breadcrumb .crumb-current { color: var(--text); font-weight: 500; }
-
-  .topbar-right {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+  .topbar-sep { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 7px; }
 
   .user-pill {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 12px 5px 8px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 99px;
-    font-size: 13px;
-    color: var(--text-2);
+    display: flex; align-items: center; gap: 7px;
+    padding: 3px 10px 3px 5px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 99px; font-size: 12px; color: var(--text-2);
   }
-
   .user-avatar {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
+    width: 21px; height: 21px; border-radius: 50%;
     background: linear-gradient(135deg, var(--accent), var(--accent2));
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 700;
-    color: white;
-  }
-
-  /* ── Main content ── */
-  .main { flex: 1; padding: 28px 24px; max-width: 1200px; margin: 0 auto; width: 100%; }
-
-  /* ── Section header ── */
-  .section-hdr {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-  }
-
-  .section-hdr h2 {
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.3px;
-  }
-
-  .section-hdr .count {
-    font-size: 13px;
-    color: var(--text-3);
-    margin-left: 8px;
-    font-weight: 400;
-  }
-
-  /* ── Drive cards ── */
-  .drives-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 16px;
-  }
-
-  .drive-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
-    cursor: default;
-    animation: fadeUp 0.3s ease both;
-  }
-
-  .drive-card:hover {
-    border-color: var(--border-h);
-    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-    transform: translateY(-2px);
-  }
-
-  .drive-card-header {
-    padding: 20px 20px 14px;
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .drive-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: linear-gradient(135deg, rgba(124,58,237,0.2), rgba(79,70,229,0.2));
-    border: 1px solid rgba(124,58,237,0.2);
-  }
-
-  .drive-meta { flex: 1; min-width: 0; }
-
-  .drive-label {
-    font-size: 15px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    letter-spacing: -0.2px;
-  }
-
-  .drive-device {
-    font-size: 12px;
-    color: var(--text-3);
-    margin-top: 2px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-  }
-
-  .fs-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 8px;
-    border-radius: 99px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.3px;
-    text-transform: uppercase;
-    background: rgba(124,58,237,0.15);
-    color: var(--accent-light);
-    border: 1px solid rgba(124,58,237,0.2);
-    flex-shrink: 0;
-    margin-top: 2px;
-  }
-
-  .drive-card-body { padding: 16px 20px; }
-
-  .storage-bar-wrap { margin-bottom: 14px; }
-
-  .storage-bar-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    color: var(--text-2);
-    margin-bottom: 7px;
-  }
-
-  .storage-bar-labels .used { color: var(--text); font-weight: 500; }
-
-  .storage-bar-track {
-    height: 5px;
-    background: rgba(255,255,255,0.08);
-    border-radius: 99px;
-    overflow: hidden;
-  }
-
-  .storage-bar-fill {
-    height: 100%;
-    border-radius: 99px;
-    background: linear-gradient(90deg, var(--accent), var(--accent-light));
-    transition: width 0.6s cubic-bezier(.4,0,.2,1);
-  }
-  .storage-bar-fill.warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-  .storage-bar-fill.crit { background: linear-gradient(90deg, #ef4444, #f87171); }
-
-  .drive-card-footer {
-    display: flex;
-    gap: 8px;
-    padding: 14px 20px;
-    border-top: 1px solid var(--border);
-  }
-
-  /* ── Status dot ── */
-  .status-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 12px;
-    margin-bottom: 14px;
-  }
-
-  .status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .status-dot.mounted_ro  { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .status-dot.mounted_rw  { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
-  .status-dot.unmounted   { background: var(--text-3); }
-
-  .status-label.mounted_ro  { color: var(--green); }
-  .status-label.mounted_rw  { color: var(--yellow); }
-  .status-label.unmounted   { color: var(--text-3); }
-
-  /* ── File browser ── */
-  #view-files { animation: fadeIn 0.25s ease; }
-
-  .files-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-  }
-
-  .path-display {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 14px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    color: var(--text-2);
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .view-toggle {
-    display: flex;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-  }
-
-  .view-toggle button {
-    padding: 7px 10px;
-    background: none;
-    border: none;
-    color: var(--text-3);
-    cursor: pointer;
-    transition: background 0.15s, color 0.15s;
-    display: flex;
-    align-items: center;
-  }
-  .view-toggle button.active { background: var(--surface-a); color: var(--text); }
-  .view-toggle button:hover:not(.active) { color: var(--text-2); }
-
-  /* List view */
-  .file-list { display: flex; flex-direction: column; gap: 2px; }
-
-  .file-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 14px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: background 0.12s;
-    border: 1px solid transparent;
-  }
-  .file-row:hover { background: var(--surface-h); border-color: var(--border); }
-
-  .file-row-icon { font-size: 20px; width: 28px; text-align: center; flex-shrink: 0; }
-
-  .file-row-name {
-    flex: 1;
-    font-size: 14px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .file-row-size {
-    font-size: 12px;
-    color: var(--text-3);
-    width: 80px;
-    text-align: right;
-    flex-shrink: 0;
-  }
-
-  .file-row-date {
-    font-size: 12px;
-    color: var(--text-3);
-    width: 130px;
-    text-align: right;
-    flex-shrink: 0;
-  }
-
-  .file-row-dl {
-    opacity: 0;
-    transition: opacity 0.15s;
-    flex-shrink: 0;
-  }
-  .file-row:hover .file-row-dl { opacity: 1; }
-
-  /* Grid view */
-  .file-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 10px;
-  }
-
-  .file-cell {
-    padding: 16px 12px 14px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: background 0.12s, border-color 0.12s, transform 0.1s;
-    text-align: center;
-  }
-  .file-cell:hover {
-    background: var(--surface-h);
-    border-color: var(--border-h);
-    transform: translateY(-1px);
-  }
-  .file-cell-icon { font-size: 32px; line-height: 1; }
-  .file-cell-name {
-    font-size: 12px;
-    font-weight: 500;
-    word-break: break-all;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    color: var(--text-2);
-  }
-  .file-cell-size { font-size: 11px; color: var(--text-3); }
-
-  /* Table header */
-  .file-list-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 6px 14px 8px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 4px;
-  }
-
-  /* Empty state */
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 80px 20px;
-    gap: 14px;
-    color: var(--text-3);
-    font-size: 14px;
-  }
-  .empty-state svg { opacity: 0.3; }
-
-  /* Toast */
-  #toast-container {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 9999;
-    pointer-events: none;
-  }
-
-  .toast {
-    padding: 12px 18px;
-    border-radius: var(--radius-sm);
-    font-size: 13px;
-    font-weight: 500;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    animation: slideIn 0.25s ease;
-    pointer-events: auto;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .toast.success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: var(--green); }
-  .toast.error   { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.3);  color: var(--red); }
-  .toast.info    { background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); color: var(--accent-light); }
-
-  /* Loading spinner */
-  .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid rgba(255,255,255,0.15);
-    border-top-color: currentColor;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    display: inline-block;
-  }
-
-  /* Skeleton loaders */
-  .skeleton {
-    background: linear-gradient(90deg, var(--surface) 25%, var(--surface-h) 50%, var(--surface) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
-    border-radius: 6px;
-  }
-
-  /* Utility */
-  .hidden { display: none !important; }
-  .flex-1 { flex: 1; }
-
-  /* Animations */
-  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
-  @keyframes fadeUp  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-  @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
-  @keyframes spin    { to { transform: rotate(360deg); } }
-  @keyframes shimmer { to { background-position: -200% 0; } }
-
-  /* ── Image Viewer ── */
-  .iv-backdrop {
-    position: fixed; inset: 0; background: #000;
-    display: flex; flex-direction: column;
-    z-index: 2000; animation: fadeIn 0.12s ease;
-  }
-  .iv-header {
-    position: absolute; top: 0; left: 0; right: 0; z-index: 3;
-    display: flex; align-items: center; padding: 10px 14px; gap: 10px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent);
-    opacity: 0; transition: opacity 0.2s;
-  }
-  .iv-backdrop:hover .iv-header { opacity: 1; }
-  .iv-filename {
-    flex: 1; font-size: 14px; font-weight: 500; color: #fff;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .iv-counter { font-size: 12px; color: rgba(255,255,255,0.45); flex-shrink: 0; }
-  .iv-hcontrols { display: flex; gap: 4px; flex-shrink: 0; }
-  .iv-btn {
-    width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer;
-    background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75);
     display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s, color 0.15s; font-size: 15px;
-  }
-  .iv-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
-  .iv-zoom-pct {
-    font-size: 11px; color: rgba(255,255,255,0.5); min-width: 38px;
-    text-align: center; align-self: center;
-  }
-  .iv-canvas {
-    flex: 1; position: relative; overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
-    user-select: none;
-  }
-  .iv-img {
-    max-width: 100%; max-height: 100%; object-fit: contain;
-    transform-origin: center center;
-    transition: opacity 0.2s, transform 0.08s ease-out;
-    will-change: transform;
-    -webkit-user-drag: none;
-  }
-  .iv-nav {
-    position: absolute; top: 50%; transform: translateY(-50%);
-    width: 44px; height: 88px; z-index: 2; border: none; cursor: pointer;
-    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6);
-    border-radius: 6px; display: flex; align-items: center; justify-content: center;
-    transition: background 0.15s, color 0.15s, opacity 0.2s;
-    opacity: 0;
-  }
-  .iv-backdrop:hover .iv-nav { opacity: 1; }
-  .iv-nav:hover { background: rgba(255,255,255,0.16); color: #fff; }
-  .iv-nav-prev { left: 12px; }
-  .iv-nav-next { right: 12px; }
-  .iv-footer {
-    position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
-    display: flex; align-items: center; justify-content: center; gap: 20px;
-    padding: 8px 16px;
-    background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
-    font-size: 11px; color: rgba(255,255,255,0.35);
-    opacity: 0; transition: opacity 0.2s;
-  }
-  .iv-backdrop:hover .iv-footer { opacity: 1; }
-
-  /* ── Modal ── */
-  .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
-    display: flex; align-items: center; justify-content: center;
-    z-index: 1000; padding: 24px; animation: fadeIn 0.15s ease;
-  }
-  .modal {
-    background: #110f1e; border: 1px solid var(--border-h);
-    border-radius: 16px; padding: 28px 28px 24px; width: 100%;
-    max-width: 400px; box-shadow: 0 24px 80px rgba(0,0,0,0.7);
-    animation: fadeUp 0.2s ease;
-  }
-  .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; letter-spacing: -0.3px; }
-  .modal-footer { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
-  .divider-label {
-    font-size: 11px; font-weight: 600; color: var(--text-3);
-    text-transform: uppercase; letter-spacing: 0.5px;
-    margin: 18px 0 10px; display: flex; align-items: center; gap: 8px;
-  }
-  .divider-label::before, .divider-label::after {
-    content: ''; flex: 1; height: 1px; background: var(--border);
+    font-size: 10px; font-weight: 700; color: white;
   }
 
-  /* ── File type icons ── */
-  .fi-wrap {
-    width: 32px; height: 32px; border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-  }
-  .fi-wrap-lg { width: 48px; height: 48px; border-radius: 12px; }
-
-  /* ── OTA update banner ── */
+  /* ── OTA banner ── */
   .ota-banner {
-    padding: 10px 24px;
-    display: flex; align-items: center; gap: 12px; font-size: 13px;
+    padding: 8px 20px; display: flex; align-items: center; gap: 12px;
+    font-size: 13px; flex-shrink: 0;
     background: linear-gradient(90deg, rgba(245,158,11,0.1), rgba(245,158,11,0.04));
     border-bottom: 1px solid rgba(245,158,11,0.2);
     animation: fadeIn 0.3s ease;
@@ -766,156 +161,385 @@
   .ota-banner-text { flex: 1; }
   .ota-banner-text strong { color: #f59e0b; margin-right: 6px; }
   .ota-banner-text span { color: var(--text-2); font-size: 12px; }
-  .ota-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .ota-banner-actions { display: flex; gap: 7px; flex-shrink: 0; }
 
-  /* Responsive */
-  @media (max-width: 600px) {
-    .main { padding: 16px; }
-    .topbar { padding: 0 16px; }
-    .drives-grid { grid-template-columns: 1fr; }
+  /* ── App body: sidebar + content ── */
+  .app-body { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 256px; flex-shrink: 0;
+    background: var(--bg2); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  .sidebar-hdr {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 14px 9px; flex-shrink: 0;
+  }
+  .sidebar-label { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 1px; font-family: var(--mono); }
+
+  .sidebar-refresh {
+    width: 22px; height: 22px; border-radius: 5px; border: none;
+    background: transparent; color: var(--text-3); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .sidebar-refresh:hover { background: var(--surface-h); color: var(--text-2); }
+
+  .drives-list { flex: 1; overflow-y: auto; padding: 0 8px 12px; }
+
+  /* ── Sidebar drive card ── */
+  .sb-drive {
+    padding: 11px 11px 9px; border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 6px; transition: border-color 0.15s, background 0.15s;
+    background: rgba(255,255,255,0.02);
+  }
+  .sb-drive:hover { border-color: var(--border-h); background: var(--surface); }
+  .sb-drive.active { border-color: rgba(124,58,237,0.45); background: rgba(124,58,237,0.06); }
+
+  .sb-drive-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .sb-drive-icon {
+    width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, rgba(124,58,237,0.18), rgba(79,70,229,0.18));
+    border: 1px solid rgba(124,58,237,0.12);
+  }
+  .sb-drive-info { flex: 1; min-width: 0; }
+  .sb-drive-name {
+    font-size: 13px; font-weight: 600; letter-spacing: -0.2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sb-drive.active .sb-drive-name { color: var(--accent-light); }
+  .sb-drive-dev { font-size: 10px; color: var(--text-3); font-family: var(--mono); margin-top: 1px; }
+
+  .sb-fs-tag {
+    font-size: 9px; font-weight: 700; font-family: var(--mono); text-transform: uppercase;
+    padding: 2px 5px; border-radius: 4px; flex-shrink: 0;
+    background: rgba(124,58,237,0.12); color: var(--accent-light); border: 1px solid rgba(124,58,237,0.2);
+  }
+
+  .sb-bar-track { height: 3px; background: rgba(255,255,255,0.07); border-radius: 99px; overflow: hidden; margin-bottom: 4px; }
+  .sb-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-light)); transition: width 0.6s; }
+  .sb-bar-fill.warn { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .sb-bar-fill.crit { background: linear-gradient(90deg, #ef4444, #f87171); }
+  .sb-bar-stats { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-3); font-family: var(--mono); }
+
+  .sb-drive-actions { display: flex; gap: 5px; margin-top: 8px; }
+
+  /* ── Content pane ── */
+  .content-pane { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+  /* ── File toolbar ── */
+  .files-toolbar {
+    display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+    background: rgba(11,10,20,0.4);
+  }
+
+  .ft-breadcrumb {
+    display: flex; align-items: center; gap: 3px;
+    font-family: var(--mono); font-size: 12px; color: var(--text-3);
+    flex: 1; min-width: 0; overflow: hidden;
+  }
+  .ft-breadcrumb .crumb-sep { opacity: 0.35; padding: 0 1px; }
+  .ft-breadcrumb a {
+    color: var(--text-3); text-decoration: none; white-space: nowrap; cursor: pointer;
+    padding: 2px 5px; border-radius: 4px; transition: color 0.12s, background 0.12s;
+  }
+  .ft-breadcrumb a:hover { color: var(--text-2); background: var(--surface); }
+  .ft-breadcrumb .crumb-current { color: var(--text); font-weight: 500; white-space: nowrap; }
+
+  .search-wrap { position: relative; flex-shrink: 0; }
+  .search-wrap svg { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+  .search-input {
+    height: 29px; padding: 0 10px 0 27px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); color: var(--text);
+    font-size: 12px; font-family: var(--mono); outline: none;
+    width: 140px; transition: width 0.2s, border-color 0.15s;
+  }
+  .search-input::placeholder { color: var(--text-3); }
+  .search-input:focus { width: 200px; border-color: rgba(124,58,237,0.5); }
+
+  .view-toggle {
+    display: flex; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0;
+  }
+  .view-toggle button {
+    padding: 5px 8px; background: none; border: none; color: var(--text-3);
+    cursor: pointer; transition: background 0.15s, color 0.15s; display: flex; align-items: center;
+  }
+  .view-toggle button.active { background: var(--surface-a); color: var(--text); }
+  .view-toggle button:hover:not(.active) { color: var(--text-2); }
+
+  /* ── Selection bar ── */
+  .sel-bar {
+    display: flex; align-items: center; gap: 9px; padding: 6px 16px;
+    background: rgba(124,58,237,0.07); border-bottom: 1px solid rgba(124,58,237,0.18);
+    font-size: 12px; color: var(--accent-light); flex-shrink: 0;
+  }
+  .sel-bar-label { flex: 1; font-family: var(--mono); }
+
+  /* ── Files area ── */
+  .files-area { flex: 1; overflow-y: auto; padding: 12px 16px 20px; }
+
+  /* ── File list header ── */
+  .file-list-header {
+    display: flex; align-items: center; gap: 10px; padding: 3px 8px 6px;
+    font-size: 10px; font-weight: 700; color: var(--text-3);
+    text-transform: uppercase; letter-spacing: 0.6px; font-family: var(--mono);
+    border-bottom: 1px solid var(--border); margin-bottom: 2px; user-select: none;
+  }
+
+  .file-list { display: flex; flex-direction: column; gap: 1px; }
+
+  .file-row {
+    display: flex; align-items: center; gap: 9px; padding: 7px 8px;
+    border-radius: 7px; cursor: pointer; border: 1px solid transparent;
+    transition: background 0.1s; user-select: none;
+  }
+  .file-row:hover { background: var(--surface-h); }
+  .file-row.selected { background: rgba(124,58,237,0.09); border-color: rgba(124,58,237,0.18); }
+
+  .file-row-check {
+    width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--text-3);
+    flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.1s, background 0.1s, border-color 0.1s;
+  }
+  .file-row:hover .file-row-check { opacity: 1; }
+  .file-row.selected .file-row-check { opacity: 1; background: var(--accent); border-color: var(--accent); }
+
+  .file-row-name { flex: 1; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-row-date { font-size: 11px; color: var(--text-3); width: 108px; text-align: right; flex-shrink: 0; font-family: var(--mono); }
+  .file-row-size { font-size: 11px; color: var(--text-3); width: 66px; text-align: right; flex-shrink: 0; font-family: var(--mono); }
+  .file-row-dl { opacity: 0; transition: opacity 0.12s; flex-shrink: 0; }
+  .file-row:hover .file-row-dl { opacity: 1; }
+
+  /* ── Grid view ── */
+  .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 7px; }
+  .file-cell {
+    padding: 13px 9px 11px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); display: flex; flex-direction: column;
+    align-items: center; gap: 7px; cursor: pointer;
+    transition: background 0.1s, border-color 0.1s, transform 0.1s;
+    text-align: center; user-select: none;
+  }
+  .file-cell:hover { background: var(--surface-h); border-color: var(--border-h); transform: translateY(-1px); }
+  .file-cell.selected { background: rgba(124,58,237,0.09); border-color: rgba(124,58,237,0.28); }
+  .file-cell-name { font-size: 11px; font-weight: 500; word-break: break-all; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--text-2); }
+  .file-cell-size { font-size: 10px; color: var(--text-3); font-family: var(--mono); }
+
+  /* ── File icons ── */
+  .fi-wrap { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .fi-wrap-lg { width: 42px; height: 42px; border-radius: 10px; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 72px 20px; gap: 11px; color: var(--text-3); font-size: 14px; text-align: center;
+  }
+  .empty-state svg { opacity: 0.22; }
+
+  /* ── Context menu ── */
+  .ctx-menu {
+    position: fixed; z-index: 500; background: #1c1930;
+    border: 1px solid var(--border-h); border-radius: 10px; padding: 4px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.65); min-width: 164px; animation: fadeIn 0.1s ease;
+  }
+  .ctx-item {
+    display: flex; align-items: center; gap: 9px; padding: 7px 11px;
+    border-radius: 6px; font-size: 13px; color: var(--text-2); cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+  }
+  .ctx-item:hover { background: var(--surface-h); color: var(--text); }
+  .ctx-item svg { flex-shrink: 0; color: var(--text-3); }
+  .ctx-sep { height: 1px; background: var(--border); margin: 3px 4px; }
+
+  /* ── Toast ── */
+  #toast-container {
+    position: fixed; bottom: 18px; right: 18px;
+    display: flex; flex-direction: column; gap: 7px;
+    z-index: 9999; pointer-events: none;
+  }
+  .toast {
+    padding: 10px 15px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500;
+    backdrop-filter: blur(12px); box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    animation: slideIn 0.25s ease; pointer-events: auto;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .toast.success { background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.3); color: var(--green); }
+  .toast.error   { background: rgba(239,68,68,0.15);  border: 1px solid rgba(239,68,68,0.3);  color: var(--red); }
+  .toast.info    { background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3); color: var(--accent-light); }
+
+  /* ── Misc ── */
+  .spinner { width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.15); border-top-color: currentColor; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+  .skeleton { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-h) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 6px; }
+  .hidden { display: none !important; }
+
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeUp  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: none; } }
+  @keyframes spin    { to { transform: rotate(360deg); } }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  /* ── Image Viewer ── */
+  .iv-backdrop { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; z-index: 2000; animation: fadeIn 0.12s ease; }
+  .iv-header { position: absolute; top: 0; left: 0; right: 0; z-index: 3; display: flex; align-items: center; padding: 10px 14px; gap: 10px; background: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent); opacity: 0; transition: opacity 0.2s; }
+  .iv-backdrop:hover .iv-header { opacity: 1; }
+  .iv-filename { flex: 1; font-size: 14px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .iv-counter { font-size: 12px; color: rgba(255,255,255,0.45); flex-shrink: 0; font-family: var(--mono); }
+  .iv-hcontrols { display: flex; gap: 4px; flex-shrink: 0; }
+  .iv-btn { width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; font-size: 15px; }
+  .iv-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  .iv-zoom-pct { font-size: 11px; color: rgba(255,255,255,0.5); min-width: 38px; text-align: center; align-self: center; font-family: var(--mono); }
+  .iv-canvas { flex: 1; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; user-select: none; }
+  .iv-img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center center; transition: opacity 0.2s, transform 0.08s ease-out; will-change: transform; -webkit-user-drag: none; }
+  .iv-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 88px; z-index: 2; border: none; cursor: pointer; background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6); border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s, opacity 0.2s; opacity: 0; }
+  .iv-backdrop:hover .iv-nav { opacity: 1; }
+  .iv-nav:hover { background: rgba(255,255,255,0.16); color: #fff; }
+  .iv-nav-prev { left: 12px; }
+  .iv-nav-next { right: 12px; }
+  .iv-footer { position: absolute; bottom: 0; left: 0; right: 0; z-index: 3; display: flex; align-items: center; justify-content: center; gap: 20px; padding: 8px 16px; background: linear-gradient(to top, rgba(0,0,0,0.65), transparent); font-size: 11px; color: rgba(255,255,255,0.35); opacity: 0; transition: opacity 0.2s; font-family: var(--mono); }
+  .iv-backdrop:hover .iv-footer { opacity: 1; }
+
+  /* ── Modal ── */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 24px; animation: fadeIn 0.15s ease; }
+  .modal { background: #110f1e; border: 1px solid var(--border-h); border-radius: 16px; padding: 28px 28px 24px; width: 100%; max-width: 400px; box-shadow: 0 24px 80px rgba(0,0,0,0.7); animation: fadeUp 0.2s ease; }
+  .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; letter-spacing: -0.3px; }
+  .modal-footer { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+  .divider-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
+  .divider-label::before, .divider-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  @media (max-width: 640px) {
+    .sidebar { display: none; }
+    .files-toolbar { padding: 7px 10px; }
+    .files-area { padding: 10px; }
     .file-row-date { display: none; }
   }
 </style>
 </head>
 <body>
 
-<!-- ══ Login View ══ -->
+<!-- Login -->
 <div id="view-login" class="hidden">
   <div class="login-card">
     <div class="login-logo">
       <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
         <rect width="36" height="36" rx="10" fill="url(#lg1)"/>
         <path d="M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z" fill="white" opacity="0.9"/>
-        <defs>
-          <linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#7c3aed"/>
-            <stop offset="1" stop-color="#4f46e5"/>
-          </linearGradient>
-        </defs>
+        <defs><linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs>
       </svg>
-      <div>
-        <div class="login-logo-text">LiteLayer</div>
-        <div class="login-sub">Storage Backend</div>
-      </div>
+      <div><div class="login-logo-text">LiteLayer</div><div class="login-sub">Storage Backend</div></div>
     </div>
-
-    <div class="field">
-      <label>Username</label>
-      <input id="login-user" type="text" placeholder="admin" autocomplete="username" autocapitalize="off">
-    </div>
-    <div class="field">
-      <label>Password</label>
-      <input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button class="btn btn-primary btn-full" id="login-btn" onclick="doLogin()">
-      Sign In
-    </button>
+    <div class="field"><label>Username</label><input id="login-user" type="text" placeholder="admin" autocomplete="username" autocapitalize="off"></div>
+    <div class="field"><label>Password</label><input id="login-pass" type="password" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn btn-primary btn-full" id="login-btn" onclick="doLogin()">Sign In</button>
     <div id="login-error" class="login-error"></div>
   </div>
 </div>
 
-<!-- ══ App View ══ -->
+<!-- App -->
 <div id="view-app" class="hidden">
 
-  <!-- Top bar -->
   <header class="topbar">
-    <a class="topbar-logo" href="#" onclick="showDrives(); return false;">
-      <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
+    <a class="topbar-logo" href="#">
+      <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
         <rect width="36" height="36" rx="10" fill="url(#lg2)"/>
         <path d="M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z" fill="white" opacity="0.9"/>
-        <defs>
-          <linearGradient id="lg2" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-            <stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/>
-          </linearGradient>
-        </defs>
+        <defs><linearGradient id="lg2" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs>
       </svg>
       <span class="topbar-logo-text">LiteLayer</span>
     </a>
-
     <div class="topbar-sep"></div>
-
-    <nav class="topbar-breadcrumb" id="breadcrumb">
-      <a onclick="showDrives()">Drives</a>
-    </nav>
-
+    <span style="font-size:10px;font-family:var(--mono);color:var(--text-3);letter-spacing:0.6px">NAS</span>
     <div class="topbar-right">
-      <div class="user-pill">
-        <div class="user-avatar" id="user-avatar">A</div>
-        <span id="user-name">admin</span>
-      </div>
-      <button id="ota-btn" class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="openOta()" title="Check for updates">
-        <span id="ota-badge" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;background:transparent;vertical-align:middle"></span>
-        Updates
+      <div class="user-pill"><div class="user-avatar" id="user-avatar">A</div><span id="user-name">admin</span></div>
+      <button id="ota-btn" class="btn btn-ghost btn-sm" onclick="openOta()" title="Check for updates">
+        <span id="ota-badge" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:transparent;vertical-align:middle"></span>Updates
       </button>
-      <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="Account settings">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="Settings">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </button>
       <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
     </div>
   </header>
 
-  <!-- OTA Update Banner -->
+  <!-- OTA Banner -->
   <div id="ota-banner" class="ota-banner hidden">
-    <svg class="ota-banner-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/>
-      <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>
-    </svg>
-    <div class="ota-banner-text">
-      <strong>Update available</strong><span id="ota-banner-desc"></span>
-    </div>
+    <svg class="ota-banner-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+    <div class="ota-banner-text"><strong>Update available</strong><span id="ota-banner-desc"></span></div>
     <div class="ota-banner-actions">
       <button class="btn btn-sm" style="background:#f59e0b;color:#000;font-weight:700" onclick="applyOtaFromBanner()">Apply update</button>
       <button class="btn btn-ghost btn-sm" onclick="dismissOtaBanner()">Dismiss</button>
     </div>
   </div>
 
-  <!-- Main content -->
-  <main class="main">
+  <div class="app-body">
 
-    <!-- Drives view -->
-    <div id="view-drives">
-      <div class="section-hdr">
-        <h2>Connected Drives <span class="count" id="drives-count"></span></h2>
-        <button class="btn btn-ghost btn-sm" onclick="loadDrives()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M1 4v6h6M23 20v-6h-6"/>
-            <path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/>
-          </svg>
-          Refresh
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-hdr">
+        <span class="sidebar-label">Drives</span>
+        <button class="sidebar-refresh" onclick="loadDrives()" title="Refresh">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
         </button>
       </div>
-      <div class="drives-grid" id="drives-grid"></div>
-    </div>
+      <div class="drives-list" id="drives-list"></div>
+    </aside>
 
-    <!-- File browser view -->
-    <div id="view-files" class="hidden">
+    <!-- Content pane -->
+    <div class="content-pane">
+
+      <!-- Toolbar -->
       <div class="files-toolbar">
-        <button class="btn btn-ghost btn-sm" onclick="showDrives()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
-          Drives
-        </button>
-        <div class="path-display" id="path-display">/</div>
+        <nav class="ft-breadcrumb" id="breadcrumb">
+          <span class="crumb-current" style="color:var(--text-3)">Select a drive</span>
+        </nav>
+        <div class="search-wrap">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="file-search" class="search-input" placeholder="Filter…" oninput="filterFiles(this.value)" autocomplete="off">
+        </div>
         <div class="view-toggle">
-          <button id="toggle-list" class="active" onclick="setView('list')" title="List view">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
-              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
-            </svg>
+          <button id="toggle-list" class="active" onclick="setView('list')" title="List">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
           </button>
-          <button id="toggle-grid" onclick="setView('grid')" title="Grid view">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-              <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-            </svg>
+          <button id="toggle-grid" onclick="setView('grid')" title="Grid">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           </button>
         </div>
       </div>
-      <div id="files-container"></div>
-    </div>
 
-  </main>
+      <!-- Selection bar -->
+      <div id="sel-bar" class="sel-bar hidden">
+        <span class="sel-bar-label" id="sel-label"></span>
+        <button class="btn btn-ghost btn-xs" onclick="clearSel()">Clear</button>
+        <button class="btn btn-primary btn-xs" onclick="downloadSelected()">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download selected
+        </button>
+      </div>
+
+      <!-- Welcome state -->
+      <div id="view-welcome" class="files-area">
+        <div class="empty-state">
+          <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+            <path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/>
+            <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+          </svg>
+          <div style="font-size:15px;font-weight:600;color:var(--text-2)">No drive selected</div>
+          <div style="font-size:12px">Mount a drive from the sidebar, then click Browse</div>
+        </div>
+      </div>
+
+      <!-- File browser -->
+      <div id="files-area" class="files-area hidden">
+        <div id="files-container"></div>
+      </div>
+
+    </div>
+  </div>
 </div>
 
 <!-- Image Viewer -->
@@ -924,76 +548,34 @@
     <span class="iv-filename" id="iv-filename"></span>
     <span class="iv-counter" id="iv-counter"></span>
     <div class="iv-hcontrols">
-      <button class="iv-btn" onclick="ivZoomOut()" title="Zoom out (-)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
+      <button class="iv-btn" onclick="ivZoomOut()" title="Zoom out (-)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
       <span class="iv-zoom-pct" id="iv-zoom-pct">100%</span>
-      <button class="iv-btn" onclick="ivZoomIn()" title="Zoom in (+)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
-      <button class="iv-btn" onclick="ivFit()" title="Fit to screen (F)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
-      </button>
-      <button class="iv-btn" onclick="ivActual()" title="Actual size (0)">1:1</button>
-      <button class="iv-btn" onclick="ivDownloadCurrent()" title="Download">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-      </button>
-      <button class="iv-btn" onclick="closeImageViewer()" title="Close (Esc)" style="color:rgba(255,255,255,0.5)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <button class="iv-btn" onclick="ivZoomIn()" title="Zoom in (+)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button class="iv-btn" onclick="ivFit()" title="Fit (F)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg></button>
+      <button class="iv-btn" onclick="ivActual()" title="Actual (0)">1:1</button>
+      <button class="iv-btn" onclick="ivDownloadCurrent()" title="Download"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>
+      <button class="iv-btn" onclick="closeImageViewer()" title="Close (Esc)" style="color:rgba(255,255,255,0.5)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
   </div>
-
-  <div class="iv-canvas" id="iv-canvas"
-    onwheel="ivWheel(event)"
-    onmousedown="ivDragStart(event)"
-    onmousemove="ivDragMove(event)"
-    onmouseup="ivDragEnd()"
-    onmouseleave="ivDragEnd()">
-    <button class="iv-nav iv-nav-prev" id="iv-prev" onclick="ivNav(-1)">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
-    </button>
+  <div class="iv-canvas" id="iv-canvas" onwheel="ivWheel(event)" onmousedown="ivDragStart(event)" onmousemove="ivDragMove(event)" onmouseup="ivDragEnd()" onmouseleave="ivDragEnd()">
+    <button class="iv-nav iv-nav-prev" id="iv-prev" onclick="ivNav(-1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg></button>
     <img id="iv-img" class="iv-img" alt="" draggable="false" style="opacity:0">
-    <button class="iv-nav iv-nav-next" id="iv-next" onclick="ivNav(1)">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-    </button>
+    <button class="iv-nav iv-nav-next" id="iv-next" onclick="ivNav(1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg></button>
   </div>
-
-  <div class="iv-footer">
-    <span id="iv-filesize"></span>
-    <span id="iv-dims"></span>
-    <span id="iv-modified"></span>
-  </div>
+  <div class="iv-footer"><span id="iv-filesize"></span><span id="iv-dims"></span><span id="iv-modified"></span></div>
 </div>
 
 <!-- Settings Modal -->
 <div id="settings-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
     <h3>Account Settings</h3>
-
-    <div class="field">
-      <label>Current Password <span style="color:var(--red)">*</span></label>
-      <input id="settings-cur-pass" type="password" placeholder="Required to save changes" autocomplete="current-password">
-    </div>
-
+    <div class="field"><label>Current Password <span style="color:var(--red)">*</span></label><input id="settings-cur-pass" type="password" placeholder="Required to save changes" autocomplete="current-password"></div>
     <div class="divider-label">Change Username</div>
-    <div class="field">
-      <label>New Username</label>
-      <input id="settings-new-user" type="text" placeholder="Leave blank to keep current" autocapitalize="off">
-    </div>
-
+    <div class="field"><label>New Username</label><input id="settings-new-user" type="text" placeholder="Leave blank to keep current" autocapitalize="off"></div>
     <div class="divider-label">Change Password</div>
-    <div class="field">
-      <label>New Password</label>
-      <input id="settings-new-pass" type="password" placeholder="Leave blank to keep current" autocomplete="new-password">
-    </div>
-    <div class="field">
-      <label>Confirm New Password</label>
-      <input id="settings-conf-pass" type="password" placeholder="Repeat new password" autocomplete="new-password">
-    </div>
-
+    <div class="field"><label>New Password</label><input id="settings-new-pass" type="password" placeholder="Leave blank to keep current" autocomplete="new-password"></div>
+    <div class="field"><label>Confirm New Password</label><input id="settings-conf-pass" type="password" placeholder="Repeat new password" autocomplete="new-password"></div>
     <div id="settings-error" class="login-error"></div>
-
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
       <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">Save Changes</button>
@@ -1001,37 +583,45 @@
   </div>
 </div>
 
-<!-- Toast container -->
+<!-- Context menu -->
+<div id="ctx-menu" class="ctx-menu hidden"></div>
 <div id="toast-container"></div>
 
 <script>
-const API = '';   // ponytail: empty = same origin; set to 'http://pi.local:8000' for remote dev
+const API = '';  // ponytail: empty = same origin
 
-let currentDriveId = null;
-let currentPath    = '/';
-let fileView       = 'list';
-let authToken      = null;
-let dirEntries     = [];   // current directory entries for image viewer nav
+let currentDriveId    = null;
+let currentDriveLabel = '';
+let currentPath       = '/';
+let fileView          = 'list';
+let authToken         = null;
+let dirEntries        = [];
+let _filtered         = null;   // null = show all
+let _sel              = new Set();
+let _lastClickIdx     = -1;
 
-// ── Utils ──────────────────────────────────────────────────────────────────
+// ── Utils ────────────────────────────────────────────────────────────────────
 
 function fmt(bytes) {
-  if (bytes === 0) return '—';
-  const u = ['B','KB','MB','GB','TB'];
-  let i = 0;
+  if (!bytes) return '—';
+  const u = ['B','KB','MB','GB','TB']; let i = 0;
   while (bytes >= 1024 && i < u.length - 1) { bytes /= 1024; i++; }
-  return bytes.toFixed(i > 1 ? 1 : 0) + ' ' + u[i];
+  return bytes.toFixed(i > 1 ? 1 : 0) + ' ' + u[i];
 }
 
 function fmtDate(ts) {
   if (!ts) return '';
-  return new Date(ts * 1000).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+  return new Date(ts * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function fileIconCfg(name, isDir) {
   if (isDir) return { color:'#7c3aed', bg:'rgba(124,58,237,0.15)', icon:'<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>' };
   const ext = (name.split('.').pop() || '').toLowerCase();
-  if (['jpg','jpeg','png','gif','webp','svg','heic','raw','tiff','bmp'].includes(ext))
+  if (['jpg','jpeg','png','gif','webp','svg','heic','raw','tiff','bmp','avif','ico'].includes(ext))
     return { color:'#f97316', bg:'rgba(249,115,22,0.12)', icon:'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>' };
   if (['mp4','mov','avi','mkv','wmv','flv','m4v','webm'].includes(ext))
     return { color:'#3b82f6', bg:'rgba(59,130,246,0.12)', icon:'<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/>' };
@@ -1043,669 +633,532 @@ function fileIconCfg(name, isDir) {
     return { color:'#10b981', bg:'rgba(16,185,129,0.12)', icon:'<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>' };
   if (['zip','tar','gz','7z','rar','bz2','xz'].includes(ext))
     return { color:'#f59e0b', bg:'rgba(245,158,11,0.12)', icon:'<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>' };
-  if (['dmg','iso','img'].includes(ext))
-    return { color:'#94a3b8', bg:'rgba(148,163,184,0.1)', icon:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/>' };
   if (['doc','docx','xls','xlsx','ppt','pptx','txt','md','log','csv'].includes(ext))
     return { color:'#60a5fa', bg:'rgba(96,165,250,0.12)', icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>' };
   return { color:'#9b8fcf', bg:'rgba(155,143,207,0.1)', icon:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>' };
 }
 
-function fileIconHtml(name, isDir, size=18, extraClass='') {
+function fileIconHtml(name, isDir, size=15, xc='') {
   const c = fileIconCfg(name, isDir);
-  return `<div class="fi-wrap ${extraClass}" style="background:${c.bg};color:${c.color}"><svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg></div>`;
+  return `<div class="fi-wrap ${xc}" style="background:${c.bg};color:${c.color}"><svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${c.icon}</svg></div>`;
 }
 
 function show(id)  { document.getElementById(id).classList.remove('hidden'); }
 function hide(id)  { document.getElementById(id).classList.add('hidden'); }
 
-function toast(msg, type = 'info', dur = 3500) {
+function toast(msg, type='info', dur=3500) {
   const el = document.createElement('div');
   el.className = `toast ${type}`;
-  const icons = { success:'✓', error:'✕', info:'ℹ' };
-  el.innerHTML = `<span>${icons[type]||''}</span><span>${msg}</span>`;
+  el.innerHTML = `<span>${{success:'✓',error:'✕',info:'ℹ'}[type]||''}</span><span>${msg}</span>`;
   document.getElementById('toast-container').appendChild(el);
-  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, dur);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity 0.3s'; setTimeout(()=>el.remove(),300); }, dur);
 }
 
-async function api(path, opts = {}) {
-  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+async function api(path, opts={}) {
+  const headers = {'Content-Type':'application/json', ...(opts.headers||{})};
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-  const r = await fetch(API + path, { ...opts, headers, credentials: 'include' });
+  const r = await fetch(API + path, {...opts, headers, credentials:'include'});
   if (r.status === 401) { showLogin(); return null; }
   return r;
 }
 
-// ── Auth ───────────────────────────────────────────────────────────────────
+// ── Auth ─────────────────────────────────────────────────────────────────────
 
 async function checkAuth() {
   try {
-    const r = await fetch(API + '/api/me', { credentials: 'include' });
-    if (r.ok) {
-      const d = await r.json();
-      setUser(d.username);
-      showApp();
-      loadDrives();
-      return;
-    }
+    const r = await fetch(API + '/api/me', { credentials:'include' });
+    if (r.ok) { const d = await r.json(); setUser(d.username); showApp(); loadDrives(); return; }
   } catch {}
   showLogin();
 }
 
-function setUser(username) {
-  document.getElementById('user-name').textContent = username;
-  document.getElementById('user-avatar').textContent = username[0].toUpperCase();
+function setUser(u) {
+  document.getElementById('user-name').textContent = u;
+  document.getElementById('user-avatar').textContent = u[0].toUpperCase();
 }
 
-function showLogin() {
-  hide('view-app');
-  show('view-login');
-  setTimeout(() => document.getElementById('login-user').focus(), 50);
-}
+function showLogin() { hide('view-app'); show('view-login'); setTimeout(()=>document.getElementById('login-user').focus(),50); }
+function showApp()   { hide('view-login'); show('view-app'); startOtaPoll(); }
 
-function showApp() {
-  hide('view-login');
-  show('view-app');
-  startOtaPoll();
-}
-
-document.getElementById('login-pass').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doLogin();
-});
-document.getElementById('login-user').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('login-pass').focus();
-});
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key==='Enter') doLogin(); });
+document.getElementById('login-user').addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('login-pass').focus(); });
 
 async function doLogin() {
-  const btn = document.getElementById('login-btn');
-  const err = document.getElementById('login-error');
-  const username = document.getElementById('login-user').value.trim();
-  const password = document.getElementById('login-pass').value;
-  if (!username || !password) { err.textContent = 'Enter username and password.'; err.style.display = 'block'; return; }
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Signing in…';
-  err.style.display = 'none';
-
+  const btn=document.getElementById('login-btn'), err=document.getElementById('login-error');
+  const username=document.getElementById('login-user').value.trim(), password=document.getElementById('login-pass').value;
+  if (!username||!password) { err.textContent='Enter username and password.'; err.style.display='block'; return; }
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Signing in…'; err.style.display='none';
   try {
-    const r = await fetch(API + '/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ username, password }),
-    });
+    const r = await fetch(API+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({username,password})});
     const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || 'Login failed');
-    authToken = data.token;
-    setUser(username);
-    showApp();
-    loadDrives();
-  } catch (e) {
-    err.textContent = e.message;
-    err.style.display = 'block';
-    btn.disabled = false;
-    btn.textContent = 'Sign In';
+    if (!r.ok) throw new Error(data.detail||'Login failed');
+    authToken=data.token; setUser(username); showApp(); loadDrives();
+  } catch(e) {
+    err.textContent=e.message; err.style.display='block'; btn.disabled=false; btn.textContent='Sign In';
   }
 }
 
 async function doLogout() {
-  await api('/api/logout', { method: 'POST' });
-  authToken = null;
-  showLogin();
-  toast('Signed out', 'info', 2000);
+  await api('/api/logout',{method:'POST'}); authToken=null; showLogin(); toast('Signed out','info',2000);
 }
 
-// ── Drives ─────────────────────────────────────────────────────────────────
+// ── Drives / Sidebar ─────────────────────────────────────────────────────────
 
 async function loadDrives() {
-  const grid = document.getElementById('drives-grid');
-  grid.innerHTML = '<div class="skeleton" style="height:160px;border-radius:14px"></div>'.repeat(3);
-
+  const list = document.getElementById('drives-list');
+  list.innerHTML = '<div class="skeleton" style="height:108px;border-radius:10px;margin:0 2px 6px"></div>'.repeat(2);
   const r = await api('/api/drives');
   if (!r) return;
   const drives = await r.json();
-
-  document.getElementById('drives-count').textContent = `${drives.length} drive${drives.length !== 1 ? 's' : ''}`;
-
-  if (drives.length === 0) {
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/>
-        <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-      </svg>
-      <div>No external drives detected</div>
-      <div style="font-size:12px">Plug in a USB drive and click Refresh</div>
-    </div>`;
+  if (!drives.length) {
+    list.innerHTML = `<div style="padding:18px 8px;text-align:center;font-size:11px;color:var(--text-3)">No drives detected<br><br>Plug in a USB drive<br>and click ↻</div>`;
     return;
   }
-
-  grid.innerHTML = drives.map((d, i) => driveCard(d, i)).join('');
+  list.innerHTML = drives.map(d => sbDriveCard(d)).join('');
 }
 
-function driveCard(d, i) {
-  const used   = d.used_bytes || 0;
-  const total  = d.size_bytes || 1;
-  const pct    = total > 0 ? Math.round(used / total * 100) : 0;
-  const barCls = pct > 90 ? 'crit' : pct > 75 ? 'warn' : '';
-  const mounted = d.state !== 'unmounted';
-
-  const fsColors = {
-    ntfs:'#60a5fa', exfat:'#34d399', vfat:'#f472b6', fat32:'#f472b6',
-    ext4:'#a78bfa', ext3:'#a78bfa', btrfs:'#fb923c', xfs:'#facc15',
-    hfsplus:'#94a3b8', 'iso9660':'#94a3b8',
-  };
-  const fsColor = fsColors[d.fstype.toLowerCase()] || '#a78bfa';
-
-  const stateLabel = { mounted_ro:'Mounted (read-only)', mounted_rw:'Mounted (read-write)', unmounted:'Not mounted' };
-  const stateCls   = d.state;
-
-  return `
-  <div class="drive-card" style="animation-delay:${i * 60}ms">
-    <div class="drive-card-header">
-      <div class="drive-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="1.8">
-          <ellipse cx="12" cy="5" rx="9" ry="3"/>
-          <path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/>
-          <path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-        </svg>
+function sbDriveCard(d) {
+  const used=d.used_bytes||0, total=d.size_bytes||1;
+  const pct=total>0?Math.round(used/total*100):0;
+  const barCls=pct>90?'crit':pct>75?'warn':'';
+  const mounted=d.state!=='unmounted';
+  const active=d.id===currentDriveId;
+  const fsColors={ntfs:'#60a5fa',exfat:'#34d399',vfat:'#f472b6',fat32:'#f472b6',ext4:'#a78bfa',ext3:'#a78bfa',btrfs:'#fb923c',xfs:'#facc15',hfsplus:'#94a3b8','iso9660':'#94a3b8'};
+  const fc=fsColors[(d.fstype||'').toLowerCase()]||'#a78bfa';
+  return `<div class="sb-drive${active?' active':''}" id="sbcard-${esc(d.id)}">
+    <div class="sb-drive-top">
+      <div class="sb-drive-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg></div>
+      <div class="sb-drive-info">
+        <div class="sb-drive-name" title="${esc(d.label)}">${esc(d.label)}</div>
+        <div class="sb-drive-dev">${esc(d.device)}</div>
       </div>
-      <div class="drive-meta">
-        <div class="drive-label" title="${esc(d.label)}">${esc(d.label)}</div>
-        <div class="drive-device">${esc(d.device)}</div>
-      </div>
-      <div class="fs-badge" style="background:${fsColor}18;color:${fsColor};border-color:${fsColor}33">
-        ${esc(d.fstype)}
-      </div>
+      <div class="sb-fs-tag" style="background:${fc}18;color:${fc};border-color:${fc}33">${esc(d.fstype)}</div>
     </div>
-
-    <div class="drive-card-body">
-      <div class="status-row">
-        <div class="status-dot ${stateCls}"></div>
-        <span class="status-label ${stateCls}" style="font-size:12px;font-weight:500">${stateLabel[d.state] || d.state}</span>
-      </div>
-
-      <div class="storage-bar-wrap">
-        <div class="storage-bar-labels">
-          <span class="used">${fmt(used)} used</span>
-          <span>${fmt(d.free_bytes)} free · ${fmt(total)}</span>
-        </div>
-        <div class="storage-bar-track">
-          <div class="storage-bar-fill ${barCls}" style="width:${mounted ? pct : 0}%"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="drive-card-footer">
+    ${mounted?`<div class="sb-bar-wrap"><div class="sb-bar-track"><div class="sb-bar-fill ${barCls}" style="width:${pct}%"></div></div><div class="sb-bar-stats"><span>${fmt(used)}</span><span>${fmt(d.free_bytes)} free</span></div></div>`:''}
+    <div class="sb-drive-actions">
       ${mounted
-        ? `<button class="btn btn-ghost btn-sm flex-1" onclick="browseFiles('${esc(d.id)}','${esc(d.label)}')">
-             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-             Browse
-           </button>
-           <button class="btn btn-ghost btn-sm" onclick="unmountDrive('${esc(d.id)}')">
-             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 9l6 6m0-6l-6 6"/><circle cx="12" cy="12" r="9"/></svg>
-             Eject
-           </button>`
-        : `<button class="btn btn-primary btn-sm flex-1" onclick="mountDrive('${esc(d.id)}')">
-             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
-             Mount
-           </button>`
-      }
+        ?`<button class="btn btn-ghost btn-xs flex-1" onclick="browseFiles('${esc(d.id)}','${esc(d.label)}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Browse
+          </button>
+          <button class="btn btn-ghost btn-xs" onclick="unmountDrive('${esc(d.id)}')" title="Eject">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 9l6 6m0-6l-6 6"/><circle cx="12" cy="12" r="9"/></svg>
+          </button>`
+        :`<button class="btn btn-primary btn-xs flex-1" onclick="mountDrive('${esc(d.id)}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Mount
+          </button>`}
     </div>
   </div>`;
 }
 
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 async function mountDrive(id) {
-  toast('Mounting…', 'info', 1500);
-  const r = await api(`/api/drives/${id}/mount`, { method: 'POST' });
+  toast('Mounting…','info',1500);
+  const r=await api(`/api/drives/${id}/mount`,{method:'POST'});
   if (!r) return;
-  if (r.ok) { toast('Drive mounted', 'success'); loadDrives(); }
-  else { const d = await r.json(); toast(d.detail || 'Mount failed', 'error', 5000); }
+  if (r.ok) { toast('Drive mounted','success'); loadDrives(); }
+  else { const d=await r.json(); toast(d.detail||'Mount failed','error',5000); }
 }
 
 async function unmountDrive(id) {
-  toast('Ejecting…', 'info', 1500);
-  const r = await api(`/api/drives/${id}/unmount`, { method: 'POST' });
+  toast('Ejecting…','info',1500);
+  const r=await api(`/api/drives/${id}/unmount`,{method:'POST'});
   if (!r) return;
-  if (r.ok) { toast('Drive ejected safely', 'success'); showDrives(); loadDrives(); }
-  else { const d = await r.json(); toast(d.detail || 'Unmount failed', 'error', 5000); }
+  if (r.ok) {
+    toast('Drive ejected safely','success');
+    if (currentDriveId===id) { currentDriveId=null; hide('files-area'); show('view-welcome'); setBreadcrumb([]); }
+    loadDrives();
+  } else { const d=await r.json(); toast(d.detail||'Unmount failed','error',5000); }
 }
 
-// ── File browser ────────────────────────────────────────────────────────────
-
-function showDrives() {
-  currentDriveId = null;
-  currentPath = '/';
-  show('view-drives');
-  hide('view-files');
-  setBreadcrumb([]);
-}
+// ── File browser ─────────────────────────────────────────────────────────────
 
 function browseFiles(driveId, driveLabel) {
-  currentDriveId = driveId;
-  currentPath = '/';
-  hide('view-drives');
-  show('view-files');
+  currentDriveId=driveId; currentDriveLabel=driveLabel; currentPath='/';
+  _filtered=null; document.getElementById('file-search').value='';
+  hide('view-welcome'); show('files-area');
+  document.querySelectorAll('.sb-drive').forEach(el=>el.classList.remove('active'));
+  const card=document.getElementById(`sbcard-${driveId}`);
+  if (card) card.classList.add('active');
   loadFiles('/');
-  setBreadcrumb([{ label: driveLabel, path: '/', driveId }]);
+  setBreadcrumb([{label:driveLabel,path:'/'}]);
 }
 
 function setBreadcrumb(crumbs) {
-  const nav = document.getElementById('breadcrumb');
-  if (!crumbs.length) {
-    nav.innerHTML = `<a onclick="showDrives()">Drives</a>`;
-    return;
-  }
-  const parts = [`<a onclick="showDrives()">Drives</a>`];
-  crumbs.forEach((c, i) => {
-    parts.push(`<span>›</span>`);
-    if (i < crumbs.length - 1) {
-      parts.push(`<a onclick="loadFiles('${esc(c.path)}')">${esc(c.label)}</a>`);
-    } else {
-      parts.push(`<span class="crumb-current">${esc(c.label)}</span>`);
-    }
+  const nav=document.getElementById('breadcrumb');
+  if (!crumbs.length) { nav.innerHTML=`<span class="crumb-current" style="color:var(--text-3)">Select a drive</span>`; return; }
+  const parts=[];
+  crumbs.forEach((c,i)=>{
+    if (i>0) parts.push(`<span class="crumb-sep">/</span>`);
+    if (i<crumbs.length-1) parts.push(`<a onclick="loadFiles('${esc(c.path)}')">${esc(c.label)}</a>`);
+    else parts.push(`<span class="crumb-current">${esc(c.label)}</span>`);
   });
-  nav.innerHTML = parts.join('');
+  nav.innerHTML=parts.join('');
 }
 
 async function loadFiles(path) {
-  currentPath = path;
-  document.getElementById('path-display').textContent = path;
-
-  const container = document.getElementById('files-container');
-  container.innerHTML = '<div class="skeleton" style="height:40px;margin-bottom:2px;border-radius:8px"></div>'.repeat(6);
-
-  const r = await api(`/api/files?drive=${currentDriveId}&path=${encodeURIComponent(path)}`);
+  currentPath=path; _filtered=null;
+  document.getElementById('file-search').value='';
+  clearSel(false);
+  const container=document.getElementById('files-container');
+  container.innerHTML='<div class="skeleton" style="height:34px;margin-bottom:2px;border-radius:7px"></div>'.repeat(7);
+  const r=await api(`/api/files?drive=${currentDriveId}&path=${encodeURIComponent(path)}`);
   if (!r) return;
+  if (!r.ok) { const d=await r.json(); toast(d.detail||'Failed to load directory','error'); container.innerHTML=`<div class="empty-state">${esc(d.detail||'Error')}</div>`; return; }
+  const data=await r.json(); dirEntries=data.entries; renderFiles(dirEntries,path);
+}
 
-  if (!r.ok) {
-    const d = await r.json();
-    toast(d.detail || 'Failed to load directory', 'error');
-    container.innerHTML = `<div class="empty-state">${d.detail || 'Error loading files'}</div>`;
-    return;
+function filterFiles(q) {
+  if (!dirEntries.length) return;
+  const lq=q.trim().toLowerCase();
+  _filtered=lq?dirEntries.filter(e=>e.name.toLowerCase().includes(lq)):null;
+  clearSel(false); renderFiles(_filtered||dirEntries,currentPath);
+}
+
+// ── Selection ─────────────────────────────────────────────────────────────────
+
+function handleFileClick(idx, e) {
+  const entries=_filtered||dirEntries;
+  const entry=entries[idx];
+  if (!entry) return;
+
+  if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+    if (entry.is_dir) { openDir(entry.path, entry.name); return; }
+    if (isImageFile(entry.name)) {
+      const fi=dirEntries.findIndex(x=>x.path===entry.path);
+      openImageViewer(fi>=0?fi:idx); return;
+    }
+    downloadFile(entry.path, entry.name); return;
   }
 
-  const data = await r.json();
-  renderFiles(data.entries, path);
+  if (e.shiftKey && _lastClickIdx>=0) {
+    const lo=Math.min(_lastClickIdx,idx), hi=Math.max(_lastClickIdx,idx);
+    const next=new Set(_sel);
+    for (let i=lo;i<=hi;i++) { const k=(entries[i]||{}).path; if(k) next.add(k); }
+    _sel=next; updateSelBar(); renderFiles(entries,currentPath); return;
+  }
+
+  if (e.ctrlKey||e.metaKey) {
+    if (_sel.has(entry.path)) _sel.delete(entry.path); else _sel.add(entry.path);
+    _lastClickIdx=idx; updateSelBar(); renderFiles(entries,currentPath); return;
+  }
 }
 
-function fileClick(idx) {
-  const e = dirEntries[idx];
-  if (!e) return;
-  if (isImageFile(e.name)) openImageViewer(idx);
-  else downloadFile(e.path, e.name);
+function updateSelBar() {
+  const bar=document.getElementById('sel-bar'), label=document.getElementById('sel-label');
+  if (!_sel.size) { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  label.textContent=`${_sel.size} item${_sel.size!==1?'s':''} selected`;
 }
+
+function clearSel(rerender=true) {
+  _sel.clear(); _lastClickIdx=-1;
+  document.getElementById('sel-bar').classList.add('hidden');
+  if (rerender&&dirEntries.length) renderFiles(_filtered||dirEntries,currentPath);
+}
+
+async function downloadSelected() {
+  const toDownload=dirEntries.filter(e=>!e.is_dir&&_sel.has(e.path));
+  if (!toDownload.length) { toast('No files selected','info',2000); return; }
+  for (const e of toDownload) downloadFile(e.path,e.name);
+  toast(`Downloading ${toDownload.length} file${toDownload.length!==1?'s':''}…`,'success',2500);
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
 
 function renderFiles(entries, path) {
-  dirEntries = entries;
-  const container = document.getElementById('files-container');
-
+  const container=document.getElementById('files-container');
   if (!entries.length) {
-    container.innerHTML = `<div class="empty-state">
-      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
-      </svg>
-      <div>Empty folder</div>
-    </div>`;
+    const noMatch=_filtered!==null;
+    container.innerHTML=`<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${noMatch?'<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>':'<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>'}</svg><div>${noMatch?'No results':'Empty folder'}</div></div>`;
     return;
   }
 
-  if (fileView === 'list') {
-    container.innerHTML = `
-      <div class="file-list-header">
-        <div style="width:28px"></div>
-        <div class="flex-1">Name</div>
-        <div style="width:80px;text-align:right">Size</div>
-        <div style="width:130px;text-align:right">Modified</div>
-        <div style="width:32px"></div>
-      </div>
-      <div class="file-list">
-        ${path !== '/' ? `
-        <div class="file-row" onclick="navigateUp()">
-          <div class="fi-wrap" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
-          <div class="file-row-name" style="color:var(--text-2)">..</div>
-          <div class="file-row-size"></div>
-          <div class="file-row-date"></div>
-          <div class="file-row-dl"></div>
-        </div>` : ''}
-        ${entries.map((e, i) => `
-        <div class="file-row" onclick="${e.is_dir ? `openDir('${esc(e.path)}','${esc(e.name)}')` : `fileClick(${i})`}">
-          ${fileIconHtml(e.name, e.is_dir)}
-          <div class="file-row-name" title="${esc(e.name)}">${esc(e.name)}</div>
-          <div class="file-row-size">${e.is_dir ? '—' : fmt(e.size_bytes)}</div>
-          <div class="file-row-date">${fmtDate(e.modified)}</div>
-          <div class="file-row-dl">
-            ${!e.is_dir ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();downloadFile('${esc(e.path)}','${esc(e.name)}')" title="Download">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            </button>` : ''}
-          </div>
-        </div>`).join('')}
+  const upRow=path!=='/'?`<div class="file-row" onclick="navigateUp()">
+    <div class="file-row-check"></div>
+    <div class="fi-wrap" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+    <div class="file-row-name" style="color:var(--text-3);font-size:12px">..</div>
+    <div class="file-row-date"></div><div class="file-row-size"></div><div class="file-row-dl"></div>
+  </div>`:'';
+
+  const upCell=path!=='/'?`<div class="file-cell" onclick="navigateUp()">
+    <div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
+    <div class="file-cell-name">..</div>
+  </div>`:'';
+
+  if (fileView==='list') {
+    container.innerHTML=`<div class="file-list-header">
+      <div style="width:14px"></div><div style="width:26px"></div>
+      <div class="flex-1">Name</div>
+      <div style="width:108px;text-align:right">Modified</div>
+      <div style="width:66px;text-align:right">Size</div>
+      <div style="width:26px"></div>
+    </div>
+    <div class="file-list">${upRow}${entries.map((e,i)=>{
+      const sel=_sel.has(e.path);
+      return `<div class="file-row${sel?' selected':''}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false">
+        <div class="file-row-check">${sel?'<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>':''}</div>
+        ${fileIconHtml(e.name,e.is_dir)}
+        <div class="file-row-name" title="${esc(e.name)}">${esc(e.name)}</div>
+        <div class="file-row-date">${fmtDate(e.modified)}</div>
+        <div class="file-row-size">${e.is_dir?'—':fmt(e.size_bytes)}</div>
+        <div class="file-row-dl">${!e.is_dir?`<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();downloadFile('${esc(e.path)}','${esc(e.name)}')" title="Download"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>`:''}</div>
       </div>`;
+    }).join('')}</div>`;
   } else {
-    container.innerHTML = `
-      <div class="file-grid">
-        ${path !== '/' ? `
-        <div class="file-cell" onclick="navigateUp()">
-          <div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3);margin-bottom:4px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div>
-          <div class="file-cell-name">..</div>
-          <div class="file-cell-size"></div>
-        </div>` : ''}
-        ${entries.map((e, i) => `
-        <div class="file-cell" onclick="${e.is_dir ? `openDir('${esc(e.path)}','${esc(e.name)}')` : `fileClick(${i})`}" title="${esc(e.name)}">
-          ${fileIconHtml(e.name, e.is_dir, 22, 'fi-wrap-lg')}
-          <div class="file-cell-name">${esc(e.name)}</div>
-          <div class="file-cell-size">${e.is_dir ? '' : fmt(e.size_bytes)}</div>
-        </div>`).join('')}
+    container.innerHTML=`<div class="file-grid">${upCell}${entries.map((e,i)=>{
+      const sel=_sel.has(e.path);
+      return `<div class="file-cell${sel?' selected':''}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false" title="${esc(e.name)}">
+        ${fileIconHtml(e.name,e.is_dir,19,'fi-wrap-lg')}
+        <div class="file-cell-name">${esc(e.name)}</div>
+        <div class="file-cell-size">${e.is_dir?'':fmt(e.size_bytes)}</div>
       </div>`;
+    }).join('')}</div>`;
   }
 }
 
 function openDir(path, name) {
-  // Build breadcrumb segments
-  const nav = document.getElementById('breadcrumb');
-  const crumbLinks = nav.querySelectorAll('a');
-  const driveLabel = crumbLinks[1] ? crumbLinks[1].textContent : 'Drive';
-  // Just re-derive from current path segments
-  const segments = path.split('/').filter(Boolean);
-  const crumbs = [{ label: driveLabel, path: '/', driveId: currentDriveId }];
-  let built = '';
-  segments.forEach((seg, i) => {
-    built += '/' + seg;
-    crumbs.push({ label: seg, path: built });
-  });
-  setBreadcrumb(crumbs);
-  loadFiles(path);
+  _sel.clear();
+  const segs=path.split('/').filter(Boolean);
+  const crumbs=[{label:currentDriveLabel,path:'/'}];
+  let built='';
+  segs.forEach(s=>{ built+='/'+s; crumbs.push({label:s,path:built}); });
+  setBreadcrumb(crumbs); loadFiles(path);
 }
 
 function navigateUp() {
-  const parts = currentPath.split('/').filter(Boolean);
-  if (parts.length === 0) return;
+  const parts=currentPath.split('/').filter(Boolean);
+  if (!parts.length) return;
   parts.pop();
-  const parent = parts.length ? '/' + parts.join('/') : '/';
-  const name   = parts.length ? parts[parts.length - 1] : 'Drive';
-  openDir(parent, name);
+  const parent=parts.length?'/'+parts.join('/'): '/';
+  openDir(parent, parts.length?parts[parts.length-1]:currentDriveLabel);
 }
 
 function downloadFile(path, name) {
-  const url = `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(path)}`;
-  // Create a hidden link and click it so the browser handles the download
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  // Append Authorization header workaround: use fetch + blob for Bearer token mode
+  const url=`${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(path)}`;
   if (authToken) {
-    toast(`Downloading ${name}…`, 'info', 2000);
-    fetch(url, { headers: { Authorization: `Bearer ${authToken}` }, credentials: 'include' })
-      .then(r => r.blob())
-      .then(blob => {
-        const burl = URL.createObjectURL(blob);
-        const dl = document.createElement('a');
-        dl.href = burl;
-        dl.download = name;
-        dl.click();
-        setTimeout(() => URL.revokeObjectURL(burl), 10000);
-      })
-      .catch(() => toast('Download failed', 'error'));
+    toast(`Downloading ${name}…`,'info',2000);
+    fetch(url,{headers:{Authorization:`Bearer ${authToken}`},credentials:'include'})
+      .then(r=>r.blob()).then(blob=>{
+        const burl=URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=burl; a.download=name; a.click();
+        setTimeout(()=>URL.revokeObjectURL(burl),10000);
+      }).catch(()=>toast('Download failed','error'));
     return;
   }
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  toast(`Downloading ${name}…`, 'info', 2000);
+  const a=document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  toast(`Downloading ${name}…`,'info',2000);
 }
 
 function setView(v) {
-  fileView = v;
-  document.getElementById('toggle-list').classList.toggle('active', v === 'list');
-  document.getElementById('toggle-grid').classList.toggle('active', v === 'grid');
-  if (currentDriveId) loadFiles(currentPath);
+  fileView=v;
+  document.getElementById('toggle-list').classList.toggle('active',v==='list');
+  document.getElementById('toggle-grid').classList.toggle('active',v==='grid');
+  if (currentDriveId) renderFiles(_filtered||dirEntries,currentPath);
 }
 
-// ── Boot ────────────────────────────────────────────────────────────────────
-// ── OTA / Updates (dev UI helper) ───────────────────────────────────────────
-let _ota_timer = null;
+// ── Context menu ──────────────────────────────────────────────────────────────
+
+function showCtxMenu(e, idx) {
+  closeCtxMenu();
+  const entries=_filtered||dirEntries;
+  const entry=entries[idx];
+  if (!entry) return;
+  if (!_sel.has(entry.path)) { _sel.clear(); _sel.add(entry.path); updateSelBar(); renderFiles(entries,currentPath); }
+
+  const items=[];
+  if (entry.is_dir) {
+    items.push(`<div class="ctx-item" onclick="openDir('${esc(entry.path)}','${esc(entry.name)}');closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Open folder</div>`);
+  } else {
+    if (isImageFile(entry.name)) {
+      const fi=dirEntries.findIndex(x=>x.path===entry.path);
+      items.push(`<div class="ctx-item" onclick="openImageViewer(${fi>=0?fi:idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>View image</div>`);
+    }
+    items.push(`<div class="ctx-item" onclick="downloadFile('${esc(entry.path)}','${esc(entry.name)}');closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</div>`);
+  }
+  if (_sel.size>1) {
+    items.push(`<div class="ctx-sep"></div>`);
+    items.push(`<div class="ctx-item" onclick="downloadSelected();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download ${_sel.size} selected</div>`);
+  }
+  items.push(`<div class="ctx-sep"></div>`);
+  items.push(`<div class="ctx-item" onclick="clearSel();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Deselect all</div>`);
+
+  const menu=document.getElementById('ctx-menu');
+  menu.innerHTML=items.join(''); menu.classList.remove('hidden');
+  const vw=window.innerWidth, vh=window.innerHeight, mw=168, mh=items.length*34;
+  menu.style.left=(e.clientX+mw>vw?e.clientX-mw:e.clientX)+'px';
+  menu.style.top=(e.clientY+mh>vh?e.clientY-mh:e.clientY)+'px';
+}
+
+function closeCtxMenu() { document.getElementById('ctx-menu').classList.add('hidden'); }
+document.addEventListener('click', closeCtxMenu);
+document.addEventListener('keydown', e=>{
+  if (e.key==='Escape') { closeCtxMenu(); if ((e.target||{}).tagName!=='INPUT') clearSel(); }
+  if ((e.target||{}).tagName==='INPUT' || !currentDriveId) return;
+  if ((e.ctrlKey||e.metaKey) && e.key==='a') {
+    e.preventDefault();
+    const entries=_filtered||dirEntries;
+    _sel=new Set(entries.map(x=>x.path)); _lastClickIdx=entries.length-1;
+    updateSelBar(); renderFiles(entries,currentPath);
+  }
+});
+
+// ── OTA ───────────────────────────────────────────────────────────────────────
+
+let _ota_timer=null;
+
 async function checkOtaStatus() {
-  try {
-    const r = await api('/api/ota/status');
-    if (!r) return null;
-    const d = await r.json();
-    renderOta(d);
-    return d;
-  } catch (e) { return null; }
+  try { const r=await api('/api/ota/status'); if(!r) return null; const d=await r.json(); renderOta(d); return d; }
+  catch { return null; }
 }
 
 function renderOta(d) {
-  const badge  = document.getElementById('ota-badge');
-  const btn    = document.getElementById('ota-btn');
-  const banner = document.getElementById('ota-banner');
-  if (!d) { badge.style.background = 'transparent'; btn.title = 'Check for updates'; return; }
+  const badge=document.getElementById('ota-badge'), btn=document.getElementById('ota-btn'), banner=document.getElementById('ota-banner');
+  if (!d) { badge.style.background='transparent'; return; }
   if (d.update_available) {
-    badge.style.background = 'var(--yellow)';
-    btn.title = 'Update available — click to apply';
-    if (banner && !banner.dataset.dismissed) {
-      const desc = document.getElementById('ota-banner-desc');
-      if (desc) desc.textContent = d.current_version ? ` — v${d.current_version} → ${d.latest_sha.slice(0,7)}` : ` — ${d.latest_sha.slice(0,7)}`;
+    badge.style.background='var(--yellow)'; btn.title='Update available';
+    if (banner&&!banner.dataset.dismissed) {
+      const desc=document.getElementById('ota-banner-desc');
+      if (desc) desc.textContent=d.current_version?` — v${d.current_version} → ${d.latest_sha.slice(0,7)}`:` — ${d.latest_sha.slice(0,7)}`;
       banner.classList.remove('hidden');
     }
   } else if (d.github_reachable) {
-    badge.style.background = 'var(--green)';
-    btn.title = `Up to date (${d.current_sha})`;
-    if (banner) banner.classList.add('hidden');
-  } else {
-    badge.style.background = 'transparent';
-    btn.title = 'GitHub unreachable';
-  }
+    badge.style.background='var(--green)'; btn.title='Up to date'; if(banner) banner.classList.add('hidden');
+  } else { badge.style.background='transparent'; }
 }
 
 async function applyOtaFromBanner() {
-  const r = await api('/api/ota/update', { method: 'POST' });
-  if (!r) return;
+  const r=await api('/api/ota/update',{method:'POST'}); if(!r) return;
   document.getElementById('ota-banner').classList.add('hidden');
-  if (r.ok) toast('Update started — service will restart shortly', 'success', 6000);
-  else { const j = await r.json(); toast(j.detail || 'Update failed', 'error', 5000); }
+  if (r.ok) toast('Update started — service will restart shortly','success',6000);
+  else { const j=await r.json(); toast(j.detail||'Update failed','error',5000); }
 }
 
-function dismissOtaBanner() {
-  const b = document.getElementById('ota-banner');
-  b.classList.add('hidden');
-  b.dataset.dismissed = '1';
-}
+function dismissOtaBanner() { const b=document.getElementById('ota-banner'); b.classList.add('hidden'); b.dataset.dismissed='1'; }
 
-function startOtaPoll(intervalMs = 60000) {
-  if (_ota_timer) return; // already running
-  checkOtaStatus();
-  _ota_timer = setInterval(checkOtaStatus, intervalMs);
+function startOtaPoll(ms=60000) {
+  if (_ota_timer) return; checkOtaStatus(); _ota_timer=setInterval(checkOtaStatus,ms);
 }
 
 async function openOta() {
-  const d = await checkOtaStatus();
-  if (!d) { toast('Could not contact OTA endpoint', 'error'); return; }
+  const d=await checkOtaStatus();
+  if (!d) { toast('Could not contact OTA endpoint','error'); return; }
   if (d.update_available) {
     if (!confirm('Update available. Apply now?')) return;
-    const r = await api('/api/ota/update', { method: 'POST' });
-    if (!r) return;
-    if (r.ok) { toast('Update started — service will restart', 'success', 5000); }
-    else { const j = await r.json(); toast(j.detail || 'Update failed', 'error', 5000); }
-  } else {
-    toast(d.github_reachable ? 'No update available' : 'GitHub unreachable', 'info', 2500);
-  }
+    const r=await api('/api/ota/update',{method:'POST'});
+    if (r?.ok) toast('Update started — service will restart','success',5000);
+    else { const j=await r?.json(); toast(j?.detail||'Update failed','error',5000); }
+  } else { toast(d.github_reachable?'No update available':'GitHub unreachable','info',2500); }
 }
 
-// ── Image Viewer ────────────────────────────────────────────────────────────
-const IV_EXTS = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif']);
+// ── Image Viewer ──────────────────────────────────────────────────────────────
 
-let _ivBlobUrl  = null;
-let _ivIndex    = 0;
-let _ivImages   = [];   // filtered image-only entries
-let _ivZoom     = 1;
-let _ivTx       = 0, _ivTy = 0;
-let _ivDragging = false;
-let _ivDrag0    = { x:0, y:0, tx:0, ty:0 };
+const IV_EXTS=new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif']);
+let _ivBlobUrl=null, _ivIndex=0, _ivImages=[];
+let _ivZoom=1, _ivTx=0, _ivTy=0, _ivDragging=false, _ivDrag0={x:0,y:0,tx:0,ty:0};
 
 function isImageFile(name) { return IV_EXTS.has((name.split('.').pop()||'').toLowerCase()); }
 
 function openImageViewer(dirIdx) {
-  // Build image-only list from current dir, find viewer index
-  _ivImages = dirEntries.map((e,i) => ({...e, dirIdx:i})).filter(e => !e.is_dir && isImageFile(e.name));
-  _ivIndex  = _ivImages.findIndex(e => e.dirIdx === dirIdx);
-  if (_ivIndex < 0) _ivIndex = 0;
-  show('image-viewer');
-  document.body.style.overflow = 'hidden';
-  document.addEventListener('keydown', _ivKey);
-  _ivLoad();
+  _ivImages=dirEntries.map((e,i)=>({...e,dirIdx:i})).filter(e=>!e.is_dir&&isImageFile(e.name));
+  _ivIndex=_ivImages.findIndex(e=>e.dirIdx===dirIdx); if(_ivIndex<0)_ivIndex=0;
+  show('image-viewer'); document.body.style.overflow='hidden';
+  document.addEventListener('keydown',_ivKey); _ivLoad();
 }
 
 function closeImageViewer() {
-  hide('image-viewer');
-  document.body.style.overflow = '';
-  document.removeEventListener('keydown', _ivKey);
-  if (_ivBlobUrl) { URL.revokeObjectURL(_ivBlobUrl); _ivBlobUrl = null; }
-  document.getElementById('iv-img').src = '';
+  hide('image-viewer'); document.body.style.overflow='';
+  document.removeEventListener('keydown',_ivKey);
+  if(_ivBlobUrl){URL.revokeObjectURL(_ivBlobUrl);_ivBlobUrl=null;}
+  document.getElementById('iv-img').src='';
 }
 
 async function _ivLoad() {
-  const entry = _ivImages[_ivIndex];
-  if (!entry) return;
-  const img = document.getElementById('iv-img');
-  img.style.opacity = '0';
-  _ivZoom = 1; _ivTx = 0; _ivTy = 0; _ivApply();
-  document.getElementById('iv-filename').textContent  = entry.name;
-  document.getElementById('iv-counter').textContent   = `${_ivIndex + 1} / ${_ivImages.length}`;
-  document.getElementById('iv-filesize').textContent  = entry.size_bytes ? fmt(entry.size_bytes) : '';
-  document.getElementById('iv-modified').textContent  = entry.modified ? fmtDate(entry.modified) : '';
-  document.getElementById('iv-dims').textContent      = '';
-  document.getElementById('iv-prev').style.visibility = _ivIndex > 0 ? '' : 'hidden';
-  document.getElementById('iv-next').style.visibility = _ivIndex < _ivImages.length - 1 ? '' : 'hidden';
-  if (_ivBlobUrl) { URL.revokeObjectURL(_ivBlobUrl); _ivBlobUrl = null; }
+  const entry=_ivImages[_ivIndex]; if(!entry) return;
+  const img=document.getElementById('iv-img');
+  img.style.opacity='0'; _ivZoom=1;_ivTx=0;_ivTy=0;_ivApply();
+  document.getElementById('iv-filename').textContent=entry.name;
+  document.getElementById('iv-counter').textContent=`${_ivIndex+1} / ${_ivImages.length}`;
+  document.getElementById('iv-filesize').textContent=entry.size_bytes?fmt(entry.size_bytes):'';
+  document.getElementById('iv-modified').textContent=entry.modified?fmtDate(entry.modified):'';
+  document.getElementById('iv-dims').textContent='';
+  document.getElementById('iv-prev').style.visibility=_ivIndex>0?'':'hidden';
+  document.getElementById('iv-next').style.visibility=_ivIndex<_ivImages.length-1?'':'hidden';
+  if(_ivBlobUrl){URL.revokeObjectURL(_ivBlobUrl);_ivBlobUrl=null;}
   try {
-    const url = `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
-    const hdrs = authToken ? { Authorization: `Bearer ${authToken}` } : {};
-    const r   = await fetch(url, { headers: hdrs, credentials: 'include' });
-    const blob = await r.blob();
-    _ivBlobUrl = URL.createObjectURL(blob);
-    img.onload = () => {
-      img.style.opacity = '1';
-      document.getElementById('iv-dims').textContent = `${img.naturalWidth} × ${img.naturalHeight}px`;
-    };
-    img.src = _ivBlobUrl;
-  } catch { toast('Could not load image', 'error'); }
+    const url=`${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
+    const r=await fetch(url,{headers:authToken?{Authorization:`Bearer ${authToken}`}:{},credentials:'include'});
+    const blob=await r.blob(); _ivBlobUrl=URL.createObjectURL(blob);
+    img.onload=()=>{img.style.opacity='1';document.getElementById('iv-dims').textContent=`${img.naturalWidth}×${img.naturalHeight}`;};
+    img.src=_ivBlobUrl;
+  } catch { toast('Could not load image','error'); }
 }
 
-function ivNav(d) {
-  const n = _ivIndex + d;
-  if (n < 0 || n >= _ivImages.length) return;
-  _ivIndex = n; _ivLoad();
-}
-
-function ivDownloadCurrent() {
-  const e = _ivImages[_ivIndex];
-  if (e) downloadFile(e.path, e.name);
-}
+function ivNav(d){const n=_ivIndex+d;if(n>=0&&n<_ivImages.length){_ivIndex=n;_ivLoad();}}
+function ivDownloadCurrent(){const e=_ivImages[_ivIndex];if(e)downloadFile(e.path,e.name);}
 
 function _ivKey(e) {
-  if (e.key === 'Escape')                    closeImageViewer();
-  else if (e.key === 'ArrowLeft')            ivNav(-1);
-  else if (e.key === 'ArrowRight')           ivNav(1);
-  else if (e.key === '+' || e.key === '=')   ivZoomIn();
-  else if (e.key === '-')                    ivZoomOut();
-  else if (e.key === 'f' || e.key === 'F')   ivFit();
-  else if (e.key === '0')                    ivActual();
+  if(e.key==='Escape')closeImageViewer();
+  else if(e.key==='ArrowLeft')ivNav(-1);
+  else if(e.key==='ArrowRight')ivNav(1);
+  else if(e.key==='+'||e.key==='=')ivZoomIn();
+  else if(e.key==='-')ivZoomOut();
+  else if(e.key==='f'||e.key==='F')ivFit();
+  else if(e.key==='0')ivActual();
 }
 
 function _ivApply() {
-  const img = document.getElementById('iv-img');
-  img.style.transform = `translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`;
-  document.getElementById('iv-zoom-pct').textContent = Math.round(_ivZoom * 100) + '%';
-  img.style.cursor = _ivZoom > 1 ? 'grab' : 'default';
+  const img=document.getElementById('iv-img');
+  img.style.transform=`translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`;
+  document.getElementById('iv-zoom-pct').textContent=Math.round(_ivZoom*100)+'%';
+  img.style.cursor=_ivZoom>1?'grab':'default';
 }
 
-function ivZoomIn()  { _ivZoom = Math.min(_ivZoom * 1.25, 10); _ivApply(); }
-function ivZoomOut() { _ivZoom = Math.max(_ivZoom / 1.25, 0.1); if (_ivZoom <= 1) { _ivTx = 0; _ivTy = 0; } _ivApply(); }
-function ivFit()     { _ivZoom = 1; _ivTx = 0; _ivTy = 0; _ivApply(); }
-function ivActual()  {
-  const img = document.getElementById('iv-img');
-  const canvas = document.getElementById('iv-canvas');
-  if (!img.naturalWidth) return;
-  _ivZoom = img.naturalWidth / canvas.offsetWidth;
-  _ivTx = 0; _ivTy = 0; _ivApply();
+function ivZoomIn(){_ivZoom=Math.min(_ivZoom*1.25,10);_ivApply();}
+function ivZoomOut(){_ivZoom=Math.max(_ivZoom/1.25,0.1);if(_ivZoom<=1){_ivTx=0;_ivTy=0;}_ivApply();}
+function ivFit(){_ivZoom=1;_ivTx=0;_ivTy=0;_ivApply();}
+function ivActual(){
+  const img=document.getElementById('iv-img');if(!img.naturalWidth)return;
+  _ivZoom=img.naturalWidth/document.getElementById('iv-canvas').offsetWidth;
+  _ivTx=0;_ivTy=0;_ivApply();
 }
-
-function ivWheel(e) {
+function ivWheel(e){
   e.preventDefault();
-  const factor = e.deltaY > 0 ? 0.85 : 1.18;
-  _ivZoom = Math.max(0.1, Math.min(10, _ivZoom * factor));
-  if (_ivZoom <= 1) { _ivTx = 0; _ivTy = 0; }
-  _ivApply();
+  _ivZoom=Math.max(0.1,Math.min(10,_ivZoom*(e.deltaY>0?0.85:1.18)));
+  if(_ivZoom<=1){_ivTx=0;_ivTy=0;}_ivApply();
 }
+function ivDragStart(e){if(e.button!==0||_ivZoom<=1)return;_ivDragging=true;_ivDrag0={x:e.clientX,y:e.clientY,tx:_ivTx,ty:_ivTy};document.getElementById('iv-img').style.cursor='grabbing';}
+function ivDragMove(e){if(!_ivDragging)return;_ivTx=_ivDrag0.tx+(e.clientX-_ivDrag0.x);_ivTy=_ivDrag0.ty+(e.clientY-_ivDrag0.y);document.getElementById('iv-img').style.transform=`translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`;}
+function ivDragEnd(){_ivDragging=false;if(_ivZoom>1)document.getElementById('iv-img').style.cursor='grab';}
 
-function ivDragStart(e) {
-  if (e.button !== 0 || _ivZoom <= 1) return;
-  _ivDragging = true;
-  _ivDrag0 = { x: e.clientX, y: e.clientY, tx: _ivTx, ty: _ivTy };
-  document.getElementById('iv-img').style.cursor = 'grabbing';
-}
+// ── Settings ──────────────────────────────────────────────────────────────────
 
-function ivDragMove(e) {
-  if (!_ivDragging) return;
-  _ivTx = _ivDrag0.tx + (e.clientX - _ivDrag0.x);
-  _ivTy = _ivDrag0.ty + (e.clientY - _ivDrag0.y);
-  document.getElementById('iv-img').style.transform = `translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`;
-}
-
-function ivDragEnd() {
-  _ivDragging = false;
-  if (_ivZoom > 1) document.getElementById('iv-img').style.cursor = 'grab';
-}
-
-// ── Settings / Credentials ──────────────────────────────────────────────────
 function openSettings() {
-  ['settings-cur-pass','settings-new-user','settings-new-pass','settings-conf-pass'].forEach(id => {
-    document.getElementById(id).value = '';
-  });
-  document.getElementById('settings-error').style.display = 'none';
-  show('settings-modal');
-  setTimeout(() => document.getElementById('settings-cur-pass').focus(), 50);
+  ['settings-cur-pass','settings-new-user','settings-new-pass','settings-conf-pass'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('settings-error').style.display='none';
+  show('settings-modal'); setTimeout(()=>document.getElementById('settings-cur-pass').focus(),50);
 }
-
 function closeSettings() { hide('settings-modal'); }
 
 async function saveSettings() {
-  const cur  = document.getElementById('settings-cur-pass').value;
-  const user = document.getElementById('settings-new-user').value.trim();
-  const pass = document.getElementById('settings-new-pass').value;
-  const conf = document.getElementById('settings-conf-pass').value;
-  const err  = document.getElementById('settings-error');
-  const btn  = document.getElementById('settings-save-btn');
-
-  err.style.display = 'none';
-  if (!cur) { err.textContent = 'Current password is required.'; err.style.display = 'block'; return; }
-  if (pass && pass !== conf) { err.textContent = 'New passwords do not match.'; err.style.display = 'block'; return; }
-  if (pass && pass.length < 8) { err.textContent = 'New password must be at least 8 characters.'; err.style.display = 'block'; return; }
-  if (!user && !pass) { err.textContent = 'Nothing to change — enter a new username or password.'; err.style.display = 'block'; return; }
-
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Saving…';
+  const cur=document.getElementById('settings-cur-pass').value;
+  const user=document.getElementById('settings-new-user').value.trim();
+  const pass=document.getElementById('settings-new-pass').value;
+  const conf=document.getElementById('settings-conf-pass').value;
+  const err=document.getElementById('settings-error'), btn=document.getElementById('settings-save-btn');
+  err.style.display='none';
+  if (!cur) { err.textContent='Current password is required.'; err.style.display='block'; return; }
+  if (pass&&pass!==conf) { err.textContent='New passwords do not match.'; err.style.display='block'; return; }
+  if (pass&&pass.length<8) { err.textContent='New password must be at least 8 characters.'; err.style.display='block'; return; }
+  if (!user&&!pass) { err.textContent='Nothing to change.'; err.style.display='block'; return; }
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Saving…';
   try {
-    const r = await api('/api/auth/update-credentials', {
-      method: 'POST',
-      body: JSON.stringify({ current_password: cur, new_username: user || null, new_password: pass || null }),
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.detail || 'Failed to save');
+    const r=await api('/api/auth/update-credentials',{method:'POST',body:JSON.stringify({current_password:cur,new_username:user||null,new_password:pass||null})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.detail||'Failed to save');
     closeSettings();
-    if (d.relogin_required) {
-      toast('Username changed — please sign in again', 'info', 3000);
-      setTimeout(() => { authToken = null; showLogin(); }, 1500);
-    } else {
-      toast('Credentials updated', 'success');
-    }
-  } catch (e) {
-    err.textContent = e.message;
-    err.style.display = 'block';
-  } finally {
-    btn.disabled = false; btn.textContent = 'Save Changes';
-  }
+    if (d.relogin_required) { toast('Username changed — please sign in again','info',3000); setTimeout(()=>{authToken=null;showLogin();},1500); }
+    else toast('Credentials updated','success');
+  } catch(e) { err.textContent=e.message; err.style.display='block'; }
+  finally { btn.disabled=false; btn.textContent='Save Changes'; }
 }
 
 checkAuth();
