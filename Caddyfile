@@ -1,5 +1,11 @@
+# Global options MUST be first in Caddyfile
+{
+    local_certs
+    email admin@litelayer.local
+}
+
 # ── HTTP — direct LAN access (no cert required) ───────────────────────────────
-# Open http://<pi-ip> or http://litelayer.local in any browser, no warnings.
+# Open http://<pi-ip> or http://litelayer.local — no cert warnings.
 :80 {
     reverse_proxy localhost:8000
     encode gzip zstd
@@ -10,15 +16,9 @@
     }
 }
 
-# ── HTTPS — for VPN clients that want TLS (optional) ─────────────────────────
-# Caddy generates a local self-signed cert. Browsers will warn on first visit;
-# click Advanced → Proceed, or install Caddy's CA cert on your devices.
-# VPN clients (WireGuard/Tailscale/Netbird/ZeroTier) can also use plain HTTP.
-{
-    local_certs
-    email admin@litelayer.local
-}
-
+# ── HTTPS — for VPN clients that need TLS ────────────────────────────────────
+# Caddy generates a local self-signed cert. Browsers will warn on IP addresses;
+# VPN clients can also use the plain HTTP endpoint above.
 :443 {
     reverse_proxy localhost:8000 {
         header_up X-Forwarded-Proto https
@@ -33,6 +33,5 @@
 }
 
 # ── Cloudflare Tunnel ─────────────────────────────────────────────────────────
-# cloudflared connects outbound to Cloudflare and proxies to localhost:8000.
-# Caddy is not involved. Run:  sudo cloudflared tunnel run litelayer
-# See docs/vpn.md#cloudflare-tunnel for full setup.
+# cloudflared connects outbound to Cloudflare → proxies to localhost:8000.
+# Caddy is not involved. See docs/vpn.md#cloudflare-tunnel.

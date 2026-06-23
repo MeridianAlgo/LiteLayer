@@ -659,6 +659,70 @@
   @keyframes spin    { to { transform: rotate(360deg); } }
   @keyframes shimmer { to { background-position: -200% 0; } }
 
+  /* ── Image Viewer ── */
+  .iv-backdrop {
+    position: fixed; inset: 0; background: #000;
+    display: flex; flex-direction: column;
+    z-index: 2000; animation: fadeIn 0.12s ease;
+  }
+  .iv-header {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 3;
+    display: flex; align-items: center; padding: 10px 14px; gap: 10px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.75), transparent);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .iv-backdrop:hover .iv-header { opacity: 1; }
+  .iv-filename {
+    flex: 1; font-size: 14px; font-weight: 500; color: #fff;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .iv-counter { font-size: 12px; color: rgba(255,255,255,0.45); flex-shrink: 0; }
+  .iv-hcontrols { display: flex; gap: 4px; flex-shrink: 0; }
+  .iv-btn {
+    width: 32px; height: 32px; border-radius: 6px; border: none; cursor: pointer;
+    background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s; font-size: 15px;
+  }
+  .iv-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+  .iv-zoom-pct {
+    font-size: 11px; color: rgba(255,255,255,0.5); min-width: 38px;
+    text-align: center; align-self: center;
+  }
+  .iv-canvas {
+    flex: 1; position: relative; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    user-select: none;
+  }
+  .iv-img {
+    max-width: 100%; max-height: 100%; object-fit: contain;
+    transform-origin: center center;
+    transition: opacity 0.2s, transform 0.08s ease-out;
+    will-change: transform;
+    -webkit-user-drag: none;
+  }
+  .iv-nav {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 44px; height: 88px; z-index: 2; border: none; cursor: pointer;
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.6);
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s, opacity 0.2s;
+    opacity: 0;
+  }
+  .iv-backdrop:hover .iv-nav { opacity: 1; }
+  .iv-nav:hover { background: rgba(255,255,255,0.16); color: #fff; }
+  .iv-nav-prev { left: 12px; }
+  .iv-nav-next { right: 12px; }
+  .iv-footer {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 3;
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+    padding: 8px 16px;
+    background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
+    font-size: 11px; color: rgba(255,255,255,0.35);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .iv-backdrop:hover .iv-footer { opacity: 1; }
+
   /* ── Modal ── */
   .modal-backdrop {
     position: fixed; inset: 0; background: rgba(0,0,0,0.6);
@@ -854,6 +918,54 @@
   </main>
 </div>
 
+<!-- Image Viewer -->
+<div id="image-viewer" class="iv-backdrop hidden">
+  <div class="iv-header">
+    <span class="iv-filename" id="iv-filename"></span>
+    <span class="iv-counter" id="iv-counter"></span>
+    <div class="iv-hcontrols">
+      <button class="iv-btn" onclick="ivZoomOut()" title="Zoom out (-)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <span class="iv-zoom-pct" id="iv-zoom-pct">100%</span>
+      <button class="iv-btn" onclick="ivZoomIn()" title="Zoom in (+)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+      <button class="iv-btn" onclick="ivFit()" title="Fit to screen (F)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>
+      </button>
+      <button class="iv-btn" onclick="ivActual()" title="Actual size (0)">1:1</button>
+      <button class="iv-btn" onclick="ivDownloadCurrent()" title="Download">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+      </button>
+      <button class="iv-btn" onclick="closeImageViewer()" title="Close (Esc)" style="color:rgba(255,255,255,0.5)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="iv-canvas" id="iv-canvas"
+    onwheel="ivWheel(event)"
+    onmousedown="ivDragStart(event)"
+    onmousemove="ivDragMove(event)"
+    onmouseup="ivDragEnd()"
+    onmouseleave="ivDragEnd()">
+    <button class="iv-nav iv-nav-prev" id="iv-prev" onclick="ivNav(-1)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <img id="iv-img" class="iv-img" alt="" draggable="false" style="opacity:0">
+    <button class="iv-nav iv-nav-next" id="iv-next" onclick="ivNav(1)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </div>
+
+  <div class="iv-footer">
+    <span id="iv-filesize"></span>
+    <span id="iv-dims"></span>
+    <span id="iv-modified"></span>
+  </div>
+</div>
+
 <!-- Settings Modal -->
 <div id="settings-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
@@ -899,6 +1011,7 @@ let currentDriveId = null;
 let currentPath    = '/';
 let fileView       = 'list';
 let authToken      = null;
+let dirEntries     = [];   // current directory entries for image viewer nav
 
 // ── Utils ──────────────────────────────────────────────────────────────────
 
@@ -1218,7 +1331,15 @@ async function loadFiles(path) {
   renderFiles(data.entries, path);
 }
 
+function fileClick(idx) {
+  const e = dirEntries[idx];
+  if (!e) return;
+  if (isImageFile(e.name)) openImageViewer(idx);
+  else downloadFile(e.path, e.name);
+}
+
 function renderFiles(entries, path) {
+  dirEntries = entries;
   const container = document.getElementById('files-container');
 
   if (!entries.length) {
@@ -1249,8 +1370,8 @@ function renderFiles(entries, path) {
           <div class="file-row-date"></div>
           <div class="file-row-dl"></div>
         </div>` : ''}
-        ${entries.map(e => `
-        <div class="file-row" onclick="${e.is_dir ? `openDir('${esc(e.path)}','${esc(e.name)}')` : `downloadFile('${esc(e.path)}','${esc(e.name)}')`}">
+        ${entries.map((e, i) => `
+        <div class="file-row" onclick="${e.is_dir ? `openDir('${esc(e.path)}','${esc(e.name)}')` : `fileClick(${i})`}">
           ${fileIconHtml(e.name, e.is_dir)}
           <div class="file-row-name" title="${esc(e.name)}">${esc(e.name)}</div>
           <div class="file-row-size">${e.is_dir ? '—' : fmt(e.size_bytes)}</div>
@@ -1271,8 +1392,8 @@ function renderFiles(entries, path) {
           <div class="file-cell-name">..</div>
           <div class="file-cell-size"></div>
         </div>` : ''}
-        ${entries.map(e => `
-        <div class="file-cell" onclick="${e.is_dir ? `openDir('${esc(e.path)}','${esc(e.name)}')` : `downloadFile('${esc(e.path)}','${esc(e.name)}')`}" title="${esc(e.name)}">
+        ${entries.map((e, i) => `
+        <div class="file-cell" onclick="${e.is_dir ? `openDir('${esc(e.path)}','${esc(e.name)}')` : `fileClick(${i})`}" title="${esc(e.name)}">
           ${fileIconHtml(e.name, e.is_dir, 22, 'fi-wrap-lg')}
           <div class="file-cell-name">${esc(e.name)}</div>
           <div class="file-cell-size">${e.is_dir ? '' : fmt(e.size_bytes)}</div>
@@ -1410,6 +1531,132 @@ async function openOta() {
   } else {
     toast(d.github_reachable ? 'No update available' : 'GitHub unreachable', 'info', 2500);
   }
+}
+
+// ── Image Viewer ────────────────────────────────────────────────────────────
+const IV_EXTS = new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif']);
+
+let _ivBlobUrl  = null;
+let _ivIndex    = 0;
+let _ivImages   = [];   // filtered image-only entries
+let _ivZoom     = 1;
+let _ivTx       = 0, _ivTy = 0;
+let _ivDragging = false;
+let _ivDrag0    = { x:0, y:0, tx:0, ty:0 };
+
+function isImageFile(name) { return IV_EXTS.has((name.split('.').pop()||'').toLowerCase()); }
+
+function openImageViewer(dirIdx) {
+  // Build image-only list from current dir, find viewer index
+  _ivImages = dirEntries.map((e,i) => ({...e, dirIdx:i})).filter(e => !e.is_dir && isImageFile(e.name));
+  _ivIndex  = _ivImages.findIndex(e => e.dirIdx === dirIdx);
+  if (_ivIndex < 0) _ivIndex = 0;
+  show('image-viewer');
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', _ivKey);
+  _ivLoad();
+}
+
+function closeImageViewer() {
+  hide('image-viewer');
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', _ivKey);
+  if (_ivBlobUrl) { URL.revokeObjectURL(_ivBlobUrl); _ivBlobUrl = null; }
+  document.getElementById('iv-img').src = '';
+}
+
+async function _ivLoad() {
+  const entry = _ivImages[_ivIndex];
+  if (!entry) return;
+  const img = document.getElementById('iv-img');
+  img.style.opacity = '0';
+  _ivZoom = 1; _ivTx = 0; _ivTy = 0; _ivApply();
+  document.getElementById('iv-filename').textContent  = entry.name;
+  document.getElementById('iv-counter').textContent   = `${_ivIndex + 1} / ${_ivImages.length}`;
+  document.getElementById('iv-filesize').textContent  = entry.size_bytes ? fmt(entry.size_bytes) : '';
+  document.getElementById('iv-modified').textContent  = entry.modified ? fmtDate(entry.modified) : '';
+  document.getElementById('iv-dims').textContent      = '';
+  document.getElementById('iv-prev').style.visibility = _ivIndex > 0 ? '' : 'hidden';
+  document.getElementById('iv-next').style.visibility = _ivIndex < _ivImages.length - 1 ? '' : 'hidden';
+  if (_ivBlobUrl) { URL.revokeObjectURL(_ivBlobUrl); _ivBlobUrl = null; }
+  try {
+    const url = `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
+    const hdrs = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+    const r   = await fetch(url, { headers: hdrs, credentials: 'include' });
+    const blob = await r.blob();
+    _ivBlobUrl = URL.createObjectURL(blob);
+    img.onload = () => {
+      img.style.opacity = '1';
+      document.getElementById('iv-dims').textContent = `${img.naturalWidth} × ${img.naturalHeight}px`;
+    };
+    img.src = _ivBlobUrl;
+  } catch { toast('Could not load image', 'error'); }
+}
+
+function ivNav(d) {
+  const n = _ivIndex + d;
+  if (n < 0 || n >= _ivImages.length) return;
+  _ivIndex = n; _ivLoad();
+}
+
+function ivDownloadCurrent() {
+  const e = _ivImages[_ivIndex];
+  if (e) downloadFile(e.path, e.name);
+}
+
+function _ivKey(e) {
+  if (e.key === 'Escape')                    closeImageViewer();
+  else if (e.key === 'ArrowLeft')            ivNav(-1);
+  else if (e.key === 'ArrowRight')           ivNav(1);
+  else if (e.key === '+' || e.key === '=')   ivZoomIn();
+  else if (e.key === '-')                    ivZoomOut();
+  else if (e.key === 'f' || e.key === 'F')   ivFit();
+  else if (e.key === '0')                    ivActual();
+}
+
+function _ivApply() {
+  const img = document.getElementById('iv-img');
+  img.style.transform = `translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`;
+  document.getElementById('iv-zoom-pct').textContent = Math.round(_ivZoom * 100) + '%';
+  img.style.cursor = _ivZoom > 1 ? 'grab' : 'default';
+}
+
+function ivZoomIn()  { _ivZoom = Math.min(_ivZoom * 1.25, 10); _ivApply(); }
+function ivZoomOut() { _ivZoom = Math.max(_ivZoom / 1.25, 0.1); if (_ivZoom <= 1) { _ivTx = 0; _ivTy = 0; } _ivApply(); }
+function ivFit()     { _ivZoom = 1; _ivTx = 0; _ivTy = 0; _ivApply(); }
+function ivActual()  {
+  const img = document.getElementById('iv-img');
+  const canvas = document.getElementById('iv-canvas');
+  if (!img.naturalWidth) return;
+  _ivZoom = img.naturalWidth / canvas.offsetWidth;
+  _ivTx = 0; _ivTy = 0; _ivApply();
+}
+
+function ivWheel(e) {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.85 : 1.18;
+  _ivZoom = Math.max(0.1, Math.min(10, _ivZoom * factor));
+  if (_ivZoom <= 1) { _ivTx = 0; _ivTy = 0; }
+  _ivApply();
+}
+
+function ivDragStart(e) {
+  if (e.button !== 0 || _ivZoom <= 1) return;
+  _ivDragging = true;
+  _ivDrag0 = { x: e.clientX, y: e.clientY, tx: _ivTx, ty: _ivTy };
+  document.getElementById('iv-img').style.cursor = 'grabbing';
+}
+
+function ivDragMove(e) {
+  if (!_ivDragging) return;
+  _ivTx = _ivDrag0.tx + (e.clientX - _ivDrag0.x);
+  _ivTy = _ivDrag0.ty + (e.clientY - _ivDrag0.y);
+  document.getElementById('iv-img').style.transform = `translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`;
+}
+
+function ivDragEnd() {
+  _ivDragging = false;
+  if (_ivZoom > 1) document.getElementById('iv-img').style.cursor = 'grab';
 }
 
 // ── Settings / Credentials ──────────────────────────────────────────────────
