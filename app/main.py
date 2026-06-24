@@ -224,15 +224,21 @@ def _stop_other_vpns(keep: str) -> None:
 @app.post("/api/system/vpn/switch")
 def switch_vpn(req: VpnSwitchRequest, _: str = Depends(require_auth)):
     """Enable + start the chosen VPN now and turn the others off. No reboot."""
-    import subprocess
+    import os, subprocess
     if req.name not in _VPN_UNITS:
         raise HTTPException(400, f"Unknown VPN: {req.name}")
     tool, unit = _VPN_UNITS[req.name]
     if not _vpn_installed(tool, unit):
         raise HTTPException(409, f"{req.name} is not installed on this device")
+    # WireGuard can't start without a tunnel config — fail with a clear message
+    # instead of a raw systemd 500.
+    if req.name == "WireGuard" and not os.path.exists("/etc/wireguard/wg0.conf"):
+        raise HTTPException(409, "WireGuard needs /etc/wireguard/wg0.conf — add a tunnel config first (see docs/vpn.md).")
     r = subprocess.run(["systemctl", "enable", "--now", unit], capture_output=True, text=True)
     if r.returncode != 0:
-        raise HTTPException(500, (r.stderr or r.stdout or "systemctl failed").strip())
+        detail = (r.stderr or r.stdout or "").strip()
+        status = _sysctl("status", unit, "--no-pager", "-n", "20")
+        raise HTTPException(500, f"Could not start {req.name}: {detail}\n\n{status[-800:]}")
     _stop_other_vpns(req.name)   # turn off any old VPN
     return {"status": "switched", "vpn": req.name, "unit": unit,
             "active": _sysctl("is-active", unit) == "active"}
@@ -273,16 +279,18 @@ def _vlog(msg: str) -> None:
 
 
 def _vpn_install_worker(name: str, network_id: str | None) -> None:
-    import subprocess, datetime
+    import os, subprocess, datetime
+    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
     try:
         _vlog(f"\n--- install {name} {datetime.datetime.now().isoformat(timespec='seconds')} ---")
         for cmd in _VPN_INSTALL.get(name, []):
             _vlog(f"$ {cmd}")
-            r = subprocess.run(cmd, shell=True, executable="/bin/bash",
-                               capture_output=True, text=True, timeout=600)
+            r = subprocess.run("set -o pipefail; " + cmd, shell=True, executable="/bin/bash",
+                               capture_output=True, text=True, timeout=600, env=env)
             _vlog(r.stdout + r.stderr)
             if r.returncode != 0:
-                _vpn_state["error"] = f"Install step failed: {cmd}"
+                tail = (r.stderr or r.stdout or "").strip().splitlines()[-4:]
+                _vpn_state["error"] = f"Install failed (exit {r.returncode}): " + " | ".join(tail)
                 return
 
         tool, unit = _VPN_UNITS[name]

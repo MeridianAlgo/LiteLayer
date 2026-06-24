@@ -99,8 +99,8 @@ async function openOtaModal() {
       statusEl.innerHTML = `<span style="color:var(--text-3)">GitHub unreachable</span>`;
       runBtn.disabled = true;
     } else if (!d?.update_available) {
-      statusEl.innerHTML = `<span style="color:var(--green)">✓ Up to date</span>`;
-      runBtn.disabled = true; runBtn.textContent = 'Up to date';
+      statusEl.innerHTML = `<span style="color:var(--text-3)">On v${d?.current_version || '—'}</span>`;
+      runBtn.disabled = true; runBtn.textContent = 'Apply Update';
     } else {
       statusEl.innerHTML = `<span style="color:var(--yellow)">${d.latest_sha?.slice(0,7)} available</span>`;
     }

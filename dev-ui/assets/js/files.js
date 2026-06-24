@@ -314,27 +314,44 @@ function handleDropUpload(e) {
   document.getElementById('files-area').classList.remove('drag-over');
   if (!currentDriveId) { toast('Select a drive first', 'error'); return; }
   const files = [...(e.dataTransfer?.files || [])];
+  console.log('[upload] drop:', files.length, 'file(s)', files.map(f => f.name));
   if (files.length) uploadFiles(files);
+  else console.warn('[upload] drop had no files');
 }
 
 async function uploadFiles(files) {
-  if (!currentDriveId) { toast('Select a drive first', 'error'); return; }
-  if (!files.length) return;
-  await ensureWritable();   // best-effort; the upload endpoint also self-heals a read-only mount
+  files = [...(files || [])];
+  console.log('[upload] start —', files.length, 'file(s), drive:', currentDriveId, 'path:', currentPath);
+  if (!currentDriveId) { toast('Select a drive first', 'error'); console.warn('[upload] no drive selected'); return; }
+  if (!files.length) { console.warn('[upload] no files passed'); return; }
+  const wrote = await ensureWritable();   // best-effort; upload endpoint also self-heals a ro mount
+  console.log('[upload] ensureWritable ->', wrote);
   let ok = 0, fail = 0;
   for (const file of files) {
+    const url = `${API}/api/files/upload?drive=${encodeURIComponent(currentDriveId)}&path=${encodeURIComponent(currentPath)}`;
     const fd = new FormData(); fd.append('file', file);
+    console.log(`[upload] POST ${url}  (${file.name}, ${file.size} bytes)`);
     try {
-      const r = await fetch(`${API}/api/files/upload?drive=${encodeURIComponent(currentDriveId)}&path=${encodeURIComponent(currentPath)}`, {
+      const r = await fetch(url, {
         method: 'POST',
         headers: authToken ? {Authorization: `Bearer ${authToken}`} : {},
         credentials: 'include',
         body: fd,
       });
+      const text = await r.text().catch(() => '');
+      console.log(`[upload] <- ${r.status} ${r.statusText}`, text);
       if (r.ok) ok++;
-      else { const j = await r.json().catch(() => ({})); toast(j.detail || `Upload failed: ${file.name}`, 'error', 4000); fail++; }
-    } catch { fail++; toast(`Upload failed: ${file.name}`, 'error', 4000); }
+      else {
+        let detail = text; try { detail = JSON.parse(text).detail || text; } catch {}
+        toast(detail || `Upload failed (${r.status}): ${file.name}`, 'error', 5000);
+        console.error('[upload] FAILED:', r.status, detail); fail++;
+      }
+    } catch (err) {
+      console.error('[upload] network/exception:', err);
+      toast(`Upload error: ${file.name} — ${err.message}`, 'error', 5000); fail++;
+    }
   }
+  console.log(`[upload] done — ok:${ok} fail:${fail}`);
   if (ok) { toast(`Uploaded ${ok} file${ok > 1 ? 's' : ''}`, 'success'); loadFiles(currentPath); }
 }
 
