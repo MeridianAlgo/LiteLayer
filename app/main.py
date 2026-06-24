@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from app.config import CORS_ORIGINS, DEV_UI_PATH
@@ -118,6 +119,11 @@ def update_credentials(req: UpdateCredentialsRequest, username: str = Depends(re
         sessions.invalidate_user(username)
         return {"status": "ok", "relogin_required": True}
     return {"status": "ok", "relogin_required": False}
+
+
+_assets_dir = DEV_UI_PATH / "assets"
+if _assets_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
 
 
 @app.get("/", include_in_schema=False)

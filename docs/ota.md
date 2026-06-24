@@ -1,91 +1,102 @@
 # OTA Updates
 
-LiteLayer checks GitHub for updates automatically (daily at 03:00) and lets you
-apply them with a single API call or CLI command.
+LiteLayer can update itself from GitHub via the UI or the API.
 
 ---
 
 ## How it works
 
-1. `litelayer-update.timer` fires daily and runs `update.sh --auto`
-2. The script fetches `origin/main`, compares SHAs, and applies if different
-3. Steps: `git pull` → `pip install -r requirements.txt` → `systemctl restart litelayer`
-4. A rollback SHA is logged so you can revert if needed
-
-The UI in the separate `litelayer-ui` repo has its own independent OTA path
-(same mechanism, different repo).
+1. `GET /api/ota/status` fetches `origin/main` and compares SHAs
+2. If `update_available` is true the UI shows a yellow badge and banner
+3. `POST /api/ota/update` runs the update in a background thread:
+   - `git pull origin main`
+   - Creates a local git tag `applied-YYYYMMDD-HHMMSS` for history
+   - `pip install -q -r requirements.txt`
+   - `systemctl restart litelayer`
+4. If `is_major` is true (install.sh or requirements.txt changed), the UI
+   offers **Full Reinstall** which re-runs the one-liner installer instead.
 
 ---
 
 ## API endpoints
 
-All require authentication.
+All endpoints require authentication.
 
 ```
-GET  /api/ota/status   → { current_version, current_sha, latest_sha,
-                            update_available, update_running, changelog_url }
-POST /api/ota/update   → triggers update in background
-GET  /api/ota/logs     → last N lines of update log (?lines=100)
+GET  /api/ota/status
+  → { current_version, current_sha, latest_sha,
+      update_available, is_major, update_running,
+      github_reachable, changelog_url }
+
+POST /api/ota/update        { }                   # standard update
+POST /api/ota/update        { "reinstall": true }  # full reinstall (major)
+
+GET  /api/ota/logs          ?lines=100            # tail of update log
 ```
 
 ### Check from CLI
 ```bash
-curl -s -b "litelayer_session=<token>" https://<pi-ip>/api/ota/status | python3 -m json.tool
+curl -s -b "litelayer_session=<token>" http://litelayer.local/api/ota/status | python3 -m json.tool
 ```
 
 ### Trigger update from CLI
 ```bash
-curl -s -X POST -b "litelayer_session=<token>" https://<pi-ip>/api/ota/update
+# Standard update
+curl -s -X POST -H "Content-Type: application/json" \
+     -b "litelayer_session=<token>" \
+     http://litelayer.local/api/ota/update
+
+# Force full reinstall (same as one-liner)
+curl -s -X POST -H "Content-Type: application/json" \
+     -d '{"reinstall":true}' \
+     -b "litelayer_session=<token>" \
+     http://litelayer.local/api/ota/update
 ```
 
 ---
 
-## Manual update
+## Git tags
 
+After every successful standard update the backend creates a local tag:
+
+```
+applied-20260622-030012
+```
+
+List update history on the Pi:
 ```bash
-sudo /opt/litelayer/installer/update.sh          # interactive, asks before applying
-sudo /opt/litelayer/installer/update.sh --auto   # non-interactive
-sudo /opt/litelayer/installer/update.sh --check  # print status only
+git -C /opt/litelayer tag | sort
 ```
 
 ---
 
 ## Rollback
 
-The update log at `/var/log/litelayer/update.log` records the pre-update SHA:
+The update log at `/var/log/litelayer/update.log` records each run.
+To roll back to the previous commit:
 
-```
---- 2026-06-22T03:00:01 update.sh --auto ---
-Update available: 0.1.0 (abc12345) → 0.2.0 (def67890)
-Snapshot: abc12345
-...
-Rollback if needed:  cd /opt/litelayer && git checkout abc12345 && systemctl restart litelayer
-```
-
-To roll back:
 ```bash
 cd /opt/litelayer
-sudo git checkout <snapshot-sha>
+# find the previous tag or SHA
+git log --oneline | head -5
+sudo git checkout <sha>
 sudo systemctl restart litelayer
 ```
 
 ---
 
-## Disabling automatic updates
+## Changelog in the UI
 
-```bash
-sudo systemctl disable --now litelayer-update.timer
-```
-
-Re-enable:
-```bash
-sudo systemctl enable --now litelayer-update.timer
-```
+Open **Settings → Updates** to see the last 20 commits from GitHub,
+with the currently-installed commit highlighted in accent color and
+any newer commits marked in yellow.
 
 ---
 
-## Update schedule
+## Update log
 
-Default: daily at 03:00 with a random delay of up to 30 minutes (avoids
-all devices hitting GitHub simultaneously). Edit
-`/etc/systemd/system/litelayer-update.timer` to change.
+```bash
+sudo cat /var/log/litelayer/update.log
+# or via API:
+curl -s -b "litelayer_session=<token>" http://litelayer.local/api/ota/logs | python3 -m json.tool
+```

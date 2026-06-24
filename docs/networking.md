@@ -63,7 +63,26 @@ The backend (`0.0.0.0:8000`) is proxied by Caddy; you don't need to expose it di
 
 ---
 
-## Cloudflare Tunnel seam
+## mDNS / litelayer.local
 
-The `# TODO: cf-tunnel` comment in `Caddyfile` marks where to hook in.
-See [vpn.md — Cloudflare Tunnel](vpn.md#cloudflare-tunnel-future--planned) for setup.
+avahi-daemon advertises `litelayer.local` on the LAN so you can reach the UI
+without knowing the Pi's IP address.
+
+```bash
+# Verify mDNS is working from another device
+ping litelayer.local
+```
+
+If `litelayer.local` doesn't resolve, check avahi is running on the Pi:
+```bash
+sudo systemctl status avahi-daemon
+```
+
+---
+
+## Cloudflare Tunnel
+
+`cloudflared` connects outbound to Cloudflare and proxies to `localhost:8000`.
+Caddy is not involved in tunnel traffic.
+
+See [vpn.md](vpn.md) for full tunnel setup.
