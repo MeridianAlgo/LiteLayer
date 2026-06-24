@@ -58,9 +58,9 @@ const _FT = Object.fromEntries(Object.entries(_IC).map(([k, v]) => [k.replace('-
 
 const _COLOR_DEFAULTS = {
   dark: {
-    '--bg':'#0b0a14','--bg2':'#0e0c1a','--bg3':'#13101f',
+    '--bg':'#0a0a0b','--bg2':'#121214','--bg3':'#1a1a1d',
     '--accent':'#7c3aed','--accent2':'#4f46e5','--accent-light':'#a78bfa',
-    '--text':'#f0eeff','--text-2':'#9b8fcf','--text-3':'#5c5380',
+    '--text':'#f2f2f4','--text-2':'#a0a0a8','--text-3':'#6b6b73',
     '--logo-text':'#a78bfa','--logo-img':'#7c3aed',
     '--green':'#10b981','--yellow':'#f59e0b','--red':'#ef4444',
     ..._IC, ..._FT,
@@ -125,7 +125,6 @@ function applyAccentColor(hex) {
   _currentAccent = 'custom';
   localStorage.setItem('ll-accent', 'custom');
   localStorage.setItem('ll-accent-hex', hex);
-  document.querySelectorAll('.accent-swatch').forEach(el => el.classList.remove('active'));
   const hexEl = document.getElementById('accent-hex'); if (hexEl) hexEl.textContent = hex;
 }
 
@@ -133,16 +132,15 @@ function buildAccentGrid() {
   const grid = document.getElementById('accent-grid');
   if (!grid) return;
   const cur = document.documentElement.style.getPropertyValue('--accent').trim() || '#7c3aed';
-  // Free color picker first — any color, not just presets.
-  grid.innerHTML = `<div class="accent-pick-row">
-      <input type="color" id="accent-color-input" class="color-swatch-input" value="${cur}"
-        oninput="applyAccentColor(this.value)" title="Pick any accent color">
-      <span class="color-picker-hex" id="accent-hex" onclick="document.getElementById('accent-color-input').click()">${cur}</span>
-      <span style="font-size:11px;color:var(--text-3)">Pick any color</span>
-    </div>
-    <div class="accent-presets">${ACCENTS.map(a => `
-      <button class="accent-swatch${a.id === _currentAccent ? ' active' : ''}" data-accent="${a.id}"
-        style="background:${a.c}" title="${a.label}" onclick="applyAccent('${a.id}')"></button>`).join('')}</div>`;
+  // Render a single color-picker row matching the other color pickers in the settings
+  grid.innerHTML = `<div class="color-picker-row">
+      <span class="color-picker-label">Accent color</span>
+      <div class="color-picker-well">
+        <input type="color" id="accent-color-input" class="color-swatch-input" value="${cur}"
+          oninput="applyAccentColor(this.value)" title="Pick any accent color">
+        <span class="color-picker-hex" id="accent-hex" onclick="document.getElementById('accent-color-input').click()">${cur}</span>
+      </div>
+    </div>`;
 }
 
 // ── Individual color customisation ────────────────────────────────────────────

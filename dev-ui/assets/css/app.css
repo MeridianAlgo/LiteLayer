@@ -2,9 +2,9 @@
 
 /* ── Dark theme (default) ── */
 :root {
-  --bg:           #0b0a14;
-  --bg2:          #0e0c1a;
-  --bg3:          #13101f;
+  --bg:           #0a0a0b;
+  --bg2:          #121214;
+  --bg3:          #1a1a1d;
   --surface:      rgba(255,255,255,0.04);
   --surface-h:    rgba(255,255,255,0.07);
   --surface-a:    rgba(255,255,255,0.10);
@@ -18,9 +18,9 @@
   --yellow:       #f59e0b;
   --red:          #ef4444;
   --red-dim:      rgba(239,68,68,0.15);
-  --text:         #f0eeff;
-  --text-2:       #9b8fcf;
-  --text-3:       #5c5380;
+  --text:         #f2f2f4;
+  --text-2:       #a0a0a8;
+  --text-3:       #6b6b73;
   --logo-text:    #a78bfa;
   --logo-img:     #7c3aed;
   /* Icon colors per file type */
@@ -114,8 +114,6 @@ body {
 .btn-danger:hover { background: #e15555; color: #fff; border-color: #e15555; }
 .ctx-danger { color: #e77676; }
 .ctx-danger:hover { background: rgba(231,118,118,0.14); }
-.accent-pick-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.accent-presets { display: flex; flex-wrap: wrap; gap: 8px; }
 .vpn-current { font-size: 12px; color: var(--text-2); margin-bottom: 10px; }
 .vpn-installing { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); margin-top: 8px; }
 .btn-sm { padding: 6px 11px; font-size: 12px; }
@@ -370,20 +368,16 @@ body {
 .theme-card:hover { border-color: var(--border-h); }
 .theme-card.active { border-color: var(--accent); }
 .theme-preview { height: 52px; border-radius: 6px; margin-bottom: 8px; overflow: hidden; position: relative; }
-.tp-dark  { background: #0b0a14; }
+.tp-dark  { background: #0a0a0b; }
 .tp-light { background: #f5f4fe; }
 .tp-bar   { height: 10px; position: absolute; top: 0; left: 0; right: 0; }
-.tp-dark  .tp-bar { background: #110f1e; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.tp-dark  .tp-bar { background: #121214; border-bottom: 1px solid rgba(255,255,255,0.07); }
 .tp-light .tp-bar { background: #ece9ff; border-bottom: 1px solid rgba(0,0,0,0.08); }
 .tp-sidebar { width: 28%; position: absolute; left: 0; top: 10px; bottom: 0; }
-.tp-dark  .tp-sidebar { background: #0e0c1a; border-right: 1px solid rgba(255,255,255,0.06); }
+.tp-dark  .tp-sidebar { background: #1a1a1d; border-right: 1px solid rgba(255,255,255,0.06); }
 .tp-light .tp-sidebar { background: #ece9ff; border-right: 1px solid rgba(0,0,0,0.07); }
 .tp-dot { width: 6px; height: 6px; border-radius: 99px; position: absolute; right: 8px; bottom: 8px; }
 .theme-card-label { font-size: 12px; font-weight: 500; color: var(--text-2); }
-.accent-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
-.accent-swatch { aspect-ratio: 1; border-radius: 8px; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
-.accent-swatch:hover { transform: scale(1.12); }
-.accent-swatch.active { border-color: var(--text); }
 
 /* ── Settings: Account ── */
 .divider-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
