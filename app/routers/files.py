@@ -189,6 +189,36 @@ def rename(req: RenameRequest, _: str = Depends(require_auth)):
     return {"name": new_name, "path": "/" + str(dest.relative_to(root)).replace("\\", "/")}
 
 
+class DeleteRequest(BaseModel):
+    drive: str
+    paths: list[str]   # paths relative to drive root
+
+
 @router.delete("")
-def delete(_: str = Depends(require_auth)):
-    raise HTTPException(501, "delete not yet implemented")
+def delete(req: DeleteRequest, _: str = Depends(require_auth)):
+    import shutil
+    d = registry.get(req.drive)
+    if not d:
+        raise HTTPException(404, "Drive not found")
+    if not d.mount_point:
+        raise HTTPException(409, "Drive not mounted")
+    if d.state == "mounted_ro":
+        raise HTTPException(409, "Drive is read-only — enable write first")
+
+    root = Path(d.mount_point)
+    deleted = []
+    for p in req.paths:
+        target = _safe_path(root, p)
+        if target == root.resolve():
+            raise HTTPException(400, "Refusing to delete the drive root")
+        if not target.exists():
+            continue
+        try:
+            if target.is_dir() and not target.is_symlink():
+                shutil.rmtree(target)
+            else:
+                target.unlink()
+            deleted.append(p)
+        except OSError as exc:
+            raise HTTPException(500, str(exc))
+    return {"deleted": deleted, "count": len(deleted)}

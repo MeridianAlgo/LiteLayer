@@ -35,12 +35,18 @@ async function _loadSystem() {
     const r = await api('/api/system/vpns');
     if (!r?.ok) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; return; }
     const d = await r.json();
-    if (!d.vpns?.length) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">No VPN clients installed on this device.</div>`; return; }
-    box.innerHTML = d.vpns.map(v => `<div class="vpn-row">
-      <span class="vpn-row-name">${esc(v.name)}</span>
-      <span class="vpn-row-badge${v.active ? ' active' : ''}">${v.active ? 'active' : v.enabled ? 'enabled' : 'off'}</span>
-      <button class="btn btn-ghost btn-xs" onclick="switchVpn('${esc(v.name)}')">Switch &amp; reboot</button>
-    </div>`).join('');
+    if (!d.vpns?.length) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">No VPNs available.</div>`; return; }
+    box.innerHTML = d.vpns.map(v => {
+      const state = v.active ? 'active' : v.installed ? (v.enabled ? 'enabled' : 'installed') : 'not installed';
+      const btn = v.installed
+        ? `<button class="btn btn-ghost btn-xs" onclick="switchVpn('${esc(v.name)}')">${v.active ? 'Restart' : 'Use this'}</button>`
+        : `<button class="btn btn-ghost btn-xs" disabled title="Set this up with the LiteLayer installer">Not installed</button>`;
+      return `<div class="vpn-row">
+        <span class="vpn-row-name">${esc(v.name)}</span>
+        <span class="vpn-row-badge${v.active ? ' active' : ''}">${state}</span>
+        ${btn}
+      </div>`;
+    }).join('');
   } catch { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; }
 }
 
@@ -57,10 +63,11 @@ async function toggleBootDrive() {
 }
 
 async function switchVpn(name) {
-  if (!confirm(`Switch to ${name} and reboot the whole system now?\n\nYou'll lose connection for about a minute.`)) return;
+  if (!confirm(`Make ${name} the active VPN now?`)) return;
   const r = await api('/api/system/vpn/switch', {method: 'POST', body: JSON.stringify({name})});
   if (!r?.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Switch failed', 'error', 4000); return; }
-  toast(`Rebooting on ${name}…`, 'info', 8000);
+  toast(`${name} is now active`, 'success', 4000);
+  _loadSystem();
 }
 
 // ── Color pickers ─────────────────────────────────────────────────────────────

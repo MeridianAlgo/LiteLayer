@@ -110,6 +110,10 @@ body {
 .btn-primary:hover { opacity: 0.9; }
 .btn-ghost { background: var(--surface); color: var(--text-2); border: 1px solid var(--border); }
 .btn-ghost:hover { background: var(--surface-h); color: var(--text); border-color: var(--border-h); }
+.btn-danger { background: rgba(231,118,118,0.12); color: #e77676; border: 1px solid rgba(231,118,118,0.35); }
+.btn-danger:hover { background: #e15555; color: #fff; border-color: #e15555; }
+.ctx-danger { color: #e77676; }
+.ctx-danger:hover { background: rgba(231,118,118,0.14); }
 .btn-sm { padding: 6px 11px; font-size: 12px; }
 .btn-xs { padding: 4px 8px; font-size: 11px; }
 .btn-full { width: 100%; margin-top: 8px; }

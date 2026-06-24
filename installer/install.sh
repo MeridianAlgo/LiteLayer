@@ -125,6 +125,15 @@ chmod 755 "$MOUNT_ROOT" "$LOG_DIR"
 # ── VPN mesh selection ───────────────────────────────────────────────────────
 header "VPN / Mesh Network"
 
+# On a reinstall (OTA major update), don't re-touch a VPN that's already set up —
+# re-running the installers/`read` prompt unattended was breaking the active VPN.
+EXISTING_VPN=""
+[[ -f "$CONFIG_DIR/env" ]] && EXISTING_VPN=$(grep -oP 'LITELAYER_VPN_TYPE=\K.*' "$CONFIG_DIR/env" 2>/dev/null | tail -1)
+if [[ -z "${LITELAYER_VPN:-}" && -n "$EXISTING_VPN" && "$EXISTING_VPN" != "none" ]]; then
+  info "VPN already configured ($EXISTING_VPN) — keeping it. Set LITELAYER_VPN=<name> to change."
+  LITELAYER_VPN="keep"
+fi
+
 if [[ -z "${LITELAYER_VPN:-}" ]]; then
   echo "  LiteLayer is accessible on your LAN at http://<pi-ip> as soon as install"
   echo "  finishes. To reach it from anywhere, pick a VPN or Cloudflare Tunnel:"
@@ -224,6 +233,7 @@ case "$LITELAYER_VPN" in
   netbird)    _install_netbird    ;;
   wireguard)  _install_wireguard  ;;
   cloudflare) _install_cloudflare ;;
+  keep)       info "Keeping existing VPN ($EXISTING_VPN) untouched." ;;
   *)          info "No VPN — LiteLayer accessible on LAN at http://<pi-ip>"
               echo "LITELAYER_VPN_TYPE=none" >> "$CONFIG_DIR/env" ;;
 esac

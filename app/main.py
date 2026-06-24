@@ -168,7 +168,7 @@ _VPN_UNITS = {
     "Tailscale":          ("tailscale",    "tailscaled"),
     "WireGuard":          ("wg",           "wg-quick@wg0"),
     "ZeroTier":           ("zerotier-cli", "zerotier-one"),
-    "Cloudflare Tunnel":  ("cloudflared",  "cloudflared"),
+    "Cloudflare Tunnel":  ("cloudflared",  "litelayer-cloudflare"),
 }
 
 
@@ -180,16 +180,28 @@ def _sysctl(*args: str) -> str:
         return ""
 
 
+def _vpn_installed(tool: str, unit: str) -> bool:
+    # shutil.which misses tools in sbin when PATH is trimmed, and Cloudflare has no
+    # CLI on PATH — so also accept "the systemd unit exists" as proof of install.
+    import os, shutil
+    if shutil.which(tool):
+        return True
+    for d in ("/usr/bin", "/usr/sbin", "/usr/local/bin", "/usr/local/sbin", "/bin", "/sbin"):
+        if os.path.exists(os.path.join(d, tool)):
+            return True
+    return unit in _sysctl("list-unit-files", unit, "--no-legend")
+
+
 @app.get("/api/system/vpns")
 def list_vpns(_: str = Depends(require_auth)):
-    import shutil
+    # Always return all supported VPNs (with an `installed` flag) so the UI can
+    # show them — an empty list was why you "couldn't select a VPN at all".
     out = []
     for name, (tool, unit) in _VPN_UNITS.items():
-        if not shutil.which(tool):
-            continue
         out.append({
             "name": name,
             "unit": unit,
+            "installed": _vpn_installed(tool, unit),
             "enabled": _sysctl("is-enabled", unit) == "enabled",
             "active":  _sysctl("is-active", unit) == "active",
         })
@@ -202,18 +214,22 @@ class VpnSwitchRequest(BaseModel):
 
 @app.post("/api/system/vpn/switch")
 def switch_vpn(req: VpnSwitchRequest, _: str = Depends(require_auth)):
-    """Make the chosen VPN the boot default (enable it, disable the others),
-    then reboot the whole system so it comes up on the selected VPN."""
-    import subprocess, threading
+    """Enable + start the chosen VPN now. We deliberately do NOT disable the other
+    VPNs or reboot — yanking a running VPN out from under the active connection is
+    exactly what used to break remote access on switch."""
+    import subprocess
     if req.name not in _VPN_UNITS:
         raise HTTPException(400, f"Unknown VPN: {req.name}")
-    chosen_unit = _VPN_UNITS[req.name][1]
-    for name, (_tool, unit) in _VPN_UNITS.items():
-        action = "enable" if name == req.name else "disable"
-        subprocess.run(["systemctl", action, unit], capture_output=True, text=True)
-    # Reboot shortly after responding so the client gets a reply first.
-    threading.Timer(2.0, lambda: subprocess.run(["reboot"])).start()
-    return {"status": "rebooting", "vpn": req.name, "unit": chosen_unit}
+    tool, unit = _VPN_UNITS[req.name]
+    if not _vpn_installed(tool, unit):
+        raise HTTPException(409, f"{req.name} is not installed on this device")
+    # ponytail: enable --now (start + on-boot) instead of reboot; add exclusive
+    # mode later if running two VPNs at once ever actually causes trouble.
+    r = subprocess.run(["systemctl", "enable", "--now", unit], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise HTTPException(500, (r.stderr or r.stdout or "systemctl failed").strip())
+    return {"status": "switched", "vpn": req.name, "unit": unit,
+            "active": _sysctl("is-active", unit) == "active"}
 
 
 class BootDriveRequest(BaseModel):

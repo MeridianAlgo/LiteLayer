@@ -239,14 +239,17 @@ async function renameEntry(idx) {
 
 // ── Rubber-band drag selection ────────────────────────────────────────────────
 
-let _rbActive = false, _rbStart = {x:0, y:0};
+let _rbActive = false, _rbStart = {x:0, y:0}, _rbBase = null, _rbDownTarget = null, _rbMoved = false;
 
 function _startRubberBand(e) {
   if (e.button !== 0) return;
   // Don't start a marquee on interactive controls, but DO allow starting over a
   // file item — a tiny move is treated as a click, a real drag becomes a marquee.
   if (e.target.closest('.btn, .file-row-check, .file-row-dl, .sel-bar, .files-toolbar')) return;
-  _rbActive = true; _rbStart = {x: e.clientX, y: e.clientY};
+  _rbActive = true; _rbMoved = false; _rbStart = {x: e.clientX, y: e.clientY};
+  _rbDownTarget = e.target;
+  // Additive only when Ctrl/Cmd held; otherwise a fresh marquee replaces the selection.
+  _rbBase = (e.ctrlKey || e.metaKey) ? new Set(_sel) : new Set();
   const r = document.getElementById('rb-rect');
   r.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;width:0;height:0;display:block`;
   document.addEventListener('mousemove', _rbMove);
@@ -257,8 +260,22 @@ function _rbMove(e) {
   if (!_rbActive) return;
   const x = Math.min(e.clientX, _rbStart.x), y = Math.min(e.clientY, _rbStart.y);
   const w = Math.abs(e.clientX - _rbStart.x), h = Math.abs(e.clientY - _rbStart.y);
+  if (w > 5 || h > 5) _rbMoved = true;
   const r = document.getElementById('rb-rect');
   r.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:block`;
+  if (!_rbMoved) return;
+
+  // Live highlight: selection = base ∪ items touching the marquee. Toggle the
+  // .selected class directly (blue highlight) instead of re-rendering each frame.
+  const x2 = x + w, y2 = y + h, entries = _filtered || dirEntries;
+  _sel = new Set(_rbBase);
+  document.querySelectorAll('.file-row[data-idx], .file-cell[data-idx]').forEach(el => {
+    const b = el.getBoundingClientRect();
+    const entry = entries[parseInt(el.dataset.idx)];
+    if (entry?.path && b.right > x && b.left < x2 && b.bottom > y && b.top < y2) _sel.add(entry.path);
+    el.classList.toggle('selected', !!entry && _sel.has(entry.path));
+  });
+  updateSelBar();
 }
 
 function _rbEnd(e) {
@@ -267,21 +284,27 @@ function _rbEnd(e) {
   document.removeEventListener('mousemove', _rbMove);
   document.getElementById('rb-rect').style.display = 'none';
 
-  const x1 = Math.min(e.clientX, _rbStart.x), y1 = Math.min(e.clientY, _rbStart.y);
-  const x2 = Math.max(e.clientX, _rbStart.x), y2 = Math.max(e.clientY, _rbStart.y);
-  if (x2 - x1 < 6 && y2 - y1 < 6) return; // treat as click — let onclick handle it
+  if (!_rbMoved) {
+    // No drag → a plain click. On empty space (not a file), deselect everything.
+    if (_rbDownTarget && !_rbDownTarget.closest('.file-row, .file-cell')) clearSel();
+    return;
+  }
+  // Drag done — _sel is already live from _rbMove; re-render to sync the checkmarks.
+  renderFiles(_filtered || dirEntries, currentPath);
+}
 
-  // Fresh marquee replaces the selection unless Ctrl/Cmd is held (additive).
-  if (!e.ctrlKey && !e.metaKey) _sel.clear();
+async function deleteSelected() {
   const entries = _filtered || dirEntries;
-  document.querySelectorAll('.file-row[data-idx], .file-cell[data-idx]').forEach(el => {
-    const r = el.getBoundingClientRect();
-    if (r.right > x1 && r.left < x2 && r.bottom > y1 && r.top < y2) {
-      const entry = entries[parseInt(el.dataset.idx)];
-      if (entry?.path) _sel.add(entry.path);
-    }
-  });
-  updateSelBar(); renderFiles(entries, currentPath);
+  const paths = entries.filter(e => _sel.has(e.path)).map(e => e.path);
+  if (!paths.length) { toast('Nothing selected', 'info', 2000); return; }
+  if (!confirm(`Permanently delete ${paths.length} item${paths.length !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+  if (!await ensureWritable()) return;
+  const r = await api('/api/files', {method: 'DELETE', body: JSON.stringify({drive: currentDriveId, paths})});
+  if (!r) return;
+  if (r.ok) {
+    const d = await r.json().catch(() => ({})); const n = d.count ?? paths.length;
+    toast(`Deleted ${n} item${n !== 1 ? 's' : ''}`, 'success'); clearSel(false); loadFiles(currentPath);
+  } else { const d = await r.json().catch(() => ({})); toast(d.detail || 'Delete failed', 'error', 4000); }
 }
 
 // ── Upload ────────────────────────────────────────────────────────────────────
@@ -415,6 +438,7 @@ function showCtxMenu(e, idx) {
   }
   if (_sel.size > 1) { items.push(`<div class="ctx-sep"></div>`); items.push(`<div class="ctx-item" onclick="downloadSelected();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download ${_sel.size} selected</div>`); }
   items.push(`<div class="ctx-sep"></div>`);
+  items.push(`<div class="ctx-item ctx-danger" onclick="deleteSelected();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete${_sel.size > 1 ? ` ${_sel.size}` : ''}</div>`);
   items.push(`<div class="ctx-item" onclick="clearSel();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>Deselect all</div>`);
   const menu = document.getElementById('ctx-menu');
   menu.innerHTML = items.join(''); menu.classList.remove('hidden');

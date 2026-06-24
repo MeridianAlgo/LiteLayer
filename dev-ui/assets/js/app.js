@@ -17,6 +17,7 @@ document.addEventListener('keydown', e => {
     if ((e.target || {}).tagName !== 'INPUT') clearSel();
   }
   if ((e.target || {}).tagName === 'INPUT' || !currentDriveId) return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && _sel.size) { e.preventDefault(); deleteSelected(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
     e.preventDefault();
     const entries = _filtered || dirEntries;
