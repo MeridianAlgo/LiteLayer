@@ -325,6 +325,53 @@ def _vpn_install_worker(name: str, network_id: str | None) -> None:
         _vpn_state["running"] = False
 
 
+# Shell steps to fully remove each VPN.
+_VPN_UNINSTALL = {
+    "Tailscale":          ["tailscale down || true", "apt-get remove -y tailscale || true"],
+    "ZeroTier":           ["apt-get remove -y zerotier-one || true"],
+    "Cloudflare Tunnel":  ["rm -f /etc/systemd/system/litelayer-cloudflare.service", "systemctl daemon-reload", "apt-get remove -y cloudflared || true"],
+    "WireGuard":          ["apt-get remove -y wireguard wireguard-tools || true"],
+}
+
+
+def _vpn_uninstall_worker(name: str) -> None:
+    import os, subprocess, datetime
+    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+    tool, unit = _VPN_UNITS[name]
+    try:
+        _vlog(f"\n--- uninstall {name} {datetime.datetime.now().isoformat(timespec='seconds')} ---")
+        subprocess.run(["systemctl", "disable", "--now", unit], capture_output=True, text=True)
+        for cmd in _VPN_UNINSTALL.get(name, []):
+            _vlog(f"$ {cmd}")
+            r = subprocess.run(cmd, shell=True, executable="/bin/bash",
+                               capture_output=True, text=True, timeout=300, env=env)
+            _vlog(r.stdout + r.stderr)
+        _vlog(f"--- {name} removed ---")
+    except Exception as exc:  # noqa: BLE001
+        _vpn_state["error"] = f"Uninstall error: {exc}"
+        _vlog(f"ERROR: {exc}")
+    finally:
+        _vpn_state["running"] = False
+
+
+class VpnNameRequest(BaseModel):
+    name: str
+
+
+@app.post("/api/system/vpn/uninstall")
+def uninstall_vpn(req: VpnNameRequest, _: str = Depends(require_auth)):
+    import threading
+    if req.name not in _VPN_UNITS:
+        raise HTTPException(400, f"Unknown VPN: {req.name}")
+    with _vpn_lock:
+        if _vpn_state["running"]:
+            raise HTTPException(409, "A VPN operation is already running")
+        _vpn_state.update(running=True, name=req.name, auth_url=None, error=None)
+    threading.Thread(target=_vpn_uninstall_worker, args=(req.name,),
+                     daemon=True, name="vpn-uninstall").start()
+    return {"status": "uninstalling", "name": req.name}
+
+
 class VpnInstallRequest(BaseModel):
     name: str
     network_id: Optional[str] = None   # ZeroTier network to join
@@ -346,18 +393,60 @@ def install_vpn(req: VpnInstallRequest, _: str = Depends(require_auth)):
 
 @app.get("/api/system/vpn/status")
 def vpn_status(_: str = Depends(require_auth)):
+    import subprocess
     active = None
     for name, (_tool, unit) in _VPN_UNITS.items():
         if _sysctl("is-active", unit) == "active":
             active = name
             break
+    # ZeroTier node id — handy when wiring the laptop to the same network.
+    zt_node = None
+    if _vpn_installed(*_VPN_UNITS["ZeroTier"]):
+        try:
+            out = subprocess.run(["zerotier-cli", "info"], capture_output=True, text=True, timeout=5).stdout.split()
+            if len(out) >= 3:
+                zt_node = out[2]
+        except Exception:
+            pass
     log = ""
     if VPN_LOG.exists():
         try:
             log = "\n".join(VPN_LOG.read_text().splitlines()[-30:])
         except OSError:
             pass
-    return {**_vpn_state, "active": active, "log": log}
+    return {**_vpn_state, "active": active, "zt_node": zt_node, "log": log}
+
+
+# ── Factory reset: wipe + reinstall the latest LiteLayer ──────────────────────
+RESET_LOG = Path("/var/log/litelayer/reset.log")
+_RESET_URL = "https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh"
+
+
+def _reset_worker() -> None:
+    import subprocess, datetime
+    try:
+        RESET_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(RESET_LOG, "a") as log:
+            log.write(f"\n--- RESET + reinstall {datetime.datetime.now().isoformat()} ---\n")
+            log.flush()
+            # Fresh pull of the latest installer; pipefail so a 404 fails loudly.
+            subprocess.run(
+                f"set -o pipefail; curl -fsSL {_RESET_URL} | bash",
+                shell=True, executable="/bin/bash",
+                stdout=log, stderr=log, text=True, timeout=600,
+            )
+            log.write("--- reinstall done, rebooting ---\n")
+        subprocess.run(["reboot"])
+    except Exception:  # noqa: BLE001
+        pass
+
+
+@app.post("/api/system/reset")
+def system_reset(_: str = Depends(require_auth)):
+    """Re-run the installer for a fresh latest LiteLayer, then reboot the Pi."""
+    import threading
+    threading.Thread(target=_reset_worker, daemon=True, name="ll-reset").start()
+    return {"status": "resetting"}
 
 
 class BootDriveRequest(BaseModel):

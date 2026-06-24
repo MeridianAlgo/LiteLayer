@@ -41,18 +41,38 @@ async function _loadSystem() {
     const cur = `<div class="vpn-current">Current VPN: <strong>${active ? esc(active.name) : 'None'}</strong></div>`;
     box.innerHTML = cur + d.vpns.map(v => {
       const state = v.active ? 'active' : v.installed ? (v.enabled ? 'enabled' : 'installed') : 'not installed';
-      const btn = v.active
+      const useBtn = v.active
         ? `<button class="btn btn-ghost btn-xs" disabled>In use</button>`
         : v.installed
           ? `<button class="btn btn-ghost btn-xs" onclick="switchVpn('${esc(v.name)}')">Use this</button>`
           : `<button class="btn btn-primary btn-xs" onclick="installVpn('${esc(v.name)}')">Install &amp; sign in</button>`;
+      const rmBtn = v.installed
+        ? `<button class="btn btn-danger btn-xs" onclick="uninstallVpn('${esc(v.name)}')" title="Uninstall ${esc(v.name)}">Uninstall</button>` : '';
+      const ztLink = v.name === 'ZeroTier'
+        ? `<a class="vpn-help-link" href="https://www.zerotier.com/download/" target="_blank" rel="noopener">Download ZeroTier for your computer →</a>` : '';
       return `<div class="vpn-row">
         <span class="vpn-row-name">${esc(v.name)}</span>
         <span class="vpn-row-badge${v.active ? ' active' : ''}">${state}</span>
-        ${btn}
-      </div>`;
-    }).join('') + `<div id="vpn-progress"></div>`;
+        ${useBtn}${rmBtn}
+      </div>${ztLink}`;
+    }).join('') + `<div id="vpn-error" class="vpn-error" style="display:none"></div><div id="vpn-progress"></div>`;
   } catch { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; }
+}
+
+// Persistent, dismissable error panel for VPN ops (toasts vanish too fast to read).
+function _showVpnError(msg) {
+  const el = document.getElementById('vpn-error');
+  if (!el) { toast(msg, 'error', 15000); return; }
+  el.style.display = '';
+  el.innerHTML = `<div class="vpn-error-msg">${esc(msg)}</div><button class="btn btn-ghost btn-xs" onclick="document.getElementById('vpn-error').style.display='none'">Dismiss</button>`;
+}
+
+async function uninstallVpn(name) {
+  if (!confirm(`Uninstall ${name} from this Pi? This removes the VPN software.`)) return;
+  const r = await api('/api/system/vpn/uninstall', {method: 'POST', body: JSON.stringify({name})});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); _showVpnError(e.detail || 'Uninstall failed to start'); return; }
+  toast(`Uninstalling ${name}…`, 'info', 4000);
+  _pollVpnInstall();
 }
 
 async function installVpn(name) {
@@ -62,7 +82,7 @@ async function installVpn(name) {
   }
   if (!confirm(`Install ${name} on this device and switch to it now?\n\nThis turns off any other VPN once it's connected.`)) return;
   const r = await api('/api/system/vpn/install', {method: 'POST', body: JSON.stringify({name, network_id: networkId})});
-  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Install failed to start', 'error', 4000); return; }
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); _showVpnError(e.detail || 'Install failed to start'); return; }
   toast(`Installing ${name}…`, 'info', 3000);
   _pollVpnInstall();
 }
@@ -76,17 +96,23 @@ function _pollVpnInstall() {
     const s = await r.json();
     const box = prog();
     if (box) {
-      let html = s.running ? `<div class="vpn-installing"><span class="spinner" style="width:13px;height:13px;border-width:2px"></span> Installing ${esc(s.name || '')}…</div>` : '';
+      let html = s.running ? `<div class="vpn-installing"><span class="spinner" style="width:13px;height:13px;border-width:2px"></span> Working on ${esc(s.name || '')}…</div>` : '';
       if (s.auth_url) html += `<a class="btn btn-primary btn-xs" href="${esc(s.auth_url)}" target="_blank" rel="noopener" style="margin-top:8px">Sign in to ${esc(s.name || 'VPN')} →</a>`;
-      if (s.error) html += `<div style="color:var(--red);font-size:12px;margin-top:6px">${esc(s.error)}</div>`;
       box.innerHTML = html;
     }
+    if (s.error) _showVpnError(s.error);   // persistent — doesn't vanish
     if (!s.running) {
       clearInterval(_vpnPoll); _vpnPoll = null;
-      if (!s.error) toast('VPN ready' + (s.auth_url ? ' — finish sign-in via the link' : ''), 'success', 5000);
-      const url = s.auth_url;
+      if (!s.error) toast('Done' + (s.auth_url ? ' — finish sign-in via the link' : ''), 'success', 6000);
+      const url = s.auth_url, nm = s.name, zt = s.zt_node;
       await _loadSystem();
-      if (url) { const b = prog(); if (b) b.innerHTML = `<a class="btn btn-primary btn-xs" href="${esc(url)}" target="_blank" rel="noopener">Sign in to ${esc(s.name || 'VPN')} →</a>`; }
+      const b = prog();
+      if (b) {
+        let h = '';
+        if (url) h += `<a class="btn btn-primary btn-xs" href="${esc(url)}" target="_blank" rel="noopener">Sign in to ${esc(nm || 'VPN')} →</a>`;
+        if (zt && nm === 'ZeroTier') h += `<div class="vpn-current" style="margin-top:8px">This Pi's ZeroTier node: <strong>${esc(zt)}</strong> — install ZeroTier on your laptop and join the same network.</div>`;
+        b.innerHTML = h;
+      }
     }
   }, 2500);
 }
@@ -106,9 +132,17 @@ async function toggleBootDrive() {
 async function switchVpn(name) {
   if (!confirm(`Make ${name} the active VPN now?`)) return;
   const r = await api('/api/system/vpn/switch', {method: 'POST', body: JSON.stringify({name})});
-  if (!r?.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Switch failed', 'error', 4000); return; }
-  toast(`${name} is now active`, 'success', 4000);
+  if (!r?.ok) { const d = await r.json().catch(() => ({})); _showVpnError(d.detail || 'Switch failed'); return; }
+  toast(`${name} is now active`, 'success', 5000);
   _loadSystem();
+}
+
+async function resetPi() {
+  if (!confirm('Reset LiteLayer and reinstall the latest version?\n\nThe Pi will reboot and may be offline for a few minutes.')) return;
+  if (!confirm('Are you sure? This re-runs the full installer from scratch.')) return;
+  const r = await api('/api/system/reset', {method: 'POST'});
+  if (!r?.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Reset failed to start', 'error', 8000); return; }
+  toast('Resetting & reinstalling — the Pi is rebooting. Reconnect in a few minutes.', 'info', 20000);
 }
 
 // ── Color pickers ─────────────────────────────────────────────────────────────
