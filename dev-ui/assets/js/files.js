@@ -320,7 +320,7 @@ function handleDropUpload(e) {
 async function uploadFiles(files) {
   if (!currentDriveId) { toast('Select a drive first', 'error'); return; }
   if (!files.length) return;
-  if (!await ensureWritable()) return;   // drives mount read-only by default
+  await ensureWritable();   // best-effort; the upload endpoint also self-heals a read-only mount
   let ok = 0, fail = 0;
   for (const file of files) {
     const fd = new FormData(); fd.append('file', file);

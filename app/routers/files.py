@@ -139,12 +139,28 @@ async def upload_file(
     dest = (target_dir / safe_name).resolve()
     if not dest.is_relative_to(root.resolve()):
         raise HTTPException(403, "Filename escape rejected")
+
+    data = await file.read()   # buffer once so we can retry after a remount
     try:
-        with open(dest, "wb") as f:
-            while chunk := await file.read(1 << 20):
-                f.write(chunk)
+        dest.write_bytes(data)
     except OSError as exc:
-        raise HTTPException(500, str(exc))
+        # Drive is mounted read-only — remount it rw and try again. Drives are
+        # ro by default for safety; uploading is an explicit opt-in to write.
+        import errno
+        if exc.errno not in (errno.EROFS, errno.EACCES):
+            raise HTTPException(500, str(exc))
+        from drives.mount import remount_rw, ALWAYS_RO
+        if d.fstype.lower() in ALWAYS_RO:
+            raise HTTPException(409, f"{d.fstype} drives are read-only")
+        try:
+            remount_rw(d)
+            d.state = "mounted_rw"
+            registry.update(d)
+            dest.write_bytes(data)
+        except OSError as exc2:
+            raise HTTPException(500, f"Could not write (drive read-only): {exc2}")
+        except Exception as exc2:  # noqa: BLE001
+            raise HTTPException(500, f"Could not enable write: {exc2}")
     return {"name": safe_name, "size": dest.stat().st_size}
 
 

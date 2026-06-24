@@ -146,8 +146,13 @@ def remount_rw(drive: Drive) -> None:
         ["mount", "-o", "remount,rw", drive.mount_point],
         capture_output=True, text=True
     )
-    if r.returncode != 0:
-        raise RuntimeError(f"Remount rw failed: {r.stderr.strip()}")
+    if r.returncode == 0:
+        return
+    # FUSE filesystems (ntfs-3g, exfat-fuse) — the usual format for USB drives —
+    # don't support `remount,rw`. Cycle the mount instead: unmount, re-mount rw.
+    # This was why upload/rename/delete silently failed on NTFS/exFAT drives.
+    subprocess.run(["umount", drive.mount_point], capture_output=True, text=True)
+    mount(drive, read_write=True)
 
 
 def get_usage(mp: str) -> tuple[int, int]:
