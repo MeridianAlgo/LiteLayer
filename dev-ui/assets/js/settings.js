@@ -2,12 +2,13 @@ let _settingsTab = 'appearance';
 
 function openSettings() {
   buildAccentGrid();
+  buildColorPickers();
   applyTheme(_currentTheme);
   document.getElementById('settings-username-display').textContent = currentUsername;
   ['settings-cur-pass','settings-new-user','settings-new-pass','settings-conf-pass'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('settings-error').style.display = 'none';
   if (_otaData) updateVersionChip(_otaData);
-  setSettingsTab('appearance');
+  setSettingsTab(_settingsTab);
   show('settings-overlay');
 }
 
@@ -22,6 +23,38 @@ function setSettingsTab(tab) {
   if (tab === 'updates') loadChangelog();
   if (tab === 'about')   _loadAbout();
 }
+
+// ── Color pickers ─────────────────────────────────────────────────────────────
+
+function buildColorPickers() {
+  const grid = document.getElementById('color-pickers-grid');
+  if (!grid) return;
+  const saved   = JSON.parse(localStorage.getItem('ll-custom-colors') || '{}');
+  const defs    = _COLOR_DEFAULTS[_currentTheme] || _COLOR_DEFAULTS.dark;
+  let lastGroup = '';
+  grid.innerHTML = COLOR_VARS.map(({key, label, group}) => {
+    const val = saved[key] || document.documentElement.style.getPropertyValue(key) || defs[key] || '#000000';
+    const groupHdr = group !== lastGroup ? `<div class="color-group-label">${esc(group)}</div>` : '';
+    lastGroup = group;
+    return `${groupHdr}<div class="color-picker-row">
+      <span class="color-picker-label">${esc(label)}</span>
+      <div class="color-picker-well">
+        <input type="color" class="color-swatch-input" data-color-key="${esc(key)}" value="${val}" oninput="applyCustomColor('${esc(key)}',this.value)" title="${esc(key)}">
+        <span class="color-picker-hex" onclick="this.previousElementSibling.click()">${val}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Keep hex readout in sync
+  grid.querySelectorAll('.color-swatch-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const hex = inp.nextElementSibling;
+      if (hex) hex.textContent = inp.value;
+    });
+  });
+}
+
+// ── About tab ─────────────────────────────────────────────────────────────────
 
 async function _loadAbout() {
   const urlEl = document.getElementById('about-url');
@@ -45,6 +78,8 @@ async function _loadAbout() {
     }
   } catch { vpnEl.textContent = '—'; }
 }
+
+// ── Account ───────────────────────────────────────────────────────────────────
 
 async function saveSettings() {
   const cur  = document.getElementById('settings-cur-pass').value;

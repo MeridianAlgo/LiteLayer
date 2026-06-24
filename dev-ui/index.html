@@ -93,6 +93,21 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           </button>
         </div>
+        <label class="btn btn-ghost btn-sm" id="upload-btn" title="Upload files">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Upload
+          <input type="file" id="upload-input" multiple style="display:none" onchange="uploadFiles(this.files);this.value=''">
+        </label>
+      </div>
+
+      <div class="type-filter-bar" id="type-filter-bar">
+        <button class="type-pill active" data-type="all"     onclick="setTypeFilter('all')">All</button>
+        <button class="type-pill" data-type="folder"  onclick="setTypeFilter('folder')">Folders</button>
+        <button class="type-pill" data-type="image"   onclick="setTypeFilter('image')">Images</button>
+        <button class="type-pill" data-type="doc"     onclick="setTypeFilter('doc')">Docs</button>
+        <button class="type-pill" data-type="video"   onclick="setTypeFilter('video')">Videos</button>
+        <button class="type-pill" data-type="audio"   onclick="setTypeFilter('audio')">Audio</button>
+        <button class="type-pill" data-type="archive" onclick="setTypeFilter('archive')">Archives</button>
+        <button class="type-pill" data-type="code"    onclick="setTypeFilter('code')">Code</button>
       </div>
 
       <div id="sel-bar" class="sel-bar hidden">
@@ -111,7 +126,11 @@
         </div>
       </div>
 
-      <div id="files-area" class="files-area hidden">
+      <div id="files-area" class="files-area hidden"
+           onmousedown="_startRubberBand(event)"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDropUpload(event)">
         <div id="files-container"></div>
       </div>
     </div>
@@ -179,8 +198,12 @@
       <button class="icon-btn" onclick="closeOtaModal()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div class="modal-body">
-      <div class="ota-ver-row"><span class="ota-ver-label">Current version</span><span class="ota-ver-val" id="ota-cur-ver">—</span></div>
-      <div class="ota-ver-row"><span class="ota-ver-label">Latest commit</span><span class="ota-ver-val" id="ota-new-ver">—</span></div>
+      <div class="ota-ver-row"><span class="ota-ver-label">Installed</span><span class="ota-ver-val" id="ota-cur-ver">—</span></div>
+      <div class="ota-ver-row"><span class="ota-ver-label">Status</span><span class="ota-ver-val" id="ota-status-val">Checking…</span></div>
+      <div id="ota-ver-pick-wrap" style="display:none">
+        <div class="settings-section-title" style="margin:12px 0 6px">Choose version to install</div>
+        <div id="ota-ver-list" class="ota-ver-list"></div>
+      </div>
       <div id="ota-major-warn" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:8px;font-size:12px;color:#f59e0b">
         <strong>Major update</strong> — will re-run the full installer one-liner
       </div>
@@ -269,6 +292,11 @@
           <div class="settings-section-title">Accent Color</div>
           <div class="accent-grid" id="accent-grid"></div>
         </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Custom Colors <span style="font-size:10px;font-weight:400;color:var(--text-3)">(every individual color)</span></div>
+          <div id="color-pickers-grid"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:14px;width:100%" onclick="resetCustomColors()">Reset to theme defaults</button>
+        </div>
       </div>
 
       <!-- Account tab -->
@@ -337,6 +365,7 @@
   </div>
 </div>
 
+<div id="rb-rect"></div>
 <div id="ctx-menu" class="ctx-menu hidden"></div>
 <div id="toast-container"></div>
 

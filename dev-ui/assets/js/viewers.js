@@ -70,39 +70,30 @@ function ivDragStart(e) { if (e.button !== 0 || _ivZoom <= 1) return; _ivDraggin
 function ivDragMove(e)  { if (!_ivDragging) return; _ivTx = _ivDrag0.tx + (e.clientX - _ivDrag0.x); _ivTy = _ivDrag0.ty + (e.clientY - _ivDrag0.y); document.getElementById('iv-img').style.transform = `translate(${_ivTx}px,${_ivTy}px) scale(${_ivZoom})`; }
 function ivDragEnd()    { _ivDragging = false; if (_ivZoom > 1) document.getElementById('iv-img').style.cursor = 'grab'; }
 
-// ── PDF Viewer ────────────────────────────────────────────────────────────────
+// ── PDF Viewer — opens in new browser tab ────────────────────────────────────
 
 const PDF_EXTS = new Set(['pdf']);
-let _pvBlobUrl = null, _pvEntry = null;
+let _pvEntry = null;
 
 function isPdfFile(name) { return PDF_EXTS.has((name.split('.').pop() || '').toLowerCase()); }
 
 async function openPdfViewer(dirIdx) {
   const entry = dirEntries[dirIdx]; if (!entry) return;
   _pvEntry = entry;
-  show('pdf-viewer'); document.body.style.overflow = 'hidden';
-  document.getElementById('pv-filename').textContent = entry.name;
-  const frame = document.getElementById('pv-frame'), loading = document.getElementById('pv-loading');
-  frame.style.display = 'none'; loading.style.display = 'flex'; frame.src = '';
-  if (_pvBlobUrl) { URL.revokeObjectURL(_pvBlobUrl); _pvBlobUrl = null; }
+  toast(`Opening ${entry.name}…`, 'info', 1500);
+  const url = `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
   try {
-    const url = `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
     const r = await fetch(url, {headers: authToken ? {Authorization:`Bearer ${authToken}`} : {}, credentials:'include'});
+    if (!r.ok) { toast('Could not load PDF', 'error'); return; }
     const blob = await r.blob();
-    _pvBlobUrl = URL.createObjectURL(new Blob([blob], {type:'application/pdf'}));
-    frame.src = _pvBlobUrl;
-    frame.onload = () => { loading.style.display = 'none'; frame.style.display = 'block'; };
-  } catch { toast('Could not load PDF', 'error'); closePdfViewer(); }
+    const blobUrl = URL.createObjectURL(new Blob([blob], {type:'application/pdf'}));
+    const tab = window.open(blobUrl, '_blank');
+    if (!tab) toast('Allow popups for this site to open PDFs', 'error', 5000);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+  } catch { toast('Could not open PDF', 'error'); }
 }
 
-function closePdfViewer() {
-  hide('pdf-viewer'); document.body.style.overflow = '';
-  document.getElementById('pv-frame').src = '';
-  document.getElementById('pv-frame').style.display = 'none';
-  if (_pvBlobUrl) { URL.revokeObjectURL(_pvBlobUrl); _pvBlobUrl = null; }
-  _pvEntry = null;
-}
-
+function closePdfViewer() {}  // kept for Esc handler compatibility
 function pvDownload() { if (_pvEntry) downloadFile(_pvEntry.path, _pvEntry.name); }
 
 // ── DOCX Viewer ───────────────────────────────────────────────────────────────

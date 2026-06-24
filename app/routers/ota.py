@@ -29,8 +29,9 @@ def _run(cmd: list[str], cwd=None, timeout=30) -> tuple[int, str]:
 
 
 def _current_version() -> str:
+    # --match=v* skips applied-* local tags so only semantic version tags show
     code, out = _run(
-        ["git", "-C", str(INSTALL_DIR), "describe", "--tags", "--always"],
+        ["git", "-C", str(INSTALL_DIR), "describe", "--tags", "--always", "--match=v*"],
         timeout=5,
     )
     if code == 0 and out:
@@ -85,9 +86,10 @@ def ota_status(_: str = Depends(require_auth)):
 
 class UpdateRequest(BaseModel):
     reinstall: bool = False
+    sha: Optional[str] = None   # specific commit to install (None = latest)
 
 
-def _do_update() -> None:
+def _do_update(sha: Optional[str] = None) -> None:
     global _update_running
     try:
         UPDATE_LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -99,13 +101,20 @@ def _do_update() -> None:
                 r = subprocess.run(cmd, stdout=log, stderr=log, text=True, **kw)
                 return r.returncode
 
-            if run(["git", "-C", str(INSTALL_DIR), "pull", "origin", BRANCH]) != 0:
-                log.write("git pull failed — aborting\n")
+            # fetch first so we can resolve any sha
+            if run(["git", "-C", str(INSTALL_DIR), "fetch", "origin", BRANCH]) != 0:
+                log.write("git fetch failed — aborting\n")
                 return
 
-            tag = f"applied-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
-            run(["git", "-C", str(INSTALL_DIR), "tag", tag])
-            log.write(f"--- tagged {tag} ---\n")
+            target = sha if sha else f"origin/{BRANCH}"
+            log.write(f"--- resetting to {target} ---\n")
+            if run(["git", "-C", str(INSTALL_DIR), "reset", "--hard", target]) != 0:
+                log.write(f"git reset --hard {target} failed — aborting\n")
+                return
+
+            tag_ts = f"applied-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            run(["git", "-C", str(INSTALL_DIR), "tag", tag_ts])
+            log.write(f"--- tagged {tag_ts} ---\n")
 
             run([str(INSTALL_DIR / "venv/bin/pip"), "install", "-q",
                  "-r", str(INSTALL_DIR / "requirements.txt")])
@@ -142,8 +151,10 @@ def trigger_update(body: UpdateRequest = UpdateRequest(), _: str = Depends(requi
             raise HTTPException(409, "Update already in progress")
         _update_running = True
 
-    target = _do_reinstall if body.reinstall else _do_update
-    t = threading.Thread(target=target, daemon=True, name="ota-update")
+    if body.reinstall:
+        t = threading.Thread(target=_do_reinstall, daemon=True, name="ota-update")
+    else:
+        t = threading.Thread(target=_do_update, kwargs={"sha": body.sha or None}, daemon=True, name="ota-update")
     t.start()
     return {"status": "update_started", "logs_endpoint": "/api/ota/logs"}
 

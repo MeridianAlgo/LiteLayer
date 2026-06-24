@@ -49,9 +49,20 @@ function startOtaPoll(ms = 60000) {
   if (_ota_timer) return; checkOtaStatus(); _ota_timer = setInterval(checkOtaStatus, ms);
 }
 
+let _otaSelectedSha = null;  // null = latest
+
+function selectOtaVersion(sha, el) {
+  _otaSelectedSha = sha;
+  document.querySelectorAll('.ota-ver-item').forEach(x => x.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  const runBtn = document.getElementById('ota-modal-run-btn');
+  if (runBtn) runBtn.textContent = sha ? `Install ${sha.slice(0,7)}` : 'Apply Update';
+}
+
 async function openOtaModal() {
   if (!_otaData) await checkOtaStatus();
   const d = _otaData;
+  _otaSelectedSha = null;
   document.querySelectorAll('#ota-steps .ota-step').forEach(s => s.classList.remove('active','done'));
   document.getElementById('ota-bar-fill').style.width = '0%';
   document.getElementById('ota-countdown').textContent = '';
@@ -59,14 +70,54 @@ async function openOtaModal() {
   if (logDetails) logDetails.style.display = 'none';
   const runBtn = document.getElementById('ota-modal-run-btn'), cancelBtn = document.getElementById('ota-cancel-btn');
   runBtn.disabled = false; runBtn.textContent = 'Apply Update'; cancelBtn.style.display = '';
+
+  // Installed version
   document.getElementById('ota-cur-ver').textContent = d?.current_version ? `v${d.current_version}` : '—';
-  document.getElementById('ota-new-ver').textContent = d?.latest_sha ? d.latest_sha.slice(0,7) : '—';
+
+  // Status row
+  const statusEl = document.getElementById('ota-status-val');
+  if (statusEl) {
+    if (!d?.github_reachable) {
+      statusEl.innerHTML = `<span style="color:var(--text-3)">GitHub unreachable</span>`;
+      runBtn.disabled = true;
+    } else if (!d?.update_available) {
+      statusEl.innerHTML = `<span style="color:var(--green)">✓ Up to date</span>`;
+      runBtn.disabled = true; runBtn.textContent = 'Up to date';
+    } else {
+      statusEl.innerHTML = `<span style="color:var(--yellow)">${d.latest_sha?.slice(0,7)} available</span>`;
+    }
+  }
+
   const isMajor = d?.is_major || false;
   document.getElementById('ota-major-warn').style.display = isMajor ? 'block' : 'none';
-  if (isMajor) runBtn.textContent = 'Full Reinstall';
-  if (d && !d.update_available) runBtn.disabled = true;
+  if (isMajor && d?.update_available) runBtn.textContent = 'Full Reinstall';
 
-  // Show pending commits if changelog is cached
+  // Version picker from changelog cache (or fetch)
+  const verWrap = document.getElementById('ota-ver-pick-wrap');
+  const verList = document.getElementById('ota-ver-list');
+  if (verWrap && verList) {
+    if (!_clCache) await loadChangelog().catch(() => {});
+    if (_clCache?.length) {
+      verList.innerHTML = _clCache.slice(0, 15).map((c, i) => {
+        const sha7  = c.sha.slice(0,7);
+        const isCur = d?.current_sha && c.sha.startsWith(d.current_sha);
+        const msg   = (c.commit?.message || '').split('\n')[0];
+        const rel   = fmtRelative(c.commit?.author?.date || '');
+        return `<div class="ota-ver-item${isCur ? ' current' : i === 0 ? ' selected' : ''}" data-sha="${c.sha}"
+          onclick="selectOtaVersion('${c.sha}',this)">
+          <span class="ota-ver-sha">${sha7}</span>
+          <span class="ota-ver-msg">${esc(msg)}</span>
+          <span class="ota-ver-rel">${rel}</span>
+          ${isCur ? `<span class="ota-cur-tag">installed</span>` : ''}
+        </div>`;
+      }).join('');
+      verWrap.style.display = '';
+    } else {
+      verWrap.style.display = 'none';
+    }
+  }
+
+  // Show pending commits summary
   const preview = document.getElementById('ota-commits-preview');
   if (preview) {
     const pending = [];
@@ -76,18 +127,14 @@ async function openOtaModal() {
         pending.push(c);
       }
     }
-    if (pending.length) {
-      preview.innerHTML = `<div class="ota-commits">
-        <div class="ota-commits-label">${pending.length} commit${pending.length > 1 ? 's' : ''} pending</div>
-        ${pending.slice(0,4).map(c => `<div class="ota-commit-item">
-          <span class="ota-commit-sha">${c.sha.slice(0,7)}</span>
-          <span class="ota-commit-msg">${esc((c.commit?.message||'').split('\n')[0])}</span>
-        </div>`).join('')}
-        ${pending.length > 4 ? `<div class="ota-commits-more">+${pending.length-4} more</div>` : ''}
-      </div>`;
-    } else {
-      preview.innerHTML = '';
-    }
+    preview.innerHTML = pending.length ? `<div class="ota-commits">
+      <div class="ota-commits-label">${pending.length} commit${pending.length > 1 ? 's' : ''} pending</div>
+      ${pending.slice(0,4).map(c => `<div class="ota-commit-item">
+        <span class="ota-commit-sha">${c.sha.slice(0,7)}</span>
+        <span class="ota-commit-msg">${esc((c.commit?.message||'').split('\n')[0])}</span>
+      </div>`).join('')}
+      ${pending.length > 4 ? `<div class="ota-commits-more">+${pending.length-4} more</div>` : ''}
+    </div>` : '';
   }
 
   show('ota-modal');
@@ -130,7 +177,7 @@ async function applyOtaUpdate() {
   startLogPoll();
 
   try {
-    const body = isMajor ? {reinstall: true} : {};
+    const body = isMajor ? {reinstall: true} : (_otaSelectedSha ? {sha: _otaSelectedSha} : {});
     const r = await api('/api/ota/update', {method:'POST', body: JSON.stringify(body)});
     if (!r?.ok) {
       clearInterval(_logPoll);

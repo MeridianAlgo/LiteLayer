@@ -2,7 +2,7 @@ import mimetypes
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -117,10 +117,35 @@ def download_file(
     )
 
 
-# Write endpoints — stubbed, gated behind auth, not yet implemented
 @router.post("/upload")
-def upload(_: str = Depends(require_auth)):
-    raise HTTPException(501, "Upload not yet implemented")
+async def upload_file(
+    drive: str = Query(...),
+    path: str = Query(default="/"),
+    file: UploadFile = File(...),
+    _: str = Depends(require_auth),
+):
+    d = registry.get(drive)
+    if not d:
+        raise HTTPException(404, "Drive not found")
+    if not d.mount_point:
+        raise HTTPException(409, "Drive not mounted")
+    root = Path(d.mount_point)
+    target_dir = _safe_path(root, path)
+    if not target_dir.is_dir():
+        raise HTTPException(400, "Not a directory")
+    safe_name = Path(file.filename or "upload").name
+    if not safe_name or safe_name in (".", ".."):
+        raise HTTPException(400, "Invalid filename")
+    dest = (target_dir / safe_name).resolve()
+    if not dest.is_relative_to(root.resolve()):
+        raise HTTPException(403, "Filename escape rejected")
+    try:
+        with open(dest, "wb") as f:
+            while chunk := await file.read(1 << 20):
+                f.write(chunk)
+    except OSError as exc:
+        raise HTTPException(500, str(exc))
+    return {"name": safe_name, "size": dest.stat().st_size}
 
 
 @router.post("/mkdir")

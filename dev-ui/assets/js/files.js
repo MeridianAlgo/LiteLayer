@@ -25,11 +25,75 @@ function _applyThumb(cell, url) {
   if (img) img.style.backgroundImage = `url(${url})`;
 }
 
+// ── Type filter + sort ────────────────────────────────────────────────────────
+
+let _typeFilter = 'all';
+let _sortKey    = 'name';  // 'name' | 'size' | 'modified'
+let _sortAsc    = true;
+
+const _TYPE_EXTS = {
+  image:   new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif','heic','raw','tiff']),
+  doc:     new Set(['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','md','log','csv','odt','rtf']),
+  video:   new Set(['mp4','mov','avi','mkv','wmv','flv','m4v','webm']),
+  audio:   new Set(['mp3','flac','wav','aac','ogg','m4a','wma']),
+  archive: new Set(['zip','tar','gz','7z','rar','bz2','xz']),
+  code:    new Set(['py','js','ts','jsx','tsx','html','css','sh','rb','go','rs','c','cpp','java','php','vue','json','yaml','yml','xml','toml','ini','sql']),
+};
+
+function setTypeFilter(type) {
+  _typeFilter = type;
+  document.querySelectorAll('.type-pill').forEach(el => el.classList.toggle('active', el.dataset.type === type));
+  applyFilters();
+}
+
+function setSort(key) {
+  if (_sortKey === key) _sortAsc = !_sortAsc; else { _sortKey = key; _sortAsc = key === 'name'; }
+  document.querySelectorAll('.sort-btn').forEach(el => {
+    el.classList.toggle('active', el.dataset.sort === key);
+    if (el.dataset.sort === key) el.dataset.dir = _sortAsc ? 'asc' : 'desc';
+  });
+  applyFilters();
+}
+
+function applyFilters() {
+  const text = (document.getElementById('file-search')?.value || '').trim().toLowerCase();
+  let entries = [...dirEntries];
+
+  if (text) entries = entries.filter(e => e.name.toLowerCase().includes(text));
+
+  if (_typeFilter !== 'all') {
+    entries = entries.filter(e => {
+      if (_typeFilter === 'folder') return e.is_dir;
+      const ext = (e.name.split('.').pop() || '').toLowerCase();
+      return (_TYPE_EXTS[_typeFilter] || new Set()).has(ext);
+    });
+  }
+
+  // Sort (dirs always first, then by chosen key)
+  entries.sort((a, b) => {
+    if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+    let av, bv;
+    if (_sortKey === 'size')     { av = a.size_bytes;  bv = b.size_bytes; }
+    else if (_sortKey === 'modified') { av = a.modified; bv = b.modified; }
+    else                         { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+    if (av < bv) return _sortAsc ? -1 : 1;
+    if (av > bv) return _sortAsc ?  1 : -1;
+    return 0;
+  });
+
+  _filtered = (text || _typeFilter !== 'all') ? entries : null;
+  clearSel(false); renderFiles(_filtered || dirEntries, currentPath);
+}
+
+function filterFiles(q) { applyFilters(); }
+
 // ── File browser ──────────────────────────────────────────────────────────────
 
 function browseFiles(driveId, driveLabel) {
   currentDriveId = driveId; currentDriveLabel = driveLabel; currentPath = '/';
-  _filtered = null; document.getElementById('file-search').value = '';
+  _filtered = null; _typeFilter = 'all'; _sortKey = 'name'; _sortAsc = true;
+  document.getElementById('file-search').value = '';
+  document.querySelectorAll('.type-pill').forEach(el => el.classList.toggle('active', el.dataset.type === 'all'));
   hide('view-welcome'); show('files-area');
   document.querySelectorAll('.sb-drive').forEach(el => el.classList.remove('active'));
   const card = document.getElementById(`sbcard-${driveId}`);
@@ -63,13 +127,6 @@ async function loadFiles(path) {
     container.innerHTML = `<div class="empty-state">${esc(d.detail || 'Error')}</div>`; return;
   }
   const data = await r.json(); dirEntries = data.entries; renderFiles(dirEntries, path);
-}
-
-function filterFiles(q) {
-  if (!dirEntries.length) return;
-  const lq = q.trim().toLowerCase();
-  _filtered = lq ? dirEntries.filter(e => e.name.toLowerCase().includes(lq)) : null;
-  clearSel(false); renderFiles(_filtered || dirEntries, currentPath);
 }
 
 // ── Selection ─────────────────────────────────────────────────────────────────
@@ -119,6 +176,80 @@ async function downloadSelected() {
   toast(`Downloading ${toDownload.length} file${toDownload.length !== 1 ? 's' : ''}…`, 'success', 2500);
 }
 
+// ── Rubber-band drag selection ────────────────────────────────────────────────
+
+let _rbActive = false, _rbStart = {x:0, y:0};
+
+function _startRubberBand(e) {
+  if (e.button !== 0) return;
+  // Only start drag if not clicking a file item
+  if (e.target.closest('.file-row, .file-cell, .btn, .sel-bar, .files-toolbar, .type-filter-bar')) return;
+  _rbActive = true; _rbStart = {x: e.clientX, y: e.clientY};
+  const r = document.getElementById('rb-rect');
+  r.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;width:0;height:0;display:block`;
+  document.addEventListener('mousemove', _rbMove);
+  document.addEventListener('mouseup', _rbEnd, {once: true});
+}
+
+function _rbMove(e) {
+  if (!_rbActive) return;
+  const x = Math.min(e.clientX, _rbStart.x), y = Math.min(e.clientY, _rbStart.y);
+  const w = Math.abs(e.clientX - _rbStart.x), h = Math.abs(e.clientY - _rbStart.y);
+  const r = document.getElementById('rb-rect');
+  r.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px;display:block`;
+}
+
+function _rbEnd(e) {
+  if (!_rbActive) return;
+  _rbActive = false;
+  document.removeEventListener('mousemove', _rbMove);
+  document.getElementById('rb-rect').style.display = 'none';
+
+  const x1 = Math.min(e.clientX, _rbStart.x), y1 = Math.min(e.clientY, _rbStart.y);
+  const x2 = Math.max(e.clientX, _rbStart.x), y2 = Math.max(e.clientY, _rbStart.y);
+  if (x2 - x1 < 6 && y2 - y1 < 6) return; // treat as click
+
+  const entries = _filtered || dirEntries;
+  document.querySelectorAll('.file-row[data-idx], .file-cell[data-idx]').forEach(el => {
+    const r = el.getBoundingClientRect();
+    if (r.right > x1 && r.left < x2 && r.bottom > y1 && r.top < y2) {
+      const entry = entries[parseInt(el.dataset.idx)];
+      if (entry?.path) _sel.add(entry.path);
+    }
+  });
+  if (_sel.size) { updateSelBar(); renderFiles(entries, currentPath); }
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+
+function handleDropUpload(e) {
+  e.preventDefault();
+  document.getElementById('files-area').classList.remove('drag-over');
+  if (!currentDriveId) { toast('Select a drive first', 'error'); return; }
+  const files = [...(e.dataTransfer?.files || [])];
+  if (files.length) uploadFiles(files);
+}
+
+async function uploadFiles(files) {
+  if (!currentDriveId) { toast('Select a drive first', 'error'); return; }
+  if (!files.length) return;
+  let ok = 0, fail = 0;
+  for (const file of files) {
+    const fd = new FormData(); fd.append('file', file);
+    try {
+      const r = await fetch(`${API}/api/files/upload?drive=${encodeURIComponent(currentDriveId)}&path=${encodeURIComponent(currentPath)}`, {
+        method: 'POST',
+        headers: authToken ? {Authorization: `Bearer ${authToken}`} : {},
+        credentials: 'include',
+        body: fd,
+      });
+      if (r.ok) ok++;
+      else { const j = await r.json().catch(() => ({})); toast(j.detail || `Upload failed: ${file.name}`, 'error', 4000); fail++; }
+    } catch { fail++; toast(`Upload failed: ${file.name}`, 'error', 4000); }
+  }
+  if (ok) { toast(`Uploaded ${ok} file${ok > 1 ? 's' : ''}`, 'success'); loadFiles(currentPath); }
+}
+
 // ── Render ────────────────────────────────────────────────────────────────────
 
 function renderFiles(entries, path) {
@@ -132,10 +263,10 @@ function renderFiles(entries, path) {
   const upCell = path !== '/' ? `<div class="file-cell" onclick="navigateUp()"><div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-cell-name">..</div></div>` : '';
 
   if (fileView === 'list') {
-    container.innerHTML = `<div class="file-list-header"><div style="width:14px"></div><div style="width:26px"></div><div class="flex-1">Name</div><div style="width:108px;text-align:right">Modified</div><div style="width:66px;text-align:right">Size</div><div style="width:26px"></div></div>
+    container.innerHTML = `<div class="file-list-header"><div style="width:14px"></div><div style="width:26px"></div><div class="flex-1">Name</div><div class="file-sort-btn" data-sort="modified" onclick="setSort('modified')">Modified</div><div class="file-sort-btn" data-sort="size" onclick="setSort('size')" style="text-align:right">Size</div><div style="width:26px"></div></div>
     <div class="file-list">${upRow}${entries.map((e, i) => {
       const sel = _sel.has(e.path);
-      return `<div class="file-row${sel ? ' selected' : ''}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false">
+      return `<div class="file-row${sel ? ' selected' : ''}" data-idx="${i}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false">
         <div class="file-row-check">${sel ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
         ${fileIconHtml(e.name, e.is_dir)}
         <div class="file-row-name" title="${esc(e.name)}">${esc(e.name)}</div>
@@ -149,7 +280,7 @@ function renderFiles(entries, path) {
     container.innerHTML = `<div class="file-grid">${upCell}${entries.map((e, i) => {
       const sel = _sel.has(e.path), isImg = !e.is_dir && isImageFile(e.name);
       const thumbSrc = isImg ? `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(e.path)}` : '';
-      return `<div class="file-cell${sel ? ' selected' : ''}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false" title="${esc(e.name)}"${isImg ? ` data-preview-src="${esc(thumbSrc)}"` : ''}>
+      return `<div class="file-cell${sel ? ' selected' : ''}" data-idx="${i}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false" title="${esc(e.name)}"${isImg ? ` data-preview-src="${esc(thumbSrc)}"` : ''}>
         ${isImg ? `<div class="file-cell-thumb fi-wrap-lg"></div>` : fileIconHtml(e.name, e.is_dir, 19, 'fi-wrap-lg')}
         <div class="file-cell-name">${esc(e.name)}</div>
         <div class="file-cell-size">${e.is_dir ? '' : fmt(e.size_bytes)}</div>
@@ -210,7 +341,7 @@ function showCtxMenu(e, idx) {
     items.push(`<div class="ctx-item" onclick="openDir('${esc(entry.path)}','${esc(entry.name)}');closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Open folder</div>`);
   } else {
     if (isImageFile(entry.name)) { const fi = dirEntries.findIndex(x => x.path === entry.path); items.push(`<div class="ctx-item" onclick="openImageViewer(${fi >= 0 ? fi : idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>View image</div>`); }
-    if (isPdfFile(entry.name))   { const fi = dirEntries.findIndex(x => x.path === entry.path); items.push(`<div class="ctx-item" onclick="openPdfViewer(${fi >= 0 ? fi : idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>View PDF</div>`); }
+    if (isPdfFile(entry.name))   { const fi = dirEntries.findIndex(x => x.path === entry.path); items.push(`<div class="ctx-item" onclick="openPdfViewer(${fi >= 0 ? fi : idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Open PDF</div>`); }
     if (isDocxFile(entry.name))  { items.push(`<div class="ctx-item" onclick="openDocxViewer(${idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>View document</div>`); }
     items.push(`<div class="ctx-item" onclick="downloadFile('${esc(entry.path)}','${esc(entry.name)}');closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</div>`);
   }
