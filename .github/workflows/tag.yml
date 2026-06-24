@@ -1,0 +1,47 @@
+# Opt-in release tagging. This NEVER runs on a normal push — you trigger it
+# manually (Actions tab → "Tag release" → Run workflow) only when you actually
+# want to cut a release. It reads VERSION and creates tag v<VERSION> + a release.
+name: Tag release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to tag (blank = use VERSION file)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: ver
+        run: |
+          V="${{ github.event.inputs.version }}"
+          [ -z "$V" ] && V=$(cat VERSION)
+          V="${V#v}"  # strip a leading v if present
+          echo "tag=v$V" >> "$GITHUB_OUTPUT"
+
+      - name: Create & push tag
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — nothing to do."; exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          gh release view "$TAG" >/dev/null 2>&1 && exit 0
+          gh release create "$TAG" --title "$TAG" --generate-notes

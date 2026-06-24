@@ -40,9 +40,9 @@ def _current_version() -> str:
         timeout=5,
     )
     if code == 0 and out:
-        return out
+        return out.lstrip("v")  # UI adds its own "v" — don't double it (vv0.1.0)
     f = INSTALL_DIR / "VERSION"
-    return f.read_text().strip() if f.exists() else "unknown"
+    return f.read_text().strip().lstrip("v") if f.exists() else "unknown"
 
 
 def _version_at(ref: str) -> Optional[str]:

@@ -16,11 +16,10 @@ function closeSettings() { hide('settings-overlay'); }
 
 function setSettingsTab(tab) {
   _settingsTab = tab;
-  ['appearance','account','about','updates','system'].forEach(t => {
+  ['appearance','account','about','system'].forEach(t => {
     document.getElementById(`stab-${t}`)?.classList.toggle('hidden', t !== tab);
     document.getElementById(`snav-${t}`)?.classList.toggle('active', t === tab);
   });
-  if (tab === 'updates') loadChangelog();
   if (tab === 'about')   _loadAbout();
   if (tab === 'system')  _loadSystem();
 }
@@ -48,15 +47,34 @@ async function _loadSystem() {
           : `<button class="btn btn-primary btn-xs" onclick="installVpn('${esc(v.name)}')">Install &amp; sign in</button>`;
       const rmBtn = v.installed
         ? `<button class="btn btn-danger btn-xs" onclick="uninstallVpn('${esc(v.name)}')" title="Uninstall ${esc(v.name)}">Uninstall</button>` : '';
-      const ztLink = v.name === 'ZeroTier'
-        ? `<a class="vpn-help-link" href="https://www.zerotier.com/download/" target="_blank" rel="noopener">Download ZeroTier for your computer →</a>` : '';
       return `<div class="vpn-row">
         <span class="vpn-row-name">${esc(v.name)}</span>
         <span class="vpn-row-badge${v.active ? ' active' : ''}">${state}</span>
         ${useBtn}${rmBtn}
-      </div>${ztLink}`;
+      </div>${_vpnClientHelp(v.name)}`;
     }).join('') + `<div id="vpn-error" class="vpn-error" style="display:none"></div><div id="vpn-progress"></div>`;
   } catch { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; }
+}
+
+// Per-VPN: download link for your own computer + any setup notes.
+const _VPN_CLIENT = {
+  'Tailscale': 'https://tailscale.com/download',
+  'WireGuard': 'https://www.wireguard.com/install/',
+  'ZeroTier':  'https://www.zerotier.com/download/',
+};
+function _vpnClientHelp(name) {
+  const url = _VPN_CLIENT[name];
+  let html = url ? `<a class="vpn-help-link" href="${url}" target="_blank" rel="noopener">Download ${esc(name)} for your computer →</a>` : '';
+  if (name === 'ZeroTier') {
+    html += `<div class="vpn-help-note">Authorizing your devices in ZeroTier:
+      <ol style="margin:6px 0 0 16px;padding:0">
+        <li>Install ZeroTier on your laptop, then <b>Join Network</b> using the same network ID this Pi joined.</li>
+        <li>Open <a href="https://my.zerotier.com/network" target="_blank" rel="noopener">my.zerotier.com</a> → your network → <b>Members</b>.</li>
+        <li>Tick the <b>Auth?</b> checkbox next to both the Pi and your laptop so they can talk.</li>
+        <li>Use the Pi's ZeroTier IP (shown under Members, e.g. <code>10.147.x.x</code>) to reach LiteLayer — <code>.local</code> names don't cross ZeroTier.</li>
+      </ol></div>`;
+  }
+  return html;
 }
 
 // Persistent, dismissable error panel for VPN ops (toasts vanish too fast to read).
@@ -142,7 +160,29 @@ async function resetPi() {
   if (!confirm('Are you sure? This re-runs the full installer from scratch.')) return;
   const r = await api('/api/system/reset', {method: 'POST'});
   if (!r?.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Reset failed to start', 'error', 8000); return; }
-  toast('Resetting & reinstalling — the Pi is rebooting. Reconnect in a few minutes.', 'info', 20000);
+  // Kick the user out behind a full-screen loader; reload once the Pi is back.
+  authToken = null; try { localStorage.removeItem('ll-token'); } catch {}
+  closeSettings();
+  document.getElementById('reset-overlay')?.classList.remove('hidden');
+  _waitForRebootThenReload();
+}
+
+function _waitForRebootThenReload() {
+  let wentDown = false, tries = 0;
+  const status = document.getElementById('reset-status');
+  const tick = setInterval(async () => {
+    tries++;
+    try {
+      const r = await fetch(`${API}/api/ota/status`, {cache: 'no-store'});
+      if (wentDown && r) {  // back online after a reboot → reload to the login page
+        clearInterval(tick); window.location.reload(); return;
+      }
+    } catch {
+      wentDown = true;  // connection dropped = the Pi is rebooting
+      if (status) status.textContent = 'The Pi is rebooting… reconnecting automatically when it comes back.';
+    }
+    if (tries > 150) { clearInterval(tick); window.location.reload(); }  // ~5 min hard stop
+  }, 2000);
 }
 
 // ── Color pickers ─────────────────────────────────────────────────────────────
@@ -190,6 +230,8 @@ async function _loadAbout() {
     const r = await api('/api/system/info');
     if (!r?.ok) { vpnEl.textContent = '—'; return; }
     const d = await r.json();
+    const hn = document.getElementById('about-hostname');
+    if (hn) hn.textContent = d.hostname && d.hostname !== 'unknown' ? `http://${d.hostname}.local` : '—';
     if (!d.vpns?.length) {
       vpnEl.textContent = 'None';
     } else {

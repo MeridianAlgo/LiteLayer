@@ -160,6 +160,7 @@ function handleFileOpen(idx) {
   if (isImageFile(entry.name)) { const fi = dirEntries.findIndex(x => x.path === entry.path); openImageViewer(fi >= 0 ? fi : idx); return; }
   if (isPdfFile(entry.name))   { const fi = dirEntries.findIndex(x => x.path === entry.path); openPdfViewer(fi >= 0 ? fi : idx); return; }
   if (isDocxFile(entry.name))  { openDocxViewer(idx); return; }
+  if (isTextFile(entry.name))  { openTextViewer(idx); return; }
   downloadFile(entry.path, entry.name);
 }
 
@@ -448,6 +449,7 @@ function showCtxMenu(e, idx) {
     if (isImageFile(entry.name)) { const fi = dirEntries.findIndex(x => x.path === entry.path); items.push(`<div class="ctx-item" onclick="openImageViewer(${fi >= 0 ? fi : idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>View image</div>`); }
     if (isPdfFile(entry.name))   { const fi = dirEntries.findIndex(x => x.path === entry.path); items.push(`<div class="ctx-item" onclick="openPdfViewer(${fi >= 0 ? fi : idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Open PDF</div>`); }
     if (isDocxFile(entry.name))  { items.push(`<div class="ctx-item" onclick="openDocxViewer(${idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>View document</div>`); }
+    if (isTextFile(entry.name))  { items.push(`<div class="ctx-item" onclick="openTextViewer(${idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Edit text</div>`); }
     items.push(`<div class="ctx-item" onclick="downloadFile('${esc(entry.path)}','${esc(entry.name)}');closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</div>`);
   }
   if (_sel.size <= 1) {

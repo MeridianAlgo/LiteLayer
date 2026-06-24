@@ -131,3 +131,79 @@ async function openDocxViewer(dirIdx) {
 
 function closeDocxViewer() { hide('docx-viewer'); document.body.style.overflow = ''; _dvEntry = null; }
 function dvDownload() { if (_dvEntry) downloadFile(_dvEntry.path, _dvEntry.name); }
+
+// ── Text / Markdown Editor ─────────────────────────────────────────────────────
+
+const TEXT_EXTS = new Set(['txt','md','markdown','log','json','csv','xml','yaml','yml','ini','conf','cfg','sh','py','js','ts','css','html','env']);
+let _tvEntry = null, _tvDirty = false, _tvPreview = false;
+
+function isTextFile(name) { return TEXT_EXTS.has((name.split('.').pop() || '').toLowerCase()); }
+function _tvIsMd(name) { const e = (name.split('.').pop() || '').toLowerCase(); return e === 'md' || e === 'markdown'; }
+
+async function openTextViewer(idx) {
+  const entries = (typeof _filtered !== 'undefined' && _filtered) || dirEntries;
+  const entry = entries[idx]; if (!entry) return;
+  _tvEntry = entry; _tvDirty = false; _tvPreview = false;
+  document.getElementById('tv-filename').textContent = entry.name;
+  document.getElementById('tv-dirty').style.display = 'none';
+  document.getElementById('tv-preview-btn').style.display = _tvIsMd(entry.name) ? '' : 'none';
+  document.getElementById('tv-preview').style.display = 'none';
+  const ta = document.getElementById('tv-edit');
+  ta.style.display = ''; ta.value = 'Loading…'; ta.disabled = true;
+  show('text-viewer'); document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', _tvKey);
+  try {
+    const url = `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
+    const r = await fetch(url, {headers: authToken ? {Authorization:`Bearer ${authToken}`} : {}, credentials:'include'});
+    if (!r.ok) throw new Error('http ' + r.status);
+    ta.value = await r.text(); ta.disabled = false; ta.focus();
+  } catch (e) { console.error('[text] load failed', e); toast('Could not open file', 'error'); closeTextViewer(); }
+}
+
+function tvOnInput() { _tvDirty = true; document.getElementById('tv-dirty').style.display = ''; }
+
+function _tvKey(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); tvSave(); }
+  else if (e.key === 'Escape') closeTextViewer();
+}
+
+async function tvTogglePreview() {
+  _tvPreview = !_tvPreview;
+  const ta = document.getElementById('tv-edit'), pv = document.getElementById('tv-preview');
+  if (!_tvPreview) { pv.style.display = 'none'; ta.style.display = ''; return; }
+  if (!window.marked) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js';
+      s.onload = res; s.onerror = rej; document.head.appendChild(s);
+    }).catch(() => {});
+  }
+  pv.innerHTML = window.marked ? marked.parse(ta.value) : `<pre>${esc(ta.value)}</pre>`;
+  ta.style.display = 'none'; pv.style.display = '';
+}
+
+async function tvSave() {
+  if (!_tvEntry) return;
+  const ta = document.getElementById('tv-edit');
+  const btn = document.getElementById('tv-save-btn'); btn.disabled = true;
+  // Overwrite by re-uploading into the parent dir under the same name.
+  const slash = _tvEntry.path.lastIndexOf('/');
+  const dir = slash > 0 ? _tvEntry.path.slice(0, slash) : '/';
+  const fd = new FormData();
+  fd.append('file', new File([ta.value], _tvEntry.name, {type:'text/plain'}));
+  try {
+    const url = `${API}/api/files/upload?drive=${currentDriveId}&path=${encodeURIComponent(dir || '/')}`;
+    const r = await fetch(url, {method:'POST', headers: authToken ? {Authorization:`Bearer ${authToken}`} : {}, credentials:'include', body: fd});
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.detail || ('http ' + r.status)); }
+    _tvDirty = false; document.getElementById('tv-dirty').style.display = 'none';
+    toast('Saved', 'success', 2000);
+  } catch (e) { console.error('[text] save failed', e); toast('Save failed: ' + e.message, 'error', 6000); }
+  finally { btn.disabled = false; }
+}
+
+function closeTextViewer() {
+  if (_tvDirty && !confirm('Discard unsaved changes?')) return;
+  hide('text-viewer'); document.body.style.overflow = '';
+  document.removeEventListener('keydown', _tvKey);
+  _tvEntry = null; _tvDirty = false;
+}
