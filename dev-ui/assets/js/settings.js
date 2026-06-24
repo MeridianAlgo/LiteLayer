@@ -20,6 +20,30 @@ function setSettingsTab(tab) {
     document.getElementById(`snav-${t}`)?.classList.toggle('active', t === tab);
   });
   if (tab === 'updates') loadChangelog();
+  if (tab === 'about')   _loadAbout();
+}
+
+async function _loadAbout() {
+  const urlEl = document.getElementById('about-url');
+  if (urlEl) urlEl.textContent = window.location.origin;
+
+  const shaEl = document.getElementById('about-sha');
+  if (shaEl && _otaData?.current_sha) shaEl.textContent = _otaData.current_sha;
+
+  const vpnEl = document.getElementById('about-vpn');
+  if (!vpnEl) return;
+  try {
+    const r = await api('/api/system/info');
+    if (!r?.ok) { vpnEl.textContent = '—'; return; }
+    const d = await r.json();
+    if (!d.vpns?.length) {
+      vpnEl.textContent = 'None';
+    } else {
+      vpnEl.innerHTML = d.vpns.map(v =>
+        `<span class="vpn-pill">${esc(v.name)}${v.ip ? ' · ' + esc(v.ip) : ''}</span>`
+      ).join(' ');
+    }
+  } catch { vpnEl.textContent = '—'; }
 }
 
 async function saveSettings() {

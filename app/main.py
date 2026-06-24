@@ -121,6 +121,47 @@ def update_credentials(req: UpdateCredentialsRequest, username: str = Depends(re
     return {"status": "ok", "relogin_required": False}
 
 
+@app.get("/api/system/info")
+def system_info(_: str = Depends(require_auth)):
+    import re, shutil, socket, subprocess
+    vpns = []
+
+    def _run(cmd, timeout=5):
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            return r.returncode, r.stdout
+        except Exception:
+            return -1, ""
+
+    # Tailscale — tailscale0 interface
+    code, out = _run(["ip", "addr", "show", "tailscale0"])
+    if code == 0:
+        m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", out)
+        vpns.append({"name": "Tailscale", "ip": m.group(1) if m else None})
+
+    # ZeroTier — any zt* interface
+    code, out = _run(["ip", "-brief", "addr"])
+    if code == 0:
+        for line in out.splitlines():
+            if re.match(r"zt\w+\s+UP", line):
+                parts = line.split()
+                ip = parts[2].split("/")[0] if len(parts) > 2 else None
+                vpns.append({"name": "ZeroTier", "ip": ip})
+                break
+
+    # Cloudflare Tunnel — cloudflared process
+    code, _ = _run(["pgrep", "-x", "cloudflared"], timeout=3)
+    if code == 0:
+        vpns.append({"name": "Cloudflare Tunnel", "ip": None})
+
+    try:
+        hostname = socket.gethostname()
+    except Exception:
+        hostname = "unknown"
+
+    return {"hostname": hostname, "vpns": vpns}
+
+
 _assets_dir = DEV_UI_PATH / "assets"
 if _assets_dir.exists():
     app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")

@@ -29,6 +29,12 @@ def _run(cmd: list[str], cwd=None, timeout=30) -> tuple[int, str]:
 
 
 def _current_version() -> str:
+    code, out = _run(
+        ["git", "-C", str(INSTALL_DIR), "describe", "--tags", "--always"],
+        timeout=5,
+    )
+    if code == 0 and out:
+        return out
     f = INSTALL_DIR / "VERSION"
     return f.read_text().strip() if f.exists() else "unknown"
 

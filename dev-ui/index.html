@@ -181,7 +181,10 @@
     <div class="modal-body">
       <div class="ota-ver-row"><span class="ota-ver-label">Current version</span><span class="ota-ver-val" id="ota-cur-ver">—</span></div>
       <div class="ota-ver-row"><span class="ota-ver-label">Latest commit</span><span class="ota-ver-val" id="ota-new-ver">—</span></div>
-      <div id="ota-major-warn" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:8px;font-size:12px;color:#f59e0b">Major update — will re-run full installer</div>
+      <div id="ota-major-warn" style="display:none;margin-top:10px;padding:8px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.25);border-radius:8px;font-size:12px;color:#f59e0b">
+        <strong>Major update</strong> — will re-run the full installer one-liner
+      </div>
+      <div id="ota-commits-preview"></div>
       <div class="ota-steps" id="ota-steps">
         <div class="ota-step" id="ota-step-0"><div class="ota-step-icon">1</div><span class="ota-step-label">Pull latest code from GitHub</span></div>
         <div class="ota-step" id="ota-step-1"><div class="ota-step-icon">2</div><span class="ota-step-label">Install / update dependencies</span></div>
@@ -189,6 +192,10 @@
       </div>
       <div class="ota-bar-track"><div class="ota-bar-fill" id="ota-bar-fill" style="width:0%"></div></div>
       <div class="ota-countdown" id="ota-countdown"></div>
+      <details id="ota-log-details" style="display:none">
+        <summary class="ota-log-summary">Show update log</summary>
+        <pre id="ota-log-pre" class="ota-log-pre"></pre>
+      </details>
       <div class="ota-modal-actions">
         <button class="btn btn-ghost btn-sm" id="ota-cancel-btn" onclick="closeOtaModal()">Cancel</button>
         <button class="btn btn-primary btn-sm" id="ota-modal-run-btn" onclick="applyOtaUpdate()">Apply Update</button>
@@ -311,7 +318,9 @@
             </div>
           </div>
           <div class="about-info-row"><div class="about-info-label">Platform</div><div class="about-info-value">Raspberry Pi · self-hosted NAS</div></div>
-          <div class="about-info-row"><div class="about-info-label">URL</div><div class="about-info-value">http://litelayer.local</div></div>
+          <div class="about-info-row"><div class="about-info-label">URL</div><div class="about-info-value" id="about-url">—</div></div>
+          <div class="about-info-row"><div class="about-info-label">Commit</div><div class="about-info-value" id="about-sha" style="font-family:var(--mono);font-size:11px">—</div></div>
+          <div class="about-info-row"><div class="about-info-label">VPN</div><div class="about-info-value" id="about-vpn">Checking…</div></div>
           <div class="about-info-row"><div class="about-info-label">API</div><div class="about-info-value">FastAPI · uvicorn</div></div>
           <div class="about-info-row"><div class="about-info-label">Auth</div><div class="about-info-value">argon2-cffi · Bearer token</div></div>
           <div class="about-info-row"><div class="about-info-label">Proxy</div><div class="about-info-value">Caddy · mDNS (avahi)</div></div>

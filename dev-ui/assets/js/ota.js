@@ -55,6 +55,8 @@ async function openOtaModal() {
   document.querySelectorAll('#ota-steps .ota-step').forEach(s => s.classList.remove('active','done'));
   document.getElementById('ota-bar-fill').style.width = '0%';
   document.getElementById('ota-countdown').textContent = '';
+  const logDetails = document.getElementById('ota-log-details');
+  if (logDetails) logDetails.style.display = 'none';
   const runBtn = document.getElementById('ota-modal-run-btn'), cancelBtn = document.getElementById('ota-cancel-btn');
   runBtn.disabled = false; runBtn.textContent = 'Apply Update'; cancelBtn.style.display = '';
   document.getElementById('ota-cur-ver').textContent = d?.current_version ? `v${d.current_version}` : '—';
@@ -63,6 +65,31 @@ async function openOtaModal() {
   document.getElementById('ota-major-warn').style.display = isMajor ? 'block' : 'none';
   if (isMajor) runBtn.textContent = 'Full Reinstall';
   if (d && !d.update_available) runBtn.disabled = true;
+
+  // Show pending commits if changelog is cached
+  const preview = document.getElementById('ota-commits-preview');
+  if (preview) {
+    const pending = [];
+    if (_clCache && d?.update_available && d.current_sha) {
+      for (const c of _clCache) {
+        if (c.sha.startsWith(d.current_sha)) break;
+        pending.push(c);
+      }
+    }
+    if (pending.length) {
+      preview.innerHTML = `<div class="ota-commits">
+        <div class="ota-commits-label">${pending.length} commit${pending.length > 1 ? 's' : ''} pending</div>
+        ${pending.slice(0,4).map(c => `<div class="ota-commit-item">
+          <span class="ota-commit-sha">${c.sha.slice(0,7)}</span>
+          <span class="ota-commit-msg">${esc((c.commit?.message||'').split('\n')[0])}</span>
+        </div>`).join('')}
+        ${pending.length > 4 ? `<div class="ota-commits-more">+${pending.length-4} more</div>` : ''}
+      </div>`;
+    } else {
+      preview.innerHTML = '';
+    }
+  }
+
   show('ota-modal');
 }
 
@@ -73,6 +100,8 @@ async function applyOtaUpdate() {
   const runBtn = document.getElementById('ota-modal-run-btn'), cancelBtn = document.getElementById('ota-cancel-btn');
   runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner"></span>'; cancelBtn.style.display = 'none';
   const steps = document.querySelectorAll('#ota-steps .ota-step');
+  const logDetails = document.getElementById('ota-log-details');
+  const logPre = document.getElementById('ota-log-pre');
 
   const setStep = n => {
     steps.forEach((s, i) => {
@@ -83,25 +112,43 @@ async function applyOtaUpdate() {
   };
 
   setStep(0);
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 400));
+
+  // Show live log
+  if (logDetails) { logDetails.style.display = ''; logDetails.open = false; }
+  if (logPre) logPre.textContent = 'Starting…';
+
+  let _logPoll = null;
+  const startLogPoll = () => {
+    _logPoll = setInterval(async () => {
+      try {
+        const lr = await api('/api/ota/logs?lines=40');
+        if (lr?.ok) { const ld = await lr.json(); if (logPre) { logPre.textContent = ld.logs || ''; logPre.scrollTop = logPre.scrollHeight; } }
+      } catch {}
+    }, 2000);
+  };
+  startLogPoll();
 
   try {
     const body = isMajor ? {reinstall: true} : {};
     const r = await api('/api/ota/update', {method:'POST', body: JSON.stringify(body)});
     if (!r?.ok) {
+      clearInterval(_logPoll);
       const j = await r?.json(); toast(j?.detail || 'Update failed', 'error', 5000);
       runBtn.disabled = false; runBtn.textContent = 'Retry'; cancelBtn.style.display = ''; return;
     }
-    setStep(1); await new Promise(r => setTimeout(r, 1400));
-    setStep(2); await new Promise(r => setTimeout(r, 800));
+    setStep(1); await new Promise(r => setTimeout(r, 1600));
+    setStep(2); await new Promise(r => setTimeout(r, 900));
     document.getElementById('ota-bar-fill').style.width = '100%';
     steps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
+    clearInterval(_logPoll);
     let sec = 20; const cd = document.getElementById('ota-countdown');
     const t = setInterval(() => {
       cd.textContent = `Reconnecting in ${sec}s…`;
       if (--sec < 0) { clearInterval(t); window.location.reload(); }
     }, 1000);
   } catch {
+    clearInterval(_logPoll);
     toast('Update request failed', 'error');
     runBtn.disabled = false; runBtn.textContent = 'Retry'; cancelBtn.style.display = '';
   }
