@@ -27,6 +27,8 @@ function setSettingsTab(tab) {
 
 // ── System tab ─────────────────────────────────────────────────────────────────
 
+let _vpnPoll = null;
+
 async function _loadSystem() {
   document.getElementById('boot-drive-sw')?.classList.toggle('on', localStorage.getItem('ll-boot-drive') === '1');
   const box = document.getElementById('vpn-list');
@@ -35,19 +37,58 @@ async function _loadSystem() {
     const r = await api('/api/system/vpns');
     if (!r?.ok) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; return; }
     const d = await r.json();
-    if (!d.vpns?.length) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">No VPNs available.</div>`; return; }
-    box.innerHTML = d.vpns.map(v => {
+    const active = d.vpns.find(v => v.active);
+    const cur = `<div class="vpn-current">Current VPN: <strong>${active ? esc(active.name) : 'None'}</strong></div>`;
+    box.innerHTML = cur + d.vpns.map(v => {
       const state = v.active ? 'active' : v.installed ? (v.enabled ? 'enabled' : 'installed') : 'not installed';
-      const btn = v.installed
-        ? `<button class="btn btn-ghost btn-xs" onclick="switchVpn('${esc(v.name)}')">${v.active ? 'Restart' : 'Use this'}</button>`
-        : `<button class="btn btn-ghost btn-xs" disabled title="Set this up with the LiteLayer installer">Not installed</button>`;
+      const btn = v.active
+        ? `<button class="btn btn-ghost btn-xs" disabled>In use</button>`
+        : v.installed
+          ? `<button class="btn btn-ghost btn-xs" onclick="switchVpn('${esc(v.name)}')">Use this</button>`
+          : `<button class="btn btn-primary btn-xs" onclick="installVpn('${esc(v.name)}')">Install &amp; sign in</button>`;
       return `<div class="vpn-row">
         <span class="vpn-row-name">${esc(v.name)}</span>
         <span class="vpn-row-badge${v.active ? ' active' : ''}">${state}</span>
         ${btn}
       </div>`;
-    }).join('');
+    }).join('') + `<div id="vpn-progress"></div>`;
   } catch { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; }
+}
+
+async function installVpn(name) {
+  let networkId = null;
+  if (name === 'ZeroTier') {
+    networkId = prompt('ZeroTier network ID to join (leave blank to join later):') || null;
+  }
+  if (!confirm(`Install ${name} on this device and switch to it now?\n\nThis turns off any other VPN once it's connected.`)) return;
+  const r = await api('/api/system/vpn/install', {method: 'POST', body: JSON.stringify({name, network_id: networkId})});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Install failed to start', 'error', 4000); return; }
+  toast(`Installing ${name}…`, 'info', 3000);
+  _pollVpnInstall();
+}
+
+function _pollVpnInstall() {
+  if (_vpnPoll) clearInterval(_vpnPoll);
+  const prog = () => document.getElementById('vpn-progress');
+  _vpnPoll = setInterval(async () => {
+    const r = await api('/api/system/vpn/status');
+    if (!r?.ok) return;
+    const s = await r.json();
+    const box = prog();
+    if (box) {
+      let html = s.running ? `<div class="vpn-installing"><span class="spinner" style="width:13px;height:13px;border-width:2px"></span> Installing ${esc(s.name || '')}…</div>` : '';
+      if (s.auth_url) html += `<a class="btn btn-primary btn-xs" href="${esc(s.auth_url)}" target="_blank" rel="noopener" style="margin-top:8px">Sign in to ${esc(s.name || 'VPN')} →</a>`;
+      if (s.error) html += `<div style="color:var(--red);font-size:12px;margin-top:6px">${esc(s.error)}</div>`;
+      box.innerHTML = html;
+    }
+    if (!s.running) {
+      clearInterval(_vpnPoll); _vpnPoll = null;
+      if (!s.error) toast('VPN ready' + (s.auth_url ? ' — finish sign-in via the link' : ''), 'success', 5000);
+      const url = s.auth_url;
+      await _loadSystem();
+      if (url) { const b = prog(); if (b) b.innerHTML = `<a class="btn btn-primary btn-xs" href="${esc(url)}" target="_blank" rel="noopener">Sign in to ${esc(s.name || 'VPN')} →</a>`; }
+    }
+  }, 2500);
 }
 
 async function toggleBootDrive() {

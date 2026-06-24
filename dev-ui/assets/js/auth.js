@@ -48,6 +48,9 @@ async function doLogin() {
 }
 
 async function doLogout() {
-  await api('/api/logout', {method: 'POST'});
-  authToken = null; showLogin(); toast('Signed out', 'info', 2000);
+  try { await api('/api/logout', {method: 'POST'}); } catch {}
+  authToken = null;
+  // Hard reload → guarantees a fresh, wired-up login page (the in-place
+  // showLogin() left the Sign In button dead).
+  location.reload();
 }

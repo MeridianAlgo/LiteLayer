@@ -46,7 +46,20 @@ function dismissOtaBanner() {
 }
 
 function startOtaPoll(ms = 60000) {
-  if (_ota_timer) return; checkOtaStatus(); _ota_timer = setInterval(checkOtaStatus, ms);
+  if (_ota_timer) return; checkOtaStatus(); _checkLastUpdateResult(); _ota_timer = setInterval(checkOtaStatus, ms);
+}
+
+// After a reload, surface whether the last update actually did anything.
+async function _checkLastUpdateResult() {
+  try {
+    const r = await api('/api/ota/result'); if (!r?.ok) return;
+    const d = await r.json();
+    if (d.ok === null || !d.at) return;
+    if (sessionStorage.getItem('ll-ota-result-seen') === d.at) return;
+    sessionStorage.setItem('ll-ota-result-seen', d.at);
+    if (d.ok === false) toast(d.message || 'Last update did not complete', 'error', 7000);
+    else if (d.ok === true) toast(d.message || 'Update applied', 'success', 4000);
+  } catch {}
 }
 
 let _otaSelectedSha = null;  // null = latest
@@ -97,23 +110,20 @@ async function openOtaModal() {
   document.getElementById('ota-major-warn').style.display = isMajor ? 'block' : 'none';
   if (isMajor && d?.update_available) runBtn.textContent = 'Full Reinstall';
 
-  // Version picker from changelog cache (or fetch)
+  // Version picker — show release TAGS (v0.1.0 …), not raw commits.
   const verWrap = document.getElementById('ota-ver-pick-wrap');
   const verList = document.getElementById('ota-ver-list');
   if (verWrap && verList) {
-    if (!_clCache) await loadChangelog().catch(() => {});
-    if (_clCache?.length) {
-      verList.innerHTML = _clCache.slice(0, 15).map((c, i) => {
-        const sha7  = c.sha.slice(0,7);
-        const isCur = d?.current_sha && c.sha.startsWith(d.current_sha);
-        const msg   = (c.commit?.message || '').split('\n')[0];
-        const rel   = fmtRelative(c.commit?.author?.date || '');
-        return `<div class="ota-ver-item${isCur ? ' current' : i === 0 ? ' selected' : ''}" data-sha="${c.sha}"
-          onclick="selectOtaVersion('${c.sha}',this)">
-          <span class="ota-ver-sha">${sha7}</span>
-          <span class="ota-ver-msg">${esc(msg)}</span>
-          <span class="ota-ver-rel">${rel}</span>
-          ${isCur ? `<span class="ota-cur-tag">installed</span>` : ''}
+    let tags = [];
+    try { const tr = await api('/api/ota/tags'); if (tr?.ok) tags = (await tr.json()).tags || []; } catch {}
+    if (tags.length) {
+      verList.innerHTML = tags.map((t, i) => {
+        const ghUrl = `https://github.com/${GH_REPO}/releases/tag/${t.name}`;
+        return `<div class="ota-ver-item${t.current ? ' current' : i === 0 && !tags.some(x => x.current) ? ' selected' : ''}" data-sha="${t.sha}"
+          onclick="selectOtaVersion('${t.sha}',this)">
+          <span class="ota-ver-sha">${esc(t.name)}</span>
+          <a class="ota-ver-msg" href="${ghUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--text-3)">release notes ↗</a>
+          ${t.current ? `<span class="ota-cur-tag">installed</span>` : ''}
         </div>`;
       }).join('');
       verWrap.style.display = '';
@@ -233,15 +243,15 @@ function renderChangelog(commits) {
   const badge = document.getElementById('cl-status-badge');
 
   if (badge) {
+    // Only flag when there's actually an update — no "Up to date" pill (you can
+    // already see that from the version once you've installed it).
     if (_otaData?.update_available) {
+      badge.style.display = '';
       badge.className = 'cl-badge update-avail';
-      badge.innerHTML = `<svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>${_otaData.latest_sha?.slice(0,7)} available`;
-    } else if (_otaData?.github_reachable) {
-      badge.className = 'cl-badge up-to-date';
-      badge.innerHTML = `<svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>Up to date`;
+      const ver = _otaData.latest_version ? `v${_otaData.latest_version}` : (_otaData.latest_sha?.slice(0,7) || 'update');
+      badge.innerHTML = `<svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>${esc(ver)} available`;
     } else {
-      badge.className = 'cl-badge unknown';
-      badge.innerHTML = `<svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>Unknown`;
+      badge.style.display = 'none';
     }
   }
 

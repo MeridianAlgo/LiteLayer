@@ -103,13 +103,46 @@ function applyAccent(id) {
   });
 }
 
+// Lighten (pct>0) / darken (pct<0) a #rrggbb hex.
+function _shade(hex, pct) {
+  const n = parseInt((hex || '#000000').slice(1), 16);
+  const ch = s => {
+    const c = (n >> s) & 255;
+    const v = pct < 0 ? c * (1 + pct / 100) : c + (255 - c) * (pct / 100);
+    return Math.max(0, Math.min(255, Math.round(v)));
+  };
+  return '#' + [ch(16), ch(8), ch(0)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+// Pick any accent color; derive the gradient/glow/light from it.
+function applyAccentColor(hex) {
+  const r = document.documentElement;
+  r.style.setProperty('--accent', hex);
+  r.style.setProperty('--accent2', _shade(hex, -18));
+  r.style.setProperty('--accent-light', _shade(hex, 28));
+  const n = parseInt(hex.slice(1), 16);
+  r.style.setProperty('--accent-glow', `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},0.35)`);
+  _currentAccent = 'custom';
+  localStorage.setItem('ll-accent', 'custom');
+  localStorage.setItem('ll-accent-hex', hex);
+  document.querySelectorAll('.accent-swatch').forEach(el => el.classList.remove('active'));
+  const hexEl = document.getElementById('accent-hex'); if (hexEl) hexEl.textContent = hex;
+}
+
 function buildAccentGrid() {
   const grid = document.getElementById('accent-grid');
   if (!grid) return;
-  grid.innerHTML = ACCENTS.map(a => `
-    <button class="accent-swatch${a.id === _currentAccent ? ' active' : ''}" data-accent="${a.id}"
-      style="background:${a.c}" title="${a.label}" onclick="applyAccent('${a.id}')"></button>
-  `).join('');
+  const cur = document.documentElement.style.getPropertyValue('--accent').trim() || '#7c3aed';
+  // Free color picker first — any color, not just presets.
+  grid.innerHTML = `<div class="accent-pick-row">
+      <input type="color" id="accent-color-input" class="color-swatch-input" value="${cur}"
+        oninput="applyAccentColor(this.value)" title="Pick any accent color">
+      <span class="color-picker-hex" id="accent-hex" onclick="document.getElementById('accent-color-input').click()">${cur}</span>
+      <span style="font-size:11px;color:var(--text-3)">Pick any color</span>
+    </div>
+    <div class="accent-presets">${ACCENTS.map(a => `
+      <button class="accent-swatch${a.id === _currentAccent ? ' active' : ''}" data-accent="${a.id}"
+        style="background:${a.c}" title="${a.label}" onclick="applyAccent('${a.id}')"></button>`).join('')}</div>`;
 }
 
 // ── Individual color customisation ────────────────────────────────────────────
@@ -154,6 +187,7 @@ function _restoreCustomColors() {
   const t  = localStorage.getItem('ll-theme')  || 'dark';
   const ac = localStorage.getItem('ll-accent') || 'purple';
   applyTheme(t);
-  if (ac !== 'custom') applyAccent(ac); else applyAccent('purple');
+  if (ac === 'custom') applyAccentColor(localStorage.getItem('ll-accent-hex') || '#7c3aed');
+  else applyAccent(ac);
   _restoreCustomColors();
 })();

@@ -212,24 +212,144 @@ class VpnSwitchRequest(BaseModel):
     name: str
 
 
+def _stop_other_vpns(keep: str) -> None:
+    """Disable + stop every VPN unit except the chosen one."""
+    import subprocess
+    for name, (_tool, unit) in _VPN_UNITS.items():
+        if name == keep:
+            continue
+        subprocess.run(["systemctl", "disable", "--now", unit], capture_output=True, text=True)
+
+
 @app.post("/api/system/vpn/switch")
 def switch_vpn(req: VpnSwitchRequest, _: str = Depends(require_auth)):
-    """Enable + start the chosen VPN now. We deliberately do NOT disable the other
-    VPNs or reboot — yanking a running VPN out from under the active connection is
-    exactly what used to break remote access on switch."""
+    """Enable + start the chosen VPN now and turn the others off. No reboot."""
     import subprocess
     if req.name not in _VPN_UNITS:
         raise HTTPException(400, f"Unknown VPN: {req.name}")
     tool, unit = _VPN_UNITS[req.name]
     if not _vpn_installed(tool, unit):
         raise HTTPException(409, f"{req.name} is not installed on this device")
-    # ponytail: enable --now (start + on-boot) instead of reboot; add exclusive
-    # mode later if running two VPNs at once ever actually causes trouble.
     r = subprocess.run(["systemctl", "enable", "--now", unit], capture_output=True, text=True)
     if r.returncode != 0:
         raise HTTPException(500, (r.stderr or r.stdout or "systemctl failed").strip())
+    _stop_other_vpns(req.name)   # turn off any old VPN
     return {"status": "switched", "vpn": req.name, "unit": unit,
             "active": _sysctl("is-active", unit) == "active"}
+
+
+# ── VPN install + sign-in from the UI ─────────────────────────────────────────
+import re as _re
+
+VPN_LOG = Path("/var/log/litelayer/vpn.log")
+# Shell steps to install each VPN (mirrors installer/install.sh).
+_VPN_INSTALL = {
+    "Tailscale":          ["curl -fsSL https://tailscale.com/install.sh | sh"],
+    "ZeroTier":           ["curl -fsSL https://install.zerotier.com | bash"],
+    "Cloudflare Tunnel":  [
+        "curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null",
+        'echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(. /etc/os-release && echo $VERSION_CODENAME) main" | tee /etc/apt/sources.list.d/cloudflared.list >/dev/null',
+        "apt-get update -qq && apt-get install -y cloudflared",
+    ],
+    "WireGuard":          ["apt-get install -y --no-install-recommends wireguard wireguard-tools"],
+}
+# Command that produces a sign-in URL (run detached; we scrape its output).
+_VPN_SIGNIN = {
+    "Tailscale": "tailscale up --accept-routes",
+}
+_AUTH_URL_RE = _re.compile(r"https://(?:login\.tailscale\.com|[\w.-]*netbird[\w.-]*|[\w.-]*trycloudflare\.com)\S*")
+
+_vpn_state = {"running": False, "name": None, "auth_url": None, "error": None}
+_vpn_lock = __import__("threading").Lock()
+
+
+def _vlog(msg: str) -> None:
+    try:
+        VPN_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(VPN_LOG, "a") as f:
+            f.write(msg.rstrip() + "\n")
+    except OSError:
+        pass
+
+
+def _vpn_install_worker(name: str, network_id: str | None) -> None:
+    import subprocess, datetime
+    try:
+        _vlog(f"\n--- install {name} {datetime.datetime.now().isoformat(timespec='seconds')} ---")
+        for cmd in _VPN_INSTALL.get(name, []):
+            _vlog(f"$ {cmd}")
+            r = subprocess.run(cmd, shell=True, executable="/bin/bash",
+                               capture_output=True, text=True, timeout=600)
+            _vlog(r.stdout + r.stderr)
+            if r.returncode != 0:
+                _vpn_state["error"] = f"Install step failed: {cmd}"
+                return
+
+        tool, unit = _VPN_UNITS[name]
+        # ZeroTier: join the network the user supplied
+        if name == "ZeroTier" and network_id:
+            r = subprocess.run(["zerotier-cli", "join", network_id], capture_output=True, text=True)
+            _vlog(r.stdout + r.stderr)
+
+        # Sign-in step: launch detached, scrape the auth URL it prints.
+        signin = _VPN_SIGNIN.get(name)
+        if signin:
+            _vlog(f"$ {signin} (detached)")
+            subprocess.Popen(f"{signin} >> {VPN_LOG} 2>&1 &", shell=True, executable="/bin/bash")
+            import time
+            for _ in range(20):   # up to ~20s for the URL to appear
+                time.sleep(1)
+                try:
+                    m = _AUTH_URL_RE.search(VPN_LOG.read_text())
+                except OSError:
+                    m = None
+                if m:
+                    _vpn_state["auth_url"] = m.group(0)
+                    break
+
+        subprocess.run(["systemctl", "enable", "--now", unit], capture_output=True, text=True)
+        _stop_other_vpns(name)   # turn the previous VPN off
+        _vlog(f"--- {name} enabled, others stopped ---")
+    except Exception as exc:  # noqa: BLE001
+        _vpn_state["error"] = str(exc)
+        _vlog(f"ERROR: {exc}")
+    finally:
+        _vpn_state["running"] = False
+
+
+class VpnInstallRequest(BaseModel):
+    name: str
+    network_id: Optional[str] = None   # ZeroTier network to join
+
+
+@app.post("/api/system/vpn/install")
+def install_vpn(req: VpnInstallRequest, _: str = Depends(require_auth)):
+    import threading
+    if req.name not in _VPN_UNITS:
+        raise HTTPException(400, f"Unknown VPN: {req.name}")
+    with _vpn_lock:
+        if _vpn_state["running"]:
+            raise HTTPException(409, "A VPN install is already running")
+        _vpn_state.update(running=True, name=req.name, auth_url=None, error=None)
+    threading.Thread(target=_vpn_install_worker, args=(req.name, req.network_id),
+                     daemon=True, name="vpn-install").start()
+    return {"status": "installing", "name": req.name}
+
+
+@app.get("/api/system/vpn/status")
+def vpn_status(_: str = Depends(require_auth)):
+    active = None
+    for name, (_tool, unit) in _VPN_UNITS.items():
+        if _sysctl("is-active", unit) == "active":
+            active = name
+            break
+    log = ""
+    if VPN_LOG.exists():
+        try:
+            log = "\n".join(VPN_LOG.read_text().splitlines()[-30:])
+        except OSError:
+            pass
+    return {**_vpn_state, "active": active, "log": log}
 
 
 class BootDriveRequest(BaseModel):

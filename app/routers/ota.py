@@ -1,6 +1,8 @@
 """
 OTA update system — checks GitHub for new commits, applies updates in the background.
 """
+import json
+import re
 import threading
 from pathlib import Path
 from typing import Optional
@@ -14,9 +16,12 @@ router = APIRouter(prefix="/api/ota", tags=["ota"])
 
 INSTALL_DIR  = Path("/opt/litelayer")
 UPDATE_LOG   = Path("/var/log/litelayer/update.log")
+RESULT_FILE  = Path("/var/log/litelayer/last_update.json")
 REPO_URL     = "https://github.com/MeridianAlgo/LiteLayer.git"
 BRANCH       = "main"
-INSTALL_URL  = "https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/install.sh"
+# install.sh lives under installer/ — the old root path 404'd, which is why
+# "Full Reinstall" silently did nothing (curl 404 → empty pipe → bash exit 0).
+INSTALL_URL  = "https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh"
 
 _update_running = False
 _update_lock    = threading.Lock()
@@ -40,8 +45,33 @@ def _current_version() -> str:
     return f.read_text().strip() if f.exists() else "unknown"
 
 
+def _version_at(ref: str) -> Optional[str]:
+    code, out = _run(["git", "-C", str(INSTALL_DIR), "show", f"{ref}:VERSION"], timeout=5)
+    return out.strip() if code == 0 and out else None
+
+
+def _semver(v: Optional[str]) -> Optional[tuple[int, int, int]]:
+    m = re.match(r"v?(\d+)\.(\d+)\.(\d+)", v or "")
+    return tuple(int(x) for x in m.groups()) if m else None  # type: ignore[return-value]
+
+
+def _classify_update(cur_ver: Optional[str], latest_ver: Optional[str]) -> str:
+    """major = major/minor semver bump (re-run installer); minor = patch bump
+    (git pull + restart); none = same/older."""
+    a, b = _semver(cur_ver), _semver(latest_ver)
+    if not a or not b:
+        return "unknown"
+    if b[:2] > a[:2]:
+        return "major"
+    if b > a:
+        return "minor"
+    return "none"
+
+
 def _is_major_update(current_sha: Optional[str], latest_sha: Optional[str]) -> bool:
-    """Heuristic: check if VERSION file changes between HEAD and origin/main."""
+    """Major if the major/minor version bumped, or installer/deps changed."""
+    if _classify_update(_version_at("HEAD"), _version_at(f"origin/{BRANCH}")) == "major":
+        return True
     if not current_sha or not latest_sha:
         return False
     code, out = _run(
@@ -51,6 +81,18 @@ def _is_major_update(current_sha: Optional[str], latest_sha: Optional[str]) -> b
     if code != 0:
         return False
     return "install.sh" in out or "requirements.txt" in out
+
+
+def _write_result(ok: bool, message: str, frm: Optional[str] = None, to: Optional[str] = None) -> None:
+    import datetime
+    try:
+        RESULT_FILE.parent.mkdir(parents=True, exist_ok=True)
+        RESULT_FILE.write_text(json.dumps({
+            "ok": ok, "message": message, "from": frm, "to": to,
+            "at": datetime.datetime.now().isoformat(timespec="seconds"),
+        }))
+    except OSError:
+        pass
 
 
 def _sha(ref: str) -> str | None:
@@ -72,8 +114,11 @@ def ota_status(_: str = Depends(require_auth)):
     current = _sha("HEAD")
     latest  = _sha(f"origin/{BRANCH}") if reachable else None
     update_available = bool(current and latest and current != latest)
+    latest_ver = _version_at(f"origin/{BRANCH}") if reachable else None
     return {
         "current_version":  _current_version(),
+        "latest_version":   latest_ver,
+        "update_type":      _classify_update(_version_at("HEAD"), latest_ver) if update_available else "none",
         "current_sha":      current[:8] if current else None,
         "latest_sha":       latest[:8]  if latest  else None,
         "update_available": update_available,
@@ -84,6 +129,40 @@ def ota_status(_: str = Depends(require_auth)):
     }
 
 
+@router.get("/result")
+def last_result(_: str = Depends(require_auth)):
+    """Outcome of the most recent update — lets the UI flag 'update did nothing'."""
+    if not RESULT_FILE.exists():
+        return {"ok": None}
+    try:
+        return json.loads(RESULT_FILE.read_text())
+    except (OSError, ValueError):
+        return {"ok": None}
+
+
+@router.get("/tags")
+def list_tags(_: str = Depends(require_auth)):
+    """Release tags (newest first) for the version picker — shows v0.1.0 etc.
+    rather than raw commit shas."""
+    _fetch()
+    _run(["git", "-C", str(INSTALL_DIR), "fetch", "origin", "--tags", "--quiet"], timeout=20)
+    code, out = _run(
+        ["git", "-C", str(INSTALL_DIR), "tag", "-l", "v*", "--sort=-version:refname"],
+        timeout=5,
+    )
+    if code != 0 or not out:
+        return {"tags": []}
+    cur = _sha("HEAD")
+    tags = []
+    for name in out.splitlines():
+        name = name.strip()
+        if not name:
+            continue
+        sha = _sha(name)
+        tags.append({"name": name, "sha": sha, "current": bool(sha and cur and sha == cur)})
+    return {"tags": tags}
+
+
 class UpdateRequest(BaseModel):
     reinstall: bool = False
     sha: Optional[str] = None   # specific commit to install (None = latest)
@@ -91,6 +170,7 @@ class UpdateRequest(BaseModel):
 
 def _do_update(sha: Optional[str] = None) -> None:
     global _update_running
+    frm = _sha("HEAD")
     try:
         UPDATE_LOG.parent.mkdir(parents=True, exist_ok=True)
         with open(UPDATE_LOG, "a") as log:
@@ -104,12 +184,20 @@ def _do_update(sha: Optional[str] = None) -> None:
             # fetch first so we can resolve any sha
             if run(["git", "-C", str(INSTALL_DIR), "fetch", "origin", BRANCH]) != 0:
                 log.write("git fetch failed — aborting\n")
+                _write_result(False, "Could not reach GitHub (git fetch failed).", frm, frm)
                 return
 
             target = sha if sha else f"origin/{BRANCH}"
             log.write(f"--- resetting to {target} ---\n")
             if run(["git", "-C", str(INSTALL_DIR), "reset", "--hard", target]) != 0:
                 log.write(f"git reset --hard {target} failed — aborting\n")
+                _write_result(False, f"git reset to {target} failed.", frm, frm)
+                return
+
+            to = _sha("HEAD")
+            if frm and to and frm == to and not sha:
+                log.write("--- already at target, nothing changed ---\n")
+                _write_result(False, "Update was available but the code did not change.", frm, to)
                 return
 
             tag_ts = f"applied-{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -119,8 +207,11 @@ def _do_update(sha: Optional[str] = None) -> None:
             run([str(INSTALL_DIR / "venv/bin/pip"), "install", "-q",
                  "-r", str(INSTALL_DIR / "requirements.txt")])
 
+            _write_result(True, f"Updated to {_current_version()}.", frm, to)
             log.write("--- restarting service ---\n")
             run(["systemctl", "restart", "litelayer"])
+    except Exception as exc:  # noqa: BLE001
+        _write_result(False, f"Update crashed: {exc}", frm, frm)
     finally:
         _update_running = False
 
@@ -128,17 +219,27 @@ def _do_update(sha: Optional[str] = None) -> None:
 def _do_reinstall() -> None:
     """Re-run the full installer — used for major updates."""
     global _update_running
+    frm = _sha("HEAD")
     try:
         UPDATE_LOG.parent.mkdir(parents=True, exist_ok=True)
         with open(UPDATE_LOG, "a") as log:
             import subprocess, datetime
             log.write(f"\n--- FULL REINSTALL started {datetime.datetime.now().isoformat()} ---\n")
-            # curl the installer and pipe to bash (same as the one-liner)
+            # pipefail so a curl 404 actually fails the run instead of silently
+            # feeding an empty script to bash (which used to "succeed" doing nothing).
             r = subprocess.run(
-                f"curl -fsSL {INSTALL_URL} | bash",
-                shell=True, stdout=log, stderr=log, text=True, timeout=300,
+                f"set -o pipefail; curl -fsSL {INSTALL_URL} | bash",
+                shell=True, executable="/bin/bash",
+                stdout=log, stderr=log, text=True, timeout=300,
             )
             log.write(f"--- reinstall exit {r.returncode} ---\n")
+            to = _sha("HEAD")
+            if r.returncode == 0:
+                _write_result(True, f"Reinstalled to {_current_version()}.", frm, to)
+            else:
+                _write_result(False, f"Reinstall failed (exit {r.returncode}). See update log.", frm, to)
+    except Exception as exc:  # noqa: BLE001
+        _write_result(False, f"Reinstall crashed: {exc}", frm, frm)
     finally:
         _update_running = False
 
