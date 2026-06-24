@@ -37,6 +37,31 @@ _SKIP_PREFIXES = ("loop", "zram", "ram", "dm-", "md", "sr", "nbd", "zd")
 
 _system_devs_cache: set[str] | None = None
 
+# When True, enumerate_drives also exposes the live system/boot drive (mounted at /)
+# as a writable drive. Off by default — full access can break the OS. Toggled via the
+# /api/system/boot-drive endpoint. ponytail: module flag, not config — single process.
+INCLUDE_SYSTEM = False
+
+
+def _system_root_drive() -> "Drive | None":
+    """Synthetic drive for the live root filesystem (mounted at /)."""
+    src = _run(["findmnt", "-n", "-o", "SOURCE", "/"])
+    fstype = _run(["findmnt", "-n", "-o", "FSTYPE", "/"]) or "unknown"
+    if not src:
+        return None
+    used, free = _disk_usage("/")
+    return Drive(
+        id="system-root",
+        device=src,
+        label="System (boot)",
+        fstype=fstype,
+        size_bytes=used + free,
+        used_bytes=used,
+        free_bytes=free,
+        state="mounted_rw",
+        mount_point="/",
+    )
+
 
 def _get_system_devs() -> set[str]:
     global _system_devs_cache
@@ -187,5 +212,10 @@ def enumerate_drives() -> list[Drive]:
             state=state,
             mount_point=mp,
         ))
+
+    if INCLUDE_SYSTEM:
+        sysd = _system_root_drive()
+        if sysd:
+            drives.insert(0, sysd)
 
     return drives

@@ -77,20 +77,23 @@ let _pvEntry = null;
 
 function isPdfFile(name) { return PDF_EXTS.has((name.split('.').pop() || '').toLowerCase()); }
 
-async function openPdfViewer(dirIdx) {
+// NOT async: window.open must run synchronously inside the click gesture,
+// otherwise the browser's popup blocker kills it (the old bug — PDFs "didn't open").
+function openPdfViewer(dirIdx) {
   const entry = dirEntries[dirIdx]; if (!entry) return;
   _pvEntry = entry;
-  toast(`Opening ${entry.name}…`, 'info', 1500);
+  const tab = window.open('', '_blank');
+  if (!tab) { toast('Allow popups for this site to open PDFs', 'error', 5000); return; }
+  tab.document.write('<title>' + entry.name.replace(/[<>]/g, '') + '</title><body style="margin:0;background:#1e1e1e;color:#9aa;font-family:system-ui"><p style="padding:24px">Loading PDF…</p></body>');
   const url = `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(entry.path)}`;
-  try {
-    const r = await fetch(url, {headers: authToken ? {Authorization:`Bearer ${authToken}`} : {}, credentials:'include'});
-    if (!r.ok) { toast('Could not load PDF', 'error'); return; }
-    const blob = await r.blob();
-    const blobUrl = URL.createObjectURL(new Blob([blob], {type:'application/pdf'}));
-    const tab = window.open(blobUrl, '_blank');
-    if (!tab) toast('Allow popups for this site to open PDFs', 'error', 5000);
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-  } catch { toast('Could not open PDF', 'error'); }
+  fetch(url, {headers: authToken ? {Authorization:`Bearer ${authToken}`} : {}, credentials:'include'})
+    .then(r => { if (!r.ok) throw new Error('http'); return r.blob(); })
+    .then(blob => {
+      const blobUrl = URL.createObjectURL(new Blob([blob], {type:'application/pdf'}));
+      tab.location.href = blobUrl;
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    })
+    .catch(() => { try { tab.document.body.innerHTML = '<p style="padding:24px;color:#e77">Could not load PDF.</p>'; } catch {} });
 }
 
 function closePdfViewer() {}  // kept for Esc handler compatibility

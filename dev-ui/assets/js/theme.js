@@ -2,9 +2,30 @@ const ACCENTS = [
   {id:'purple', c:'#7c3aed', c2:'#4f46e5', glow:'rgba(124,58,237,0.35)', light:'#a78bfa', label:'Purple'},
   {id:'indigo', c:'#4338ca', c2:'#3730a3', glow:'rgba(67,56,202,0.35)',  light:'#818cf8', label:'Indigo'},
   {id:'blue',   c:'#2563eb', c2:'#1d4ed8', glow:'rgba(37,99,235,0.35)',  light:'#60a5fa', label:'Blue'  },
+  {id:'sky',    c:'#0284c7', c2:'#0369a1', glow:'rgba(2,132,199,0.35)',  light:'#38bdf8', label:'Sky'   },
+  {id:'cyan',   c:'#0891b2', c2:'#0e7490', glow:'rgba(8,145,178,0.35)',  light:'#22d3ee', label:'Cyan'  },
   {id:'teal',   c:'#0d9488', c2:'#0f766e', glow:'rgba(13,148,136,0.35)', light:'#2dd4bf', label:'Teal'  },
-  {id:'rose',   c:'#e11d48', c2:'#be123c', glow:'rgba(225,29,72,0.35)',  light:'#fb7185', label:'Rose'  },
+  {id:'emerald',c:'#059669', c2:'#047857', glow:'rgba(5,150,105,0.35)',  light:'#34d399', label:'Emerald'},
+  {id:'lime',   c:'#65a30d', c2:'#4d7c0f', glow:'rgba(101,163,13,0.35)', light:'#a3e635', label:'Lime'  },
   {id:'amber',  c:'#d97706', c2:'#b45309', glow:'rgba(217,119,6,0.35)',  light:'#fbbf24', label:'Amber' },
+  {id:'orange', c:'#ea580c', c2:'#c2410c', glow:'rgba(234,88,12,0.35)',  light:'#fb923c', label:'Orange'},
+  {id:'red',    c:'#dc2626', c2:'#b91c1c', glow:'rgba(220,38,38,0.35)',  light:'#f87171', label:'Red'   },
+  {id:'rose',   c:'#e11d48', c2:'#be123c', glow:'rgba(225,29,72,0.35)',  light:'#fb7185', label:'Rose'  },
+  {id:'pink',   c:'#db2777', c2:'#be185d', glow:'rgba(219,39,119,0.35)', light:'#f472b6', label:'Pink'  },
+  {id:'fuchsia',c:'#c026d3', c2:'#a21caf', glow:'rgba(192,38,211,0.35)', light:'#e879f9', label:'Fuchsia'},
+  {id:'violet', c:'#7c3aed', c2:'#6d28d9', glow:'rgba(124,58,237,0.35)', light:'#a78bfa', label:'Violet'},
+  {id:'slate',  c:'#475569', c2:'#334155', glow:'rgba(71,85,105,0.35)',  light:'#94a3b8', label:'Slate' },
+];
+
+// File-type keys shared by the text-color and icon-color customisers
+const FILE_TYPES = [
+  {t:'folder',  label:'Folder files'},
+  {t:'image',   label:'Image files'},
+  {t:'doc',     label:'Document files'},
+  {t:'video',   label:'Video files'},
+  {t:'audio',   label:'Audio files'},
+  {t:'archive', label:'Archive files'},
+  {t:'code',    label:'Code files'},
 ];
 
 // Every individual CSS color that can be customised
@@ -18,23 +39,39 @@ const COLOR_VARS = [
   {key:'--text',        label:'Primary text',     group:'Text'},
   {key:'--text-2',      label:'Secondary text',   group:'Text'},
   {key:'--text-3',      label:'Muted text',       group:'Text'},
+  ...FILE_TYPES.map(f => ({key:`--ft-${f.t}`, label:f.label, group:'Text color · file types'})),
+  ...FILE_TYPES.map(f => ({key:`--ic-${f.t}`, label:f.label, group:'Icon color · file types'})),
+  {key:'--logo-text',   label:'LiteLayer logo text',  group:'Logo'},
+  {key:'--logo-img',    label:'LiteLayer logo image', group:'Logo'},
   {key:'--green',       label:'Success',          group:'Status'},
   {key:'--yellow',      label:'Warning',          group:'Status'},
   {key:'--red',         label:'Error',            group:'Status'},
 ];
+
+// Icon colors per file type (shared default for both themes)
+const _IC = {
+  '--ic-folder':'#7c3aed','--ic-image':'#f97316','--ic-doc':'#60a5fa',
+  '--ic-video':'#3b82f6','--ic-audio':'#ec4899','--ic-archive':'#f59e0b','--ic-code':'#10b981',
+};
+// Text colors per file type default to the icon colors (file names tinted by type)
+const _FT = Object.fromEntries(Object.entries(_IC).map(([k, v]) => [k.replace('--ic-', '--ft-'), v]));
 
 const _COLOR_DEFAULTS = {
   dark: {
     '--bg':'#0b0a14','--bg2':'#0e0c1a','--bg3':'#13101f',
     '--accent':'#7c3aed','--accent2':'#4f46e5','--accent-light':'#a78bfa',
     '--text':'#f0eeff','--text-2':'#9b8fcf','--text-3':'#5c5380',
+    '--logo-text':'#a78bfa','--logo-img':'#7c3aed',
     '--green':'#10b981','--yellow':'#f59e0b','--red':'#ef4444',
+    ..._IC, ..._FT,
   },
   light: {
     '--bg':'#f5f4fe','--bg2':'#ece9ff','--bg3':'#e4e0fc',
     '--accent':'#7c3aed','--accent2':'#4f46e5','--accent-light':'#a78bfa',
     '--text':'#1c1635','--text-2':'#5a4fa0','--text-3':'#9888c8',
+    '--logo-text':'#7c3aed','--logo-img':'#7c3aed',
     '--green':'#10b981','--yellow':'#f59e0b','--red':'#ef4444',
+    ..._IC, ..._FT,
   },
 };
 

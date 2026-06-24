@@ -131,17 +131,10 @@ async function loadFiles(path) {
 
 // ── Selection ─────────────────────────────────────────────────────────────────
 
+// Windows-Explorer style: single click selects, double click opens.
 function handleFileClick(idx, e) {
   const entries = _filtered || dirEntries, entry = entries[idx];
   if (!entry) return;
-
-  if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
-    if (entry.is_dir) { openDir(entry.path, entry.name); return; }
-    if (isImageFile(entry.name)) { const fi = dirEntries.findIndex(x => x.path === entry.path); openImageViewer(fi >= 0 ? fi : idx); return; }
-    if (isPdfFile(entry.name))   { const fi = dirEntries.findIndex(x => x.path === entry.path); openPdfViewer(fi >= 0 ? fi : idx); return; }
-    if (isDocxFile(entry.name))  { openDocxViewer(idx); return; }
-    downloadFile(entry.path, entry.name); return;
-  }
 
   if (e.shiftKey && _lastClickIdx >= 0) {
     const lo = Math.min(_lastClickIdx, idx), hi = Math.max(_lastClickIdx, idx);
@@ -154,6 +147,20 @@ function handleFileClick(idx, e) {
     if (_sel.has(entry.path)) _sel.delete(entry.path); else _sel.add(entry.path);
     _lastClickIdx = idx; updateSelBar(); renderFiles(entries, currentPath); return;
   }
+
+  // plain click → select just this item
+  _sel = new Set([entry.path]); _lastClickIdx = idx;
+  updateSelBar(); renderFiles(entries, currentPath);
+}
+
+function handleFileOpen(idx) {
+  const entries = _filtered || dirEntries, entry = entries[idx];
+  if (!entry) return;
+  if (entry.is_dir) { openDir(entry.path, entry.name); return; }
+  if (isImageFile(entry.name)) { const fi = dirEntries.findIndex(x => x.path === entry.path); openImageViewer(fi >= 0 ? fi : idx); return; }
+  if (isPdfFile(entry.name))   { const fi = dirEntries.findIndex(x => x.path === entry.path); openPdfViewer(fi >= 0 ? fi : idx); return; }
+  if (isDocxFile(entry.name))  { openDocxViewer(idx); return; }
+  downloadFile(entry.path, entry.name);
 }
 
 function updateSelBar() {
@@ -176,14 +183,69 @@ async function downloadSelected() {
   toast(`Downloading ${toDownload.length} file${toDownload.length !== 1 ? 's' : ''}…`, 'success', 2500);
 }
 
+// ── Editable address bar (Windows Explorer style) ─────────────────────────────
+
+function _crumbsFor(path) {
+  const segs = path.split('/').filter(Boolean);
+  const crumbs = [{label: currentDriveLabel, path: '/'}];
+  let built = ''; segs.forEach(s => { built += '/' + s; crumbs.push({label: s, path: built}); });
+  return crumbs;
+}
+
+function editPath() {
+  if (!currentDriveId) return;
+  const nav = document.getElementById('breadcrumb');
+  nav.innerHTML = `<input id="path-input" class="path-input" value="${esc(currentPath || '/')}" spellcheck="false" autocomplete="off">`;
+  const inp = document.getElementById('path-input');
+  inp.focus(); inp.select();
+  const restore = () => setBreadcrumb(_crumbsFor(currentPath));
+  inp.onblur = restore;
+  inp.onkeydown = ev => {
+    if (ev.key === 'Enter')      { inp.onblur = null; commitPath(inp.value); }
+    else if (ev.key === 'Escape') { inp.onblur = null; restore(); }
+  };
+}
+
+function commitPath(value) {
+  let p = (value || '').trim().replace(/\\/g, '/');
+  if (!p.startsWith('/')) p = '/' + p;
+  if (p.length > 1) p = p.replace(/\/+$/, '');   // strip trailing slashes
+  openDir(p, p.split('/').filter(Boolean).pop() || currentDriveLabel);
+}
+
+// ── Make-writable helper (drives mount read-only by default) ───────────────────
+
+async function ensureWritable() {
+  if (!currentDriveId) return false;
+  const r = await api(`/api/drives/${currentDriveId}/enable-write`, {method: 'POST'});
+  if (r && !r.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Could not enable write', 'error', 4000); }
+  return !!(r && r.ok);
+}
+
+async function renameEntry(idx) {
+  const entries = _filtered || dirEntries, entry = entries[idx];
+  if (!entry) return;
+  // ponytail: native prompt — swap for inline edit if it needs polish
+  const input = prompt('Rename to:', entry.name);
+  if (input == null) return;
+  const newName = input.trim();
+  if (!newName || newName === entry.name) return;
+  if (!await ensureWritable()) return;
+  const r = await api('/api/files/rename', {method: 'POST', body: JSON.stringify({drive: currentDriveId, path: entry.path, new_name: newName})});
+  if (!r) return;
+  if (r.ok) { toast('Renamed', 'success'); loadFiles(currentPath); }
+  else { const d = await r.json().catch(() => ({})); toast(d.detail || 'Rename failed', 'error', 4000); }
+}
+
 // ── Rubber-band drag selection ────────────────────────────────────────────────
 
 let _rbActive = false, _rbStart = {x:0, y:0};
 
 function _startRubberBand(e) {
   if (e.button !== 0) return;
-  // Only start drag if not clicking a file item
-  if (e.target.closest('.file-row, .file-cell, .btn, .sel-bar, .files-toolbar, .type-filter-bar')) return;
+  // Don't start a marquee on interactive controls, but DO allow starting over a
+  // file item — a tiny move is treated as a click, a real drag becomes a marquee.
+  if (e.target.closest('.btn, .file-row-check, .file-row-dl, .sel-bar, .files-toolbar')) return;
   _rbActive = true; _rbStart = {x: e.clientX, y: e.clientY};
   const r = document.getElementById('rb-rect');
   r.style.cssText = `left:${e.clientX}px;top:${e.clientY}px;width:0;height:0;display:block`;
@@ -207,8 +269,10 @@ function _rbEnd(e) {
 
   const x1 = Math.min(e.clientX, _rbStart.x), y1 = Math.min(e.clientY, _rbStart.y);
   const x2 = Math.max(e.clientX, _rbStart.x), y2 = Math.max(e.clientY, _rbStart.y);
-  if (x2 - x1 < 6 && y2 - y1 < 6) return; // treat as click
+  if (x2 - x1 < 6 && y2 - y1 < 6) return; // treat as click — let onclick handle it
 
+  // Fresh marquee replaces the selection unless Ctrl/Cmd is held (additive).
+  if (!e.ctrlKey && !e.metaKey) _sel.clear();
   const entries = _filtered || dirEntries;
   document.querySelectorAll('.file-row[data-idx], .file-cell[data-idx]').forEach(el => {
     const r = el.getBoundingClientRect();
@@ -217,7 +281,7 @@ function _rbEnd(e) {
       if (entry?.path) _sel.add(entry.path);
     }
   });
-  if (_sel.size) { updateSelBar(); renderFiles(entries, currentPath); }
+  updateSelBar(); renderFiles(entries, currentPath);
 }
 
 // ── Upload ────────────────────────────────────────────────────────────────────
@@ -233,6 +297,7 @@ function handleDropUpload(e) {
 async function uploadFiles(files) {
   if (!currentDriveId) { toast('Select a drive first', 'error'); return; }
   if (!files.length) return;
+  if (!await ensureWritable()) return;   // drives mount read-only by default
   let ok = 0, fail = 0;
   for (const file of files) {
     const fd = new FormData(); fd.append('file', file);
@@ -265,11 +330,11 @@ function renderFiles(entries, path) {
   if (fileView === 'list') {
     container.innerHTML = `<div class="file-list-header"><div style="width:14px"></div><div style="width:26px"></div><div class="flex-1">Name</div><div class="file-sort-btn" data-sort="modified" onclick="setSort('modified')">Modified</div><div class="file-sort-btn" data-sort="size" onclick="setSort('size')" style="text-align:right">Size</div><div style="width:26px"></div></div>
     <div class="file-list">${upRow}${entries.map((e, i) => {
-      const sel = _sel.has(e.path);
-      return `<div class="file-row${sel ? ' selected' : ''}" data-idx="${i}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false">
+      const sel = _sel.has(e.path), tc = textColorVar(fileType(e.name, e.is_dir));
+      return `<div class="file-row${sel ? ' selected' : ''}" data-idx="${i}" onclick="handleFileClick(${i},event)" ondblclick="handleFileOpen(${i})" oncontextmenu="showCtxMenu(event,${i});return false">
         <div class="file-row-check">${sel ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
         ${fileIconHtml(e.name, e.is_dir)}
-        <div class="file-row-name" title="${esc(e.name)}">${esc(e.name)}</div>
+        <div class="file-row-name" title="${esc(e.name)}"${tc ? ` style="color:${tc}"` : ''}>${esc(e.name)}</div>
         <div class="file-row-date">${fmtDate(e.modified)}</div>
         <div class="file-row-size">${e.is_dir ? '—' : fmt(e.size_bytes)}</div>
         <div class="file-row-dl">${!e.is_dir ? `<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();downloadFile('${esc(e.path)}','${esc(e.name)}')" title="Download"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>` : ''}</div>
@@ -278,11 +343,11 @@ function renderFiles(entries, path) {
   } else {
     _initThumbObserver();
     container.innerHTML = `<div class="file-grid">${upCell}${entries.map((e, i) => {
-      const sel = _sel.has(e.path), isImg = !e.is_dir && isImageFile(e.name);
+      const sel = _sel.has(e.path), isImg = !e.is_dir && isImageFile(e.name), tc = textColorVar(fileType(e.name, e.is_dir));
       const thumbSrc = isImg ? `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(e.path)}` : '';
-      return `<div class="file-cell${sel ? ' selected' : ''}" data-idx="${i}" onclick="handleFileClick(${i},event)" oncontextmenu="showCtxMenu(event,${i});return false" title="${esc(e.name)}"${isImg ? ` data-preview-src="${esc(thumbSrc)}"` : ''}>
+      return `<div class="file-cell${sel ? ' selected' : ''}" data-idx="${i}" onclick="handleFileClick(${i},event)" ondblclick="handleFileOpen(${i})" oncontextmenu="showCtxMenu(event,${i});return false" title="${esc(e.name)}"${isImg ? ` data-preview-src="${esc(thumbSrc)}"` : ''}>
         ${isImg ? `<div class="file-cell-thumb fi-wrap-lg"></div>` : fileIconHtml(e.name, e.is_dir, 19, 'fi-wrap-lg')}
-        <div class="file-cell-name">${esc(e.name)}</div>
+        <div class="file-cell-name"${tc ? ` style="color:${tc}"` : ''}>${esc(e.name)}</div>
         <div class="file-cell-size">${e.is_dir ? '' : fmt(e.size_bytes)}</div>
       </div>`;
     }).join('')}</div>`;
@@ -344,6 +409,9 @@ function showCtxMenu(e, idx) {
     if (isPdfFile(entry.name))   { const fi = dirEntries.findIndex(x => x.path === entry.path); items.push(`<div class="ctx-item" onclick="openPdfViewer(${fi >= 0 ? fi : idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Open PDF</div>`); }
     if (isDocxFile(entry.name))  { items.push(`<div class="ctx-item" onclick="openDocxViewer(${idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>View document</div>`); }
     items.push(`<div class="ctx-item" onclick="downloadFile('${esc(entry.path)}','${esc(entry.name)}');closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download</div>`);
+  }
+  if (_sel.size <= 1) {
+    items.push(`<div class="ctx-item" onclick="renameEntry(${idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>Rename</div>`);
   }
   if (_sel.size > 1) { items.push(`<div class="ctx-sep"></div>`); items.push(`<div class="ctx-item" onclick="downloadSelected();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download ${_sel.size} selected</div>`); }
   items.push(`<div class="ctx-sep"></div>`);

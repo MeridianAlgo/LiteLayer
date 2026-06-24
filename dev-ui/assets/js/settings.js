@@ -16,12 +16,51 @@ function closeSettings() { hide('settings-overlay'); }
 
 function setSettingsTab(tab) {
   _settingsTab = tab;
-  ['appearance','account','about','updates'].forEach(t => {
+  ['appearance','account','about','updates','system'].forEach(t => {
     document.getElementById(`stab-${t}`)?.classList.toggle('hidden', t !== tab);
     document.getElementById(`snav-${t}`)?.classList.toggle('active', t === tab);
   });
   if (tab === 'updates') loadChangelog();
   if (tab === 'about')   _loadAbout();
+  if (tab === 'system')  _loadSystem();
+}
+
+// ── System tab ─────────────────────────────────────────────────────────────────
+
+async function _loadSystem() {
+  document.getElementById('boot-drive-sw')?.classList.toggle('on', localStorage.getItem('ll-boot-drive') === '1');
+  const box = document.getElementById('vpn-list');
+  if (!box) return;
+  try {
+    const r = await api('/api/system/vpns');
+    if (!r?.ok) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; return; }
+    const d = await r.json();
+    if (!d.vpns?.length) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">No VPN clients installed on this device.</div>`; return; }
+    box.innerHTML = d.vpns.map(v => `<div class="vpn-row">
+      <span class="vpn-row-name">${esc(v.name)}</span>
+      <span class="vpn-row-badge${v.active ? ' active' : ''}">${v.active ? 'active' : v.enabled ? 'enabled' : 'off'}</span>
+      <button class="btn btn-ghost btn-xs" onclick="switchVpn('${esc(v.name)}')">Switch &amp; reboot</button>
+    </div>`).join('');
+  } catch { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; }
+}
+
+async function toggleBootDrive() {
+  const sw = document.getElementById('boot-drive-sw');
+  const enabled = !sw.classList.contains('on');
+  if (enabled && !confirm('Show the boot/system drive with full read-write access?\n\nEditing system files can break the Pi. Continue?')) return;
+  const r = await api('/api/system/boot-drive', {method: 'POST', body: JSON.stringify({enabled})});
+  if (!r?.ok) { toast('Failed to toggle boot drive', 'error'); return; }
+  sw.classList.toggle('on', enabled);
+  localStorage.setItem('ll-boot-drive', enabled ? '1' : '0');
+  toast(enabled ? 'Boot drive shown' : 'Boot drive hidden', 'success', 2500);
+  loadDrives();
+}
+
+async function switchVpn(name) {
+  if (!confirm(`Switch to ${name} and reboot the whole system now?\n\nYou'll lose connection for about a minute.`)) return;
+  const r = await api('/api/system/vpn/switch', {method: 'POST', body: JSON.stringify({name})});
+  if (!r?.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Switch failed', 'error', 4000); return; }
+  toast(`Rebooting on ${name}…`, 'info', 8000);
 }
 
 // ── Color pickers ─────────────────────────────────────────────────────────────

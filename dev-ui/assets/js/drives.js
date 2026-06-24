@@ -26,7 +26,7 @@ function sbDriveCard(d) {
     <div class="sb-drive-actions">
       ${mounted
         ? `<button class="btn btn-ghost btn-xs flex-1" onclick="browseFiles('${esc(d.id)}','${esc(d.label)}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>Browse</button>
-           <button class="btn btn-ghost btn-xs" onclick="unmountDrive('${esc(d.id)}')" title="Eject"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 9l6 6m0-6l-6 6"/><circle cx="12" cy="12" r="9"/></svg></button>`
+           ${d.id === 'system-root' ? '' : `<button class="btn btn-ghost btn-xs" onclick="unmountDrive('${esc(d.id)}')" title="Eject"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 9l6 6m0-6l-6 6"/><circle cx="12" cy="12" r="9"/></svg></button>`}`
         : `<button class="btn btn-primary btn-xs flex-1" onclick="mountDrive('${esc(d.id)}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Mount</button>`}
     </div>
   </div>`;

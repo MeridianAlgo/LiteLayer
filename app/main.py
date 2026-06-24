@@ -162,6 +162,73 @@ def system_info(_: str = Depends(require_auth)):
     return {"hostname": hostname, "vpns": vpns}
 
 
+# ── VPN switching (writes boot default + reboots) ─────────────────────────────
+# name -> (cli tool to detect install, systemd unit to enable on boot)
+_VPN_UNITS = {
+    "Tailscale":          ("tailscale",    "tailscaled"),
+    "WireGuard":          ("wg",           "wg-quick@wg0"),
+    "ZeroTier":           ("zerotier-cli", "zerotier-one"),
+    "Cloudflare Tunnel":  ("cloudflared",  "cloudflared"),
+}
+
+
+def _sysctl(*args: str) -> str:
+    import subprocess
+    try:
+        return subprocess.run(["systemctl", *args], capture_output=True, text=True, timeout=5).stdout.strip()
+    except Exception:
+        return ""
+
+
+@app.get("/api/system/vpns")
+def list_vpns(_: str = Depends(require_auth)):
+    import shutil
+    out = []
+    for name, (tool, unit) in _VPN_UNITS.items():
+        if not shutil.which(tool):
+            continue
+        out.append({
+            "name": name,
+            "unit": unit,
+            "enabled": _sysctl("is-enabled", unit) == "enabled",
+            "active":  _sysctl("is-active", unit) == "active",
+        })
+    return {"vpns": out}
+
+
+class VpnSwitchRequest(BaseModel):
+    name: str
+
+
+@app.post("/api/system/vpn/switch")
+def switch_vpn(req: VpnSwitchRequest, _: str = Depends(require_auth)):
+    """Make the chosen VPN the boot default (enable it, disable the others),
+    then reboot the whole system so it comes up on the selected VPN."""
+    import subprocess, threading
+    if req.name not in _VPN_UNITS:
+        raise HTTPException(400, f"Unknown VPN: {req.name}")
+    chosen_unit = _VPN_UNITS[req.name][1]
+    for name, (_tool, unit) in _VPN_UNITS.items():
+        action = "enable" if name == req.name else "disable"
+        subprocess.run(["systemctl", action, unit], capture_output=True, text=True)
+    # Reboot shortly after responding so the client gets a reply first.
+    threading.Timer(2.0, lambda: subprocess.run(["reboot"])).start()
+    return {"status": "rebooting", "vpn": req.name, "unit": chosen_unit}
+
+
+class BootDriveRequest(BaseModel):
+    enabled: bool
+
+
+@app.post("/api/system/boot-drive")
+def toggle_boot_drive(req: BootDriveRequest, _: str = Depends(require_auth)):
+    """Show/hide the live system (boot) drive as a writable drive. Off by default."""
+    from drives import detect, hotplug
+    detect.INCLUDE_SYSTEM = req.enabled
+    hotplug._refresh()
+    return {"enabled": req.enabled}
+
+
 _assets_dir = DEV_UI_PATH / "assets"
 if _assets_dir.exists():
     app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")

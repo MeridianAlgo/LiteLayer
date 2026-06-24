@@ -153,9 +153,40 @@ def mkdir(_: str = Depends(require_auth)):
     raise HTTPException(501, "mkdir not yet implemented")
 
 
+class RenameRequest(BaseModel):
+    drive: str
+    path: str          # current path relative to drive root
+    new_name: str      # new basename only
+
+
 @router.post("/rename")
-def rename(_: str = Depends(require_auth)):
-    raise HTTPException(501, "rename not yet implemented")
+def rename(req: RenameRequest, _: str = Depends(require_auth)):
+    d = registry.get(req.drive)
+    if not d:
+        raise HTTPException(404, "Drive not found")
+    if not d.mount_point:
+        raise HTTPException(409, "Drive not mounted")
+    if d.state == "mounted_ro":
+        raise HTTPException(409, "Drive is read-only — enable write first")
+
+    root = Path(d.mount_point)
+    src = _safe_path(root, req.path)
+    if not src.exists():
+        raise HTTPException(404, "File not found")
+
+    new_name = Path(req.new_name).name
+    if not new_name or new_name in (".", ".."):
+        raise HTTPException(400, "Invalid name")
+    dest = (src.parent / new_name).resolve()
+    if not dest.is_relative_to(root.resolve()):
+        raise HTTPException(403, "Rename escape rejected")
+    if dest.exists():
+        raise HTTPException(409, "A file with that name already exists")
+    try:
+        src.rename(dest)
+    except OSError as exc:
+        raise HTTPException(500, str(exc))
+    return {"name": new_name, "path": "/" + str(dest.relative_to(root)).replace("\\", "/")}
 
 
 @router.delete("")

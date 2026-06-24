@@ -52,11 +52,16 @@ function startOtaPoll(ms = 60000) {
 let _otaSelectedSha = null;  // null = latest
 
 function selectOtaVersion(sha, el) {
+  if (el && el.classList.contains('current')) return;  // already installed
   _otaSelectedSha = sha;
   document.querySelectorAll('.ota-ver-item').forEach(x => x.classList.remove('selected'));
   if (el) el.classList.add('selected');
   const runBtn = document.getElementById('ota-modal-run-btn');
-  if (runBtn) runBtn.textContent = sha ? `Install ${sha.slice(0,7)}` : 'Apply Update';
+  if (runBtn) {
+    // Picking any version enables install — including downgrades while "up to date".
+    runBtn.disabled = false;
+    runBtn.textContent = sha ? `Install ${sha.slice(0,7)}` : 'Apply Update';
+  }
 }
 
 async function openOtaModal() {
@@ -177,7 +182,8 @@ async function applyOtaUpdate() {
   startLogPoll();
 
   try {
-    const body = isMajor ? {reinstall: true} : (_otaSelectedSha ? {sha: _otaSelectedSha} : {});
+    // A specifically-picked version always wins (lets you downgrade to any sha).
+    const body = _otaSelectedSha ? {sha: _otaSelectedSha} : (isMajor ? {reinstall: true} : {});
     const r = await api('/api/ota/update', {method:'POST', body: JSON.stringify(body)});
     if (!r?.ok) {
       clearInterval(_logPoll);
