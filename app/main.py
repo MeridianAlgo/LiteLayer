@@ -45,6 +45,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def _no_cache_ui(request: Request, call_next):
+    """Never cache the dev UI — otherwise the browser keeps stale JS after an
+    update (e.g. new index.html referencing a function the old cached JS lacks)."""
+    resp = await call_next(request)
+    p = request.url.path
+    if p == "/" or p.startswith("/assets"):
+        resp.headers["Cache-Control"] = "no-store, must-revalidate"
+        resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
 app.include_router(drives.router)
 app.include_router(files.router)
 app.include_router(ota.router)

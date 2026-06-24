@@ -126,21 +126,23 @@ function applyAccentColor(hex) {
   localStorage.setItem('ll-accent', 'custom');
   localStorage.setItem('ll-accent-hex', hex);
   const hexEl = document.getElementById('accent-hex'); if (hexEl) hexEl.textContent = hex;
+  const sw = document.querySelector('.accent-pick-swatch'); if (sw) sw.style.background = hex;
 }
 
 function buildAccentGrid() {
   const grid = document.getElementById('accent-grid');
   if (!grid) return;
-  const cur = document.documentElement.style.getPropertyValue('--accent').trim() || '#7c3aed';
-  // Render a single color-picker row matching the other color pickers in the settings
-  grid.innerHTML = `<div class="color-picker-row">
-      <span class="color-picker-label">Accent color</span>
-      <div class="color-picker-well">
-        <input type="color" id="accent-color-input" class="color-swatch-input" value="${cur}"
-          oninput="applyAccentColor(this.value)" title="Pick any accent color">
-        <span class="color-picker-hex" id="accent-hex" onclick="document.getElementById('accent-color-input').click()">${cur}</span>
-      </div>
-    </div>`;
+  const cur = (document.documentElement.style.getPropertyValue('--accent').trim()
+            || localStorage.getItem('ll-accent-hex') || '#7c3aed');
+  // One clear, prominent picker — click the big swatch to choose any color.
+  grid.innerHTML = `<label class="accent-pick">
+      <input type="color" id="accent-color-input" value="${cur}" oninput="applyAccentColor(this.value)" title="Pick any accent color">
+      <span class="accent-pick-swatch" style="background:${cur}"></span>
+      <span class="accent-pick-text">
+        <span class="accent-pick-title">Accent color</span>
+        <span class="accent-pick-hex" id="accent-hex">${cur}</span>
+      </span>
+    </label>`;
 }
 
 // ── Individual color customisation ────────────────────────────────────────────
