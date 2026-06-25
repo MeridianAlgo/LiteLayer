@@ -166,6 +166,7 @@ body {
 .stat-pill.warn { background: var(--red-dim); border-color: rgba(239,68,68,0.3); color: var(--red); }
 .pill-lbl { display: inline; }
 .ft-back { display: none; }   /* mobile-only back affordance */
+.btn:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
 
 /* ── OTA banner ── */
 .ota-banner {

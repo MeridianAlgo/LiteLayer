@@ -170,9 +170,27 @@ def _undervoltage() -> bool:
         return False
 
 
+def _power_watts() -> float | None:
+    """Total board draw in watts, summed across the Pi 5 PMIC rails (volts × amps).
+    Returns None on Pi 4 / older where pmic_read_adc isn't available."""
+    import re, subprocess
+    try:
+        out = subprocess.run(["vcgencmd", "pmic_read_adc"], capture_output=True, text=True, timeout=3).stdout
+    except Exception:
+        return None
+    volts: dict[str, float] = {}
+    amps: dict[str, float] = {}
+    # lines like "VDD_CORE_A current(7)=2.48A" / "VDD_CORE_V volt(8)=0.72V"
+    for rail, kind, val in re.findall(r"(\w+?)_([AV])\s+\w+\(\d+\)=([\d.]+)", out):
+        (amps if kind == "A" else volts)[rail] = float(val)
+    watts = sum(volts[r] * amps[r] for r in amps if r in volts)
+    return round(watts, 1) if watts else None
+
+
 @app.get("/api/system/stats")
 def system_stats(_: str = Depends(require_auth)):
-    return {"cpu_percent": _cpu_percent(), "temp_c": _cpu_temp(), "undervoltage": _undervoltage()}
+    return {"cpu_percent": _cpu_percent(), "temp_c": _cpu_temp(),
+            "watts": _power_watts(), "undervoltage": _undervoltage()}
 
 
 @app.get("/api/system/info")
@@ -193,15 +211,21 @@ def system_info(_: str = Depends(require_auth)):
         m = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", out)
         vpns.append({"name": "Tailscale", "ip": m.group(1) if m else None})
 
-    # ZeroTier — any zt* interface
+    # ZeroTier (zt*) and WireGuard (wg*) — match by interface name. WireGuard
+    # links report state UNKNOWN (not UP), so don't gate on UP or it shows "None"
+    # while a tunnel is actually connected.
     code, out = _run(["ip", "-brief", "addr"])
     if code == 0:
         for line in out.splitlines():
-            if re.match(r"zt\w+\s+UP", line):
-                parts = line.split()
-                ip = parts[2].split("/")[0] if len(parts) > 2 else None
-                vpns.append({"name": "ZeroTier", "ip": ip})
-                break
+            parts = line.split()
+            if not parts:
+                continue
+            iface = parts[0].split("@")[0]
+            name = "ZeroTier" if iface.startswith("zt") else "WireGuard" if re.match(r"wg\d*$", iface) else None
+            if not name:
+                continue
+            ip = next((p.split("/")[0] for p in parts[2:] if "." in p), None)
+            vpns.append({"name": name, "ip": ip})
 
     # Cloudflare Tunnel — cloudflared process
     code, _ = _run(["pgrep", "-x", "cloudflared"], timeout=3)

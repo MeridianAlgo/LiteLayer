@@ -47,7 +47,9 @@ async function _loadSystem() {
     const active = r?.ok ? (await r.json()).vpns.find(v => v.active) : null;
     box.innerHTML = `<div class="vpn-current">In use right now: <strong>${active ? esc(active.name) : 'None'}</strong></div>
       <div class="vpn-help-note">VPNs are set up from the Pi's shell — not here, so nothing in the UI can break your connection.
-      Install / switch / remove a VPN over SSH, then it shows up above. See <code>docs/networking.md</code>.</div>`;
+      Install / switch / remove a VPN over SSH, then it shows up above.
+      If your VPN drops after a reboot, enable it at boot once: <code>sudo systemctl enable --now &lt;unit&gt;</code>
+      (e.g. <code>tailscaled</code>, <code>wg-quick@wg0</code>, <code>zerotier-one</code>). See <code>docs/networking.md</code>.</div>`;
   } catch {
     box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not read VPN status</div>`;
   }

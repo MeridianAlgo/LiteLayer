@@ -49,6 +49,11 @@ async function loadStats() {
   if (cpuPill) cpuPill.classList.toggle('busy', (s.cpu_percent || 0) > 85);
   const tempPill = document.getElementById('pill-temp');
   if (tempPill) tempPill.classList.toggle('hot', (s.temp_c || 0) >= 75);
+  const watts = document.getElementById('pill-watts'), wv = document.getElementById('pill-watts-val');
+  if (watts) {
+    if (s.watts == null) { watts.style.display = 'none'; }
+    else { watts.style.display = ''; if (wv) wv.textContent = s.watts + ' W'; }
+  }
   const power = document.getElementById('pill-power');
   if (power) power.style.display = s.undervoltage ? '' : 'none';
 }

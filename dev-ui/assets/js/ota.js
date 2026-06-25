@@ -28,7 +28,7 @@ function renderOta(d) {
     badge.style.background = 'var(--yellow)';
     if (banner && !banner.dataset.dismissed) {
       const desc = document.getElementById('ota-banner-desc');
-      if (desc) desc.textContent = d.current_version ? ` — v${d.current_version} → ${d.latest_sha?.slice(0,7) || 'latest'}` : ` — ${d.latest_sha?.slice(0,7) || 'latest'}`;
+      if (desc) desc.textContent = d.latest_version ? ` — v${d.current_version} → v${d.latest_version}` : ' — new version available';
       banner.classList.remove('hidden');
     }
   } else if (d.github_reachable) {
@@ -99,10 +99,10 @@ async function openOtaModal() {
       statusEl.innerHTML = `<span style="color:var(--text-3)">GitHub unreachable</span>`;
       runBtn.disabled = true;
     } else if (!d?.update_available) {
-      statusEl.innerHTML = `<span style="color:var(--text-3)">On v${d?.current_version || '—'}</span>`;
-      runBtn.disabled = true; runBtn.textContent = 'Apply Update';
+      statusEl.innerHTML = `<span style="color:var(--green)">Up to date · v${d?.current_version || '—'}</span>`;
+      runBtn.disabled = true; runBtn.textContent = 'Up to date';
     } else {
-      statusEl.innerHTML = `<span style="color:var(--yellow)">${d.latest_sha?.slice(0,7)} available</span>`;
+      statusEl.innerHTML = `<span style="color:var(--yellow)">v${d.latest_version || d.current_version} available</span>`;
     }
   }
 
@@ -132,26 +132,7 @@ async function openOtaModal() {
     }
   }
 
-  // Show pending commits summary
-  const preview = document.getElementById('ota-commits-preview');
-  if (preview) {
-    const pending = [];
-    if (_clCache && d?.update_available && d.current_sha) {
-      for (const c of _clCache) {
-        if (c.sha.startsWith(d.current_sha)) break;
-        pending.push(c);
-      }
-    }
-    preview.innerHTML = pending.length ? `<div class="ota-commits">
-      <div class="ota-commits-label">${pending.length} commit${pending.length > 1 ? 's' : ''} pending</div>
-      ${pending.slice(0,4).map(c => `<div class="ota-commit-item">
-        <span class="ota-commit-sha">${c.sha.slice(0,7)}</span>
-        <span class="ota-commit-msg">${esc((c.commit?.message||'').split('\n')[0])}</span>
-      </div>`).join('')}
-      ${pending.length > 4 ? `<div class="ota-commits-more">+${pending.length-4} more</div>` : ''}
-    </div>` : '';
-  }
-
+  // Versions only — no raw commit shas in the updater (tags link to GitHub above).
   show('ota-modal');
 }
 
@@ -205,9 +186,14 @@ async function applyOtaUpdate() {
     document.getElementById('ota-bar-fill').style.width = '100%';
     steps.forEach(s => { s.classList.remove('active'); s.classList.add('done'); });
     clearInterval(_logPoll);
+    // Lock the whole app behind a full-screen overlay while the service restarts —
+    // nothing the user clicks in those ~20s would reach the backend anyway.
+    const ov = document.getElementById('reconnect-overlay'); ov?.classList.remove('hidden');
+    const rs = document.getElementById('reconnect-status');
     let sec = 20; const cd = document.getElementById('ota-countdown');
     const t = setInterval(() => {
       cd.textContent = `Reconnecting in ${sec}s…`;
+      if (rs) rs.textContent = `LiteLayer is restarting — keep this tab open. Reconnecting in ${sec}s…`;
       if (--sec < 0) { clearInterval(t); window.location.reload(); }
     }, 1000);
   } catch {
