@@ -32,6 +32,27 @@ function sbDriveCard(d) {
   </div>`;
 }
 
+// ── Live CPU / temp / power pills ───────────────────────────────────────────────
+let _statsPoll = null;
+function startStatsPoll() {
+  if (_statsPoll) return;
+  loadStats();
+  _statsPoll = setInterval(loadStats, 4000);
+}
+async function loadStats() {
+  const r = await api('/api/system/stats'); if (!r?.ok) return;
+  const s = await r.json();
+  const cpu = document.getElementById('pill-cpu-val'), temp = document.getElementById('pill-temp-val');
+  if (cpu)  cpu.textContent  = s.cpu_percent == null ? '—' : s.cpu_percent + '%';
+  if (temp) temp.textContent = s.temp_c == null ? '—' : s.temp_c + '°C';
+  const cpuPill = document.getElementById('pill-cpu');
+  if (cpuPill) cpuPill.classList.toggle('busy', (s.cpu_percent || 0) > 85);
+  const tempPill = document.getElementById('pill-temp');
+  if (tempPill) tempPill.classList.toggle('hot', (s.temp_c || 0) >= 75);
+  const power = document.getElementById('pill-power');
+  if (power) power.style.display = s.undervoltage ? '' : 'none';
+}
+
 async function mountDrive(id) {
   toast('Mounting…', 'info', 1500);
   const r = await api(`/api/drives/${id}/mount`, {method: 'POST'}); if (!r) return;

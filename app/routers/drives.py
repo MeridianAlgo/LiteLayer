@@ -3,11 +3,31 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from drives import registry
+from drives import registry, persist
 from drives.mount import mount as do_mount, unmount as do_unmount, remount_rw, get_usage, ALWAYS_RO
 from app.deps import require_auth
 
 router = APIRouter(prefix="/api/drives", tags=["drives"])
+
+
+class AutoMountRequest(BaseModel):
+    enabled: bool
+
+
+@router.get("/auto-mount")
+def get_auto_mount(_: str = Depends(require_auth)):
+    return {"enabled": persist.is_auto_mount()}
+
+
+@router.post("/auto-mount")
+def set_auto_mount(req: AutoMountRequest, _: str = Depends(require_auth)):
+    """Keep drives mounted: auto-mount (read-only) plugged-in drives and remount
+    them after a reboot, unless the user ejected them."""
+    persist.set_auto_mount(req.enabled)
+    if req.enabled:
+        from drives import hotplug
+        hotplug._refresh()
+    return {"enabled": req.enabled}
 
 
 class DriveOut(BaseModel):
@@ -51,6 +71,7 @@ def mount_drive(drive_id: str, _: str = Depends(require_auth)):
     if drive.state.startswith("mounted"):
         return {"status": "already_mounted", "mount_point": drive.mount_point}
     try:
+        persist.mark_mounted(drive_id)   # clear any past eject before mounting
         mp = do_mount(drive, read_write=False)
         used, free = get_usage(mp)
         drive.used_bytes = used
@@ -71,6 +92,7 @@ def unmount_drive(drive_id: str, _: str = Depends(require_auth)):
     if drive.state == "unmounted":
         return {"status": "already_unmounted"}
     try:
+        persist.mark_ejected(drive_id)   # before unmount, so auto-mount won't race it back up
         do_unmount(drive)
         drive.state = "unmounted"
         drive.mount_point = None

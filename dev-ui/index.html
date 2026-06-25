@@ -39,6 +39,11 @@
     <div class="topbar-sep"></div>
     <span class="topbar-nas">NAS</span>
     <div class="topbar-right">
+      <div class="stat-pills" id="stat-pills" title="Live CPU, temperature and power">
+        <span class="stat-pill" id="pill-cpu"><span class="stat-dot"></span>CPU <b id="pill-cpu-val">—</b></span>
+        <span class="stat-pill" id="pill-temp">Temp <b id="pill-temp-val">—</b></span>
+        <span class="stat-pill warn" id="pill-power" style="display:none">⚠ Low power</span>
+      </div>
       <button id="ota-btn" class="btn btn-ghost btn-sm" onclick="openOtaModal()" title="Check for updates">
         <span id="ota-badge" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:transparent;vertical-align:middle"></span>Updates
       </button>
@@ -105,6 +110,9 @@
         <button class="btn btn-ghost btn-xs" onclick="clearSel()">Clear</button>
         <button class="btn btn-primary btn-xs" onclick="downloadSelected()">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download selected
+        </button>
+        <button class="btn btn-ghost btn-xs" onclick="copySelectedTo()" title="Copy to another drive">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy to drive
         </button>
         <button class="btn btn-danger btn-xs" onclick="deleteSelected()">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete
@@ -331,6 +339,15 @@
       <div id="stab-system" class="stab-content hidden">
         <div class="stab-title">System</div>
         <div class="settings-section">
+          <div class="settings-section-title">Drives</div>
+          <div class="toggle-row">
+            <div class="toggle-row-text">Keep drives mounted
+              <small>Auto-mount drives (read-only) when you plug them in and after a reboot, so you never lose access. Ejecting a drive keeps it off until you mount it again.</small>
+            </div>
+            <div class="toggle-sw" id="auto-mount-sw" onclick="toggleAutoMount()"></div>
+          </div>
+        </div>
+        <div class="settings-section">
           <div class="settings-section-title">Boot / system drive</div>
           <div class="toggle-row">
             <div class="toggle-row-text">Show boot drive
@@ -341,7 +358,7 @@
         </div>
         <div class="settings-section">
           <div class="settings-section-title">VPN</div>
-          <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Install a VPN and sign in right here. Switching turns the previous VPN off — no reboot needed.</div>
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Set up VPNs from the Pi's shell over SSH. This panel only shows which one is active.</div>
           <div id="vpn-list"><div class="cl-loading" style="padding:14px"><span class="spinner" style="width:16px;height:16px;border-width:2px"></span>Loading…</div></div>
         </div>
         <div class="settings-section">
@@ -382,6 +399,27 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Transfer (copy to another drive) ── -->
+<div id="xfer-modal" class="modal-backdrop hidden" onclick="if(event.target===this)closeXfer()">
+  <div class="modal-box">
+    <div class="modal-hdr">
+      <span class="modal-title">Copy to another drive</span>
+      <button class="icon-btn" onclick="closeXfer()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="xfer-pick">
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:10px"><span id="xfer-count">0</span> item(s) → choose a destination drive. Files copy into its top folder; the source is left untouched.</div>
+        <div id="xfer-drives"></div>
+      </div>
+      <div id="xfer-progress" style="display:none">
+        <div id="xfer-prog-label" style="font-size:12px;color:var(--text-2);margin-bottom:8px">Copying…</div>
+        <div class="ota-bar-track"><div class="ota-bar-fill" id="xfer-bar" style="width:0%"></div></div>
+        <div id="xfer-prog-stat" style="font-size:11px;color:var(--text-3);margin-top:6px"></div>
       </div>
     </div>
   </div>

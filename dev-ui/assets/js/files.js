@@ -308,6 +308,61 @@ async function deleteSelected() {
   } else { const d = await r.json().catch(() => ({})); toast(d.detail || 'Delete failed', 'error', 4000); }
 }
 
+// ── Transfer (copy to another drive) ────────────────────────────────────────────
+
+let _xferPoll = null;
+
+async function copySelectedTo() {
+  const entries = _filtered || dirEntries;
+  const paths = entries.filter(e => _sel.has(e.path)).map(e => e.path);
+  if (!paths.length) { toast('Nothing selected', 'info', 2000); return; }
+  const r = await api('/api/drives'); if (!r) return;
+  const drives = (await r.json()).filter(d => d.id !== currentDriveId && d.state !== 'unmounted' && d.id !== 'system-root');
+  if (!drives.length) { toast('No other mounted drive to copy to', 'info', 3500); return; }
+
+  document.getElementById('xfer-count').textContent = paths.length;
+  document.getElementById('xfer-pick').style.display = '';
+  document.getElementById('xfer-progress').style.display = 'none';
+  document.getElementById('xfer-drives').innerHTML = drives.map(d => `
+    <button class="vpn-row" style="width:100%;text-align:left;cursor:pointer;border:0;background:var(--surface);margin-bottom:6px;border-radius:8px"
+            onclick='startXfer(${JSON.stringify(d.id)}, ${JSON.stringify(d.label)}, ${JSON.stringify(paths)})'>
+      <span class="vpn-row-name">${esc(d.label)}</span>
+      <span class="vpn-row-badge">${esc(d.fstype)} · ${fmt(d.free_bytes)} free</span>
+    </button>`).join('');
+  show('xfer-modal');
+}
+
+function closeXfer() {
+  hide('xfer-modal');
+  if (_xferPoll) { clearInterval(_xferPoll); _xferPoll = null; }
+}
+
+async function startXfer(dstDrive, dstLabel, paths) {
+  const r = await api('/api/files/transfer', {method: 'POST', body: JSON.stringify({
+    src_drive: currentDriveId, paths, dst_drive: dstDrive, dst_path: '/',
+  })});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Transfer failed to start', 'error', 5000); closeXfer(); return; }
+  document.getElementById('xfer-pick').style.display = 'none';
+  document.getElementById('xfer-progress').style.display = '';
+  document.getElementById('xfer-prog-label').textContent = `Copying to ${dstLabel}…`;
+  _xferPoll = setInterval(() => _pollXfer(dstLabel), 700);
+}
+
+async function _pollXfer(dstLabel) {
+  const r = await api('/api/files/transfer/status'); if (!r?.ok) return;
+  const s = await r.json();
+  const pct = s.total ? Math.min(100, Math.round(s.done / s.total * 100)) : 0;
+  document.getElementById('xfer-bar').style.width = pct + '%';
+  document.getElementById('xfer-prog-stat').textContent =
+    `${fmt(s.done)} of ${fmt(s.total)} · ${s.copied}/${s.count} items` + (s.file ? ` · ${s.file}` : '');
+  if (!s.running) {
+    clearInterval(_xferPoll); _xferPoll = null;
+    if (s.error) toast('Transfer failed: ' + s.error, 'error', 6000);
+    else toast(`Copied to ${dstLabel}`, 'success');
+    closeXfer();
+  }
+}
+
 // ── Upload ────────────────────────────────────────────────────────────────────
 
 function handleDropUpload(e) {

@@ -20,7 +20,7 @@ function showLogin() {
 }
 
 function showApp() {
-  hide('view-login'); show('view-app'); startOtaPoll();
+  hide('view-login'); show('view-app'); startOtaPoll(); startStatsPoll();
   // Re-apply boot-drive visibility (backend flag resets on restart)
   if (localStorage.getItem('ll-boot-drive') === '1') {
     api('/api/system/boot-drive', {method: 'POST', body: JSON.stringify({enabled: true})}).catch(() => {});

@@ -210,6 +210,129 @@ class DeleteRequest(BaseModel):
     paths: list[str]   # paths relative to drive root
 
 
+# ── Drive-to-drive transfer ───────────────────────────────────────────────────
+# One transfer at a time; the UI polls /transfer/status for progress.
+import threading
+
+_transfer = {"running": False, "done": 0, "total": 0, "file": "", "error": None,
+             "copied": 0, "count": 0}
+_transfer_lock = threading.Lock()
+
+
+def _dir_size(p: Path) -> int:
+    total = 0
+    for f in p.rglob("*"):
+        try:
+            if f.is_file() and not f.is_symlink():
+                total += f.stat().st_size
+        except OSError:
+            pass
+    return total
+
+
+def _unique(dest: Path) -> Path:
+    """Avoid clobbering an existing name at the destination."""
+    if not dest.exists():
+        return dest
+    stem, suf = dest.stem, dest.suffix
+    for i in range(1, 1000):
+        cand = dest.with_name(f"{stem} (copy{'' if i == 1 else ' ' + str(i)}){suf}")
+        if not cand.exists():
+            return cand
+    return dest.with_name(f"{stem}-{os.getpid()}{suf}")
+
+
+def _transfer_worker(src_root: Path, dst_root: Path, rel_paths: list[str], move: bool) -> None:
+    import shutil
+    try:
+        srcs = [_safe_path(src_root, p) for p in rel_paths]
+        srcs = [s for s in srcs if s.exists()]
+        _transfer["total"] = sum(
+            (_dir_size(s) if s.is_dir() else s.stat().st_size) for s in srcs
+        ) or 1
+        _transfer["count"] = len(srcs)
+
+        def _cp(src: Path, dst: Path):
+            if src.is_dir():
+                dst.mkdir(exist_ok=True)
+                for child in src.iterdir():
+                    _cp(child, _unique(dst / child.name) if not (dst / child.name).is_dir() else dst / child.name)
+            else:
+                _transfer["file"] = src.name
+                with open(src, "rb") as fi, open(dst, "wb") as fo:
+                    while chunk := fi.read(4 * 1024 * 1024):
+                        fo.write(chunk)
+                        _transfer["done"] += len(chunk)
+                shutil.copystat(src, dst, follow_symlinks=False)
+
+        for s in srcs:
+            _cp(s, _unique(dst_root / s.name))
+            _transfer["copied"] += 1
+            if move:
+                if s.is_dir():
+                    shutil.rmtree(s)
+                else:
+                    s.unlink()
+    except Exception as exc:  # noqa: BLE001
+        _transfer["error"] = str(exc)
+    finally:
+        _transfer["running"] = False
+
+
+class TransferRequest(BaseModel):
+    src_drive: str
+    paths: list[str]          # relative to src drive root
+    dst_drive: str
+    dst_path: str = "/"       # folder on dst drive
+    move: bool = False
+
+
+@router.post("/transfer")
+def transfer(req: TransferRequest, _: str = Depends(require_auth)):
+    src = registry.get(req.src_drive)
+    dst = registry.get(req.dst_drive)
+    if not src or not dst:
+        raise HTTPException(404, "Drive not found")
+    if not src.mount_point or not dst.mount_point:
+        raise HTTPException(409, "Both drives must be mounted")
+    if src.id == dst.id:
+        raise HTTPException(400, "Pick a different destination drive")
+    if not req.paths:
+        raise HTTPException(400, "Nothing selected")
+
+    src_root = Path(src.mount_point)
+    dst_root = _safe_path(Path(dst.mount_point), req.dst_path)
+    if not dst_root.is_dir():
+        raise HTTPException(400, "Destination is not a directory")
+
+    # Destination must be writable. Enable write on demand (like upload does).
+    if dst.state == "mounted_ro":
+        from drives.mount import remount_rw, ALWAYS_RO
+        if dst.fstype.lower() in ALWAYS_RO:
+            raise HTTPException(409, f"{dst.fstype} destination is read-only")
+        try:
+            remount_rw(dst)
+            dst.state = "mounted_rw"
+            registry.update(dst)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"Could not enable write on destination: {exc}")
+
+    with _transfer_lock:
+        if _transfer["running"]:
+            raise HTTPException(409, "A transfer is already running")
+        _transfer.update(running=True, done=0, total=0, file="", error=None,
+                         copied=0, count=len(req.paths))
+    threading.Thread(target=_transfer_worker,
+                     args=(src_root, dst_root, req.paths, req.move),
+                     daemon=True, name="ll-transfer").start()
+    return {"status": "started"}
+
+
+@router.get("/transfer/status")
+def transfer_status(_: str = Depends(require_auth)):
+    return dict(_transfer)
+
+
 @router.delete("")
 def delete(req: DeleteRequest, _: str = Depends(require_auth)):
     import shutil

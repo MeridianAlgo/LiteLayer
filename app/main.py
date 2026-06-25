@@ -133,6 +133,48 @@ def update_credentials(req: UpdateCredentialsRequest, username: str = Depends(re
     return {"status": "ok", "relogin_required": False}
 
 
+# ── Live CPU / temp / power for the header pills ──────────────────────────────
+_cpu_prev = {"total": 0, "idle": 0}
+
+
+def _cpu_percent() -> float | None:
+    """Busy % since the last call, from /proc/stat. First call returns None."""
+    try:
+        parts = Path("/proc/stat").read_text().splitlines()[0].split()[1:]
+        nums = [int(x) for x in parts]
+        total, idle = sum(nums), nums[3] + (nums[4] if len(nums) > 4 else 0)
+        dt, di = total - _cpu_prev["total"], idle - _cpu_prev["idle"]
+        _cpu_prev["total"], _cpu_prev["idle"] = total, idle
+        if dt <= 0:
+            return None
+        return round((1 - di / dt) * 100, 1)
+    except Exception:
+        return None
+
+
+def _cpu_temp() -> float | None:
+    try:
+        return round(int(Path("/sys/class/thermal/thermal_zone0/temp").read_text()) / 1000, 1)
+    except Exception:
+        return None
+
+
+def _undervoltage() -> bool:
+    """Pi power health: bit 0 of vcgencmd get_throttled = under-voltage now."""
+    import subprocess
+    try:
+        out = subprocess.run(["vcgencmd", "get_throttled"], capture_output=True, text=True, timeout=3).stdout
+        val = int(out.strip().split("=")[1], 16)
+        return bool(val & 0x1)
+    except Exception:
+        return False
+
+
+@app.get("/api/system/stats")
+def system_stats(_: str = Depends(require_auth)):
+    return {"cpu_percent": _cpu_percent(), "temp_c": _cpu_temp(), "undervoltage": _undervoltage()}
+
+
 @app.get("/api/system/info")
 def system_info(_: str = Depends(require_auth)):
     import re, shutil, socket, subprocess

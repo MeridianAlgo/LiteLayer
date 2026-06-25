@@ -15,8 +15,29 @@ def _refresh() -> None:
         drives = detect.enumerate_drives()
         registry.replace_all(drives)
         log.info("registry refreshed: %d drives", len(drives))
+        _auto_mount()
     except Exception as exc:
         log.error("drive refresh failed: %s", exc)
+
+
+def _auto_mount() -> None:
+    """Soft-mount (read-only) any drive the user hasn't ejected, so plugging in
+    a drive with existing data 'just works' and mounts survive reboots."""
+    from drives import mount, persist, registry
+    if not persist.is_auto_mount():
+        return
+    for d in registry.get_all():
+        if d.state != "unmounted" or d.id == "system-root" or persist.is_ejected(d.id):
+            continue
+        try:
+            mp = mount.mount(d, read_write=False)
+            d.used_bytes, d.free_bytes = mount.get_usage(mp)
+            d.state = "mounted_ro"
+            d.mount_point = mp
+            registry.update(d)
+            log.info("auto-mounted %s at %s", d.device, mp)
+        except Exception as exc:
+            log.warning("auto-mount failed for %s: %s", d.device, exc)
 
 
 def _udev_monitor() -> bool:

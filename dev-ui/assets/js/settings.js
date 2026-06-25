@@ -26,113 +26,41 @@ function setSettingsTab(tab) {
 
 // ── System tab ─────────────────────────────────────────────────────────────────
 
-let _vpnPoll = null;
-
 async function _loadSystem() {
   document.getElementById('boot-drive-sw')?.classList.toggle('on', localStorage.getItem('ll-boot-drive') === '1');
+
+  // Keep-drives-mounted preference (source of truth is the backend state file).
+  const amSw = document.getElementById('auto-mount-sw');
+  if (amSw) {
+    try {
+      const r = await api('/api/drives/auto-mount');
+      if (r?.ok) amSw.classList.toggle('on', (await r.json()).enabled);
+    } catch {}
+  }
+
+  // VPN is read-only here — configured from the shell. Just show what's active.
   const box = document.getElementById('vpn-list');
   if (!box) return;
+  box.innerHTML = `<div class="cl-loading" style="padding:10px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>Checking…</div>`;
   try {
     const r = await api('/api/system/vpns');
-    if (!r?.ok) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; return; }
-    const d = await r.json();
-    const active = d.vpns.find(v => v.active);
-    const cur = `<div class="vpn-current">Current VPN: <strong>${active ? esc(active.name) : 'None'}</strong></div>`;
-    box.innerHTML = cur + d.vpns.map(v => {
-      const state = v.active ? 'active' : v.installed ? (v.enabled ? 'enabled' : 'installed') : 'not installed';
-      const useBtn = v.active
-        ? `<button class="btn btn-ghost btn-xs" disabled>In use</button>`
-        : v.installed
-          ? `<button class="btn btn-ghost btn-xs" onclick="switchVpn('${esc(v.name)}')">Use this</button>`
-          : `<button class="btn btn-primary btn-xs" onclick="installVpn('${esc(v.name)}')">Install &amp; sign in</button>`;
-      const rmBtn = v.installed
-        ? `<button class="btn btn-danger btn-xs" onclick="uninstallVpn('${esc(v.name)}')" title="Uninstall ${esc(v.name)}">Uninstall</button>` : '';
-      return `<div class="vpn-row">
-        <span class="vpn-row-name">${esc(v.name)}</span>
-        <span class="vpn-row-badge${v.active ? ' active' : ''}">${state}</span>
-        ${useBtn}${rmBtn}
-      </div>${_vpnClientHelp(v.name)}`;
-    }).join('') + `<div id="vpn-error" class="vpn-error" style="display:none"></div><div id="vpn-progress"></div>`;
-  } catch { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not load VPNs</div>`; }
-}
-
-// Per-VPN: download link for your own computer + any setup notes.
-const _VPN_CLIENT = {
-  'Tailscale': 'https://tailscale.com/download',
-  'WireGuard': 'https://www.wireguard.com/install/',
-  'ZeroTier':  'https://www.zerotier.com/download/',
-};
-function _vpnClientHelp(name) {
-  const url = _VPN_CLIENT[name];
-  let html = url ? `<a class="vpn-help-link" href="${url}" target="_blank" rel="noopener">Download ${esc(name)} for your computer →</a>` : '';
-  if (name === 'ZeroTier') {
-    html += `<div class="vpn-help-note">Authorizing your devices in ZeroTier:
-      <ol style="margin:6px 0 0 16px;padding:0">
-        <li>Install ZeroTier on your laptop, then <b>Join Network</b> using the same network ID this Pi joined.</li>
-        <li>Open <a href="https://my.zerotier.com/network" target="_blank" rel="noopener">my.zerotier.com</a> → your network → <b>Members</b>.</li>
-        <li>Tick the <b>Auth?</b> checkbox next to both the Pi and your laptop so they can talk.</li>
-        <li>Use the Pi's ZeroTier IP (shown under Members, e.g. <code>10.147.x.x</code>) to reach LiteLayer — <code>.local</code> names don't cross ZeroTier.</li>
-      </ol></div>`;
+    const active = r?.ok ? (await r.json()).vpns.find(v => v.active) : null;
+    box.innerHTML = `<div class="vpn-current">In use right now: <strong>${active ? esc(active.name) : 'None'}</strong></div>
+      <div class="vpn-help-note">VPNs are set up from the Pi's shell — not here, so nothing in the UI can break your connection.
+      Install / switch / remove a VPN over SSH, then it shows up above. See <code>docs/networking.md</code>.</div>`;
+  } catch {
+    box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not read VPN status</div>`;
   }
-  return html;
 }
 
-// Persistent, dismissable error panel for VPN ops (toasts vanish too fast to read).
-function _showVpnError(msg) {
-  const el = document.getElementById('vpn-error');
-  if (!el) { toast(msg, 'error', 15000); return; }
-  el.style.display = '';
-  el.innerHTML = `<div class="vpn-error-msg">${esc(msg)}</div><button class="btn btn-ghost btn-xs" onclick="document.getElementById('vpn-error').style.display='none'">Dismiss</button>`;
-}
-
-async function uninstallVpn(name) {
-  if (!confirm(`Uninstall ${name} from this Pi? This removes the VPN software.`)) return;
-  const r = await api('/api/system/vpn/uninstall', {method: 'POST', body: JSON.stringify({name})});
-  if (!r?.ok) { const e = await r.json().catch(() => ({})); _showVpnError(e.detail || 'Uninstall failed to start'); return; }
-  toast(`Uninstalling ${name}…`, 'info', 4000);
-  _pollVpnInstall();
-}
-
-async function installVpn(name) {
-  let networkId = null;
-  if (name === 'ZeroTier') {
-    networkId = prompt('ZeroTier network ID to join (leave blank to join later):') || null;
-  }
-  if (!confirm(`Install ${name} on this device and switch to it now?\n\nThis turns off any other VPN once it's connected.`)) return;
-  const r = await api('/api/system/vpn/install', {method: 'POST', body: JSON.stringify({name, network_id: networkId})});
-  if (!r?.ok) { const e = await r.json().catch(() => ({})); _showVpnError(e.detail || 'Install failed to start'); return; }
-  toast(`Installing ${name}…`, 'info', 3000);
-  _pollVpnInstall();
-}
-
-function _pollVpnInstall() {
-  if (_vpnPoll) clearInterval(_vpnPoll);
-  const prog = () => document.getElementById('vpn-progress');
-  _vpnPoll = setInterval(async () => {
-    const r = await api('/api/system/vpn/status');
-    if (!r?.ok) return;
-    const s = await r.json();
-    const box = prog();
-    if (box) {
-      let html = s.running ? `<div class="vpn-installing"><span class="spinner" style="width:13px;height:13px;border-width:2px"></span> Working on ${esc(s.name || '')}…</div>` : '';
-      if (s.auth_url) html += `<a class="btn btn-primary btn-xs" href="${esc(s.auth_url)}" target="_blank" rel="noopener" style="margin-top:8px">Sign in to ${esc(s.name || 'VPN')} →</a>`;
-      box.innerHTML = html;
-    }
-    if (s.error) _showVpnError(s.error);   // persistent — doesn't vanish
-    if (!s.running) {
-      clearInterval(_vpnPoll); _vpnPoll = null;
-      if (!s.error) toast('Done' + (s.auth_url ? ' — finish sign-in via the link' : ''), 'success', 6000);
-      const url = s.auth_url, nm = s.name, zt = s.zt_node;
-      await _loadSystem();
-      const b = prog();
-      if (b) {
-        let h = '';
-        if (url) h += `<a class="btn btn-primary btn-xs" href="${esc(url)}" target="_blank" rel="noopener">Sign in to ${esc(nm || 'VPN')} →</a>`;
-        if (zt && nm === 'ZeroTier') h += `<div class="vpn-current" style="margin-top:8px">This Pi's ZeroTier node: <strong>${esc(zt)}</strong> — install ZeroTier on your laptop and join the same network.</div>`;
-        b.innerHTML = h;
-      }
-    }
-  }, 2500);
+async function toggleAutoMount() {
+  const sw = document.getElementById('auto-mount-sw');
+  const enabled = !sw.classList.contains('on');
+  const r = await api('/api/drives/auto-mount', {method: 'POST', body: JSON.stringify({enabled})});
+  if (!r?.ok) { toast('Failed to update setting', 'error'); return; }
+  sw.classList.toggle('on', enabled);
+  toast(enabled ? 'Drives will stay mounted' : 'Auto-mount off', 'success', 2500);
+  loadDrives();
 }
 
 async function toggleBootDrive() {
@@ -145,14 +73,6 @@ async function toggleBootDrive() {
   localStorage.setItem('ll-boot-drive', enabled ? '1' : '0');
   toast(enabled ? 'Boot drive shown' : 'Boot drive hidden', 'success', 2500);
   loadDrives();
-}
-
-async function switchVpn(name) {
-  if (!confirm(`Make ${name} the active VPN now?`)) return;
-  const r = await api('/api/system/vpn/switch', {method: 'POST', body: JSON.stringify({name})});
-  if (!r?.ok) { const d = await r.json().catch(() => ({})); _showVpnError(d.detail || 'Switch failed'); return; }
-  toast(`${name} is now active`, 'success', 5000);
-  _loadSystem();
 }
 
 async function resetPi() {

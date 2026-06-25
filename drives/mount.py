@@ -125,6 +125,9 @@ def unmount(drive: Drive) -> None:
     if not drive.mount_point:
         return
 
+    # Soft eject: flush dirty buffers to disk first so nothing is lost.
+    subprocess.run(["sync"], capture_output=True, text=True)
+
     r = subprocess.run(["umount", drive.mount_point], capture_output=True, text=True)
     if r.returncode == 0:
         return

@@ -3,6 +3,8 @@ from pathlib import Path
 
 MOUNT_ROOT = Path(os.environ.get("LITELAYER_MOUNT_ROOT", "/srv/litelayer/mounts"))
 CREDENTIALS_FILE = Path(os.environ.get("LITELAYER_CREDENTIALS", "/etc/litelayer/credentials.json"))
+# Persists the auto-mount preference + which drives the user explicitly ejected.
+STATE_FILE = Path(os.environ.get("LITELAYER_STATE", str(CREDENTIALS_FILE.parent / "state.json")))
 SESSION_TTL_HOURS = int(os.environ.get("LITELAYER_SESSION_TTL", "24"))
 DEV_UI_PATH = Path(__file__).parent.parent / "dev-ui"
 
