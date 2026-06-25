@@ -100,6 +100,12 @@ function browseFiles(driveId, driveLabel) {
   if (card) card.classList.add('active');
   loadFiles('/');
   setBreadcrumb([{label: driveLabel, path: '/'}]);
+  document.querySelector('.app-body')?.classList.add('viewing-files');  // mobile: slide to Files screen
+}
+
+// Mobile: pop back to the Drives screen (no-op visual change on desktop).
+function backToDrives() {
+  document.querySelector('.app-body')?.classList.remove('viewing-files');
 }
 
 function setBreadcrumb(crumbs) {

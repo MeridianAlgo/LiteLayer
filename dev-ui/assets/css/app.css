@@ -164,7 +164,8 @@ body {
 .stat-pill.busy .stat-dot { background: #f59e0b; }
 .stat-pill.hot b { color: #f87171; }
 .stat-pill.warn { background: var(--red-dim); border-color: rgba(239,68,68,0.3); color: var(--red); }
-@media (max-width: 700px) { .stat-pills { display: none; } }
+.pill-lbl { display: inline; }
+.ft-back { display: none; }   /* mobile-only back affordance */
 
 /* ── OTA banner ── */
 .ota-banner {
@@ -563,10 +564,69 @@ body {
 @media (max-width: 900px) {
   .settings-page { width: 100%; max-width: 100%; height: 100%; max-height: 100%; border-radius: 0; }
 }
-@media (max-width: 640px) {
-  .sidebar { display: none; }
-  .file-row-date { display: none; }
-  .topbar { padding: 0 12px; gap: 6px; }
+/* ── Mobile: two stacked screens (Drives ↔ Files) ── */
+@media (max-width: 700px) {
+  /* Topbar: icon-first, compact */
+  .topbar { padding: 0 12px; gap: 8px; }
+  .topbar-sep, .topbar-nas { display: none; }
+  .topbar-right { gap: 4px; }
+  .topbar-right .btn-lbl { display: none; }
+  .topbar-right .btn-sm { padding: 7px 8px; }
+  .topbar-logo-text { font-size: 14px; }
+
+  /* Pills stay up top but shed their word labels — numbers only */
+  .stat-pills { gap: 4px; margin-right: 2px; }
+  .stat-pill { height: 26px; padding: 0 7px; font-size: 10px; gap: 3px; }
+  .stat-pill .pill-lbl { display: none; }
+
+  /* Drives is the home screen; browsing a drive swaps to the Files screen.
+     Plain display-toggle (no off-screen parked pane → no horizontal overflow). */
+  .sidebar { display: flex; width: 100%; border-right: none; background: var(--bg); }
+  .content-pane { display: none; }
+  .app-body.viewing-files .sidebar { display: none; }
+  .app-body.viewing-files .content-pane { display: flex; animation: paneIn 0.26s cubic-bezier(.4, 0, .2, 1); }
+  @keyframes paneIn { from { opacity: 0.4; transform: translateX(6%); } to { opacity: 1; transform: none; } }
+
+  /* Drives screen: full-bleed volume cards, thumb-sized actions */
+  .sidebar-hdr { padding: 14px 16px 10px; }
+  .sidebar-label { font-size: 12px; }
+  .drives-list { padding: 6px 12px 24px; }
+  .sb-drive { padding: 14px; border-radius: 14px; margin-bottom: 10px; }
+  .sb-drive-top { gap: 11px; margin-bottom: 11px; }
+  .sb-drive-icon { width: 38px; height: 38px; border-radius: 10px; }
+  .sb-drive-icon svg { width: 17px; height: 17px; }
+  .sb-drive-name { font-size: 15px; }
+  .sb-drive-dev { font-size: 11px; }
+  .sb-fs-tag { font-size: 10px; padding: 3px 7px; }
+  .sb-bar-track { height: 6px; margin-bottom: 6px; }
+  .sb-bar-stats { font-size: 11px; }
+  .sb-drive-actions { gap: 8px; margin-top: 12px; }
+  .sb-drive-actions .btn-xs { height: 40px; font-size: 13px; padding: 0 14px; }
+  .sb-drive-actions .btn-xs svg { width: 13px; height: 13px; }
+  .sidebar-footer { display: none; }
+
+  /* Files screen */
+  .ft-back {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px; flex-shrink: 0; border: none; border-radius: 9px;
+    background: var(--surface); color: var(--text-2); cursor: pointer;
+  }
+  .ft-back:active { background: var(--surface-h); }
+  .files-toolbar { padding: 8px 12px; gap: 8px; }
+  .files-toolbar .view-toggle { display: none; }   /* list is the phone default */
+  .files-toolbar .btn-lbl { display: none; }
+  #upload-btn { width: 34px; height: 34px; padding: 0; justify-content: center; }
+  .search-input { width: 104px; }
+  .search-input:focus { width: 132px; }
+  .file-row { min-height: 46px; }
+  .file-row-date, .file-list-header .file-sort-btn[data-sort="modified"] { display: none; }
+
+  /* Selection bar: one swipeable row instead of wrapping */
+  .sel-bar { padding: 8px 12px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sel-bar > .btn { flex-shrink: 0; }
+  .sel-bar-label { min-width: max-content; }
+
+  /* Settings / overlays */
   .settings-page { flex-direction: column; border-radius: 0; }
   .settings-nav { width: 100%; flex-direction: row; flex-wrap: wrap; gap: 4px; padding: 10px; overflow-x: auto; }
   .settings-nav-logo, .settings-nav-user, .settings-nav-spacer, .settings-nav-footer { display: none; }
@@ -576,4 +636,14 @@ body {
   .dv-paper { padding: 24px 18px; }
   .file-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; }
   .modal-box { width: calc(100vw - 24px); border-radius: 12px; }
+}
+
+/* Very narrow: reclaim space for the pills */
+@media (max-width: 430px) {
+  .topbar-logo-text { display: none; }
+  #ota-btn { display: none; }   /* updates still live in Settings → About */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-body.viewing-files .content-pane { animation: none; }
 }

@@ -65,7 +65,7 @@ async function unmountDrive(id) {
   const r = await api(`/api/drives/${id}/unmount`, {method: 'POST'}); if (!r) return;
   if (r.ok) {
     toast('Drive ejected safely', 'success');
-    if (currentDriveId === id) { currentDriveId = null; hide('files-area'); show('view-welcome'); setBreadcrumb([]); }
+    if (currentDriveId === id) { currentDriveId = null; hide('files-area'); show('view-welcome'); setBreadcrumb([]); backToDrives(); }
     loadDrives();
   } else { const d = await r.json(); toast(d.detail || 'Unmount failed', 'error', 5000); }
 }
