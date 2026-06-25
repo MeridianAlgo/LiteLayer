@@ -164,9 +164,93 @@ async def upload_file(
     return {"name": safe_name, "size": dest.stat().st_size}
 
 
+def _ensure_writable(d) -> None:
+    """Remount a drive read-write on demand — drives are RO by default, so any
+    write action (mkdir/move) opts in explicitly. Raises on read-only filesystems."""
+    if d.state != "mounted_ro":
+        return
+    from drives.mount import remount_rw, ALWAYS_RO
+    if d.fstype.lower() in ALWAYS_RO:
+        raise HTTPException(409, f"{d.fstype} drives are read-only")
+    try:
+        remount_rw(d)
+        d.state = "mounted_rw"
+        registry.update(d)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Could not enable write: {exc}")
+
+
+class MkdirRequest(BaseModel):
+    drive: str
+    path: str = "/"     # parent directory
+    name: str           # new folder basename
+
+
 @router.post("/mkdir")
-def mkdir(_: str = Depends(require_auth)):
-    raise HTTPException(501, "mkdir not yet implemented")
+def mkdir(req: MkdirRequest, _: str = Depends(require_auth)):
+    d = registry.get(req.drive)
+    if not d:
+        raise HTTPException(404, "Drive not found")
+    if not d.mount_point:
+        raise HTTPException(409, "Drive not mounted")
+    name = Path(req.name).name
+    if not name or name in (".", ".."):
+        raise HTTPException(400, "Invalid folder name")
+    root = Path(d.mount_point)
+    parent = _safe_path(root, req.path)
+    if not parent.is_dir():
+        raise HTTPException(400, "Parent is not a directory")
+    dest = _safe_path(root, str((parent / name).relative_to(root.resolve())))
+    if dest.exists():
+        raise HTTPException(409, "A file or folder with that name already exists")
+    _ensure_writable(d)
+    try:
+        dest.mkdir()
+    except OSError as exc:
+        raise HTTPException(500, str(exc))
+    return {"name": name, "path": "/" + str(dest.relative_to(root)).replace("\\", "/")}
+
+
+class MoveRequest(BaseModel):
+    drive: str
+    paths: list[str]    # items to move (relative to drive root)
+    dest: str           # destination folder (relative to drive root)
+
+
+@router.post("/move")
+def move_files(req: MoveRequest, _: str = Depends(require_auth)):
+    """Move files/folders into a folder on the SAME drive (instant rename).
+    Cross-drive transfers go through /transfer."""
+    import shutil
+    d = registry.get(req.drive)
+    if not d:
+        raise HTTPException(404, "Drive not found")
+    if not d.mount_point:
+        raise HTTPException(409, "Drive not mounted")
+    if not req.paths:
+        raise HTTPException(400, "Nothing to move")
+    root = Path(d.mount_point)
+    dst_dir = _safe_path(root, req.dest)
+    if not dst_dir.is_dir():
+        raise HTTPException(400, "Destination is not a directory")
+    _ensure_writable(d)
+    moved = []
+    for p in req.paths:
+        src = _safe_path(root, p)
+        if not src.exists() or src == root.resolve():
+            continue
+        # Don't move a folder into itself or one of its own descendants.
+        if src.is_dir() and dst_dir.resolve().is_relative_to(src.resolve()):
+            raise HTTPException(400, "Can't move a folder into itself")
+        if src.parent == dst_dir.resolve():
+            continue  # already there
+        dest = _unique(dst_dir / src.name)
+        try:
+            shutil.move(str(src), str(dest))
+            moved.append(p)
+        except OSError as exc:
+            raise HTTPException(500, str(exc))
+    return {"moved": moved, "count": len(moved)}
 
 
 class RenameRequest(BaseModel):

@@ -167,6 +167,10 @@ body {
 .pill-lbl { display: inline; }
 .ft-back { display: none; }   /* mobile-only back affordance */
 .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
+/* Drag & drop targets — folder rows/cells and sidebar drive cards */
+.file-row.drop-into, .file-cell.drop-into { outline: 2px solid var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.sb-drive.drop-target { outline: 2px dashed var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.file-row[draggable], .file-cell[draggable] { -webkit-user-drag: element; }
 
 /* ── OTA banner ── */
 .ota-banner {

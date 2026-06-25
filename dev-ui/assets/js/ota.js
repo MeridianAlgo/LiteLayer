@@ -15,7 +15,7 @@ function updateVersionChip(d) {
 
 async function checkOtaStatus() {
   try {
-    const r = await api('/api/ota/status'); if (!r) return null;
+    const r = await api('/api/ota/status', {bg: true}); if (!r) return null;
     const d = await r.json(); _otaData = d; renderOta(d); return d;
   } catch { return null; }
 }
@@ -52,7 +52,7 @@ function startOtaPoll(ms = 60000) {
 // After a reload, surface whether the last update actually did anything.
 async function _checkLastUpdateResult() {
   try {
-    const r = await api('/api/ota/result'); if (!r?.ok) return;
+    const r = await api('/api/ota/result', {bg: true}); if (!r?.ok) return;
     const d = await r.json();
     if (d.ok === null || !d.at) return;
     if (sessionStorage.getItem('ll-ota-result-seen') === d.at) return;

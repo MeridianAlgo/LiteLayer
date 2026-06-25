@@ -16,7 +16,8 @@ function sbDriveCard(d) {
   const mounted = d.state !== 'unmounted', active = d.id === currentDriveId;
   const fsColors = {ntfs:'#60a5fa',exfat:'#34d399',vfat:'#f472b6',fat32:'#f472b6',ext4:'#a78bfa',ext3:'#a78bfa',btrfs:'#fb923c',xfs:'#facc15',hfsplus:'#94a3b8','iso9660':'#94a3b8'};
   const fc = fsColors[(d.fstype || '').toLowerCase()] || '#a78bfa';
-  return `<div class="sb-drive${active ? ' active' : ''}" id="sbcard-${esc(d.id)}">
+  return `<div class="sb-drive${active ? ' active' : ''}" id="sbcard-${esc(d.id)}"
+    ondragover="onDriveDragOver(event,'${esc(d.id)}')" ondragleave="this.classList.remove('drop-target')" ondrop="onDriveDrop(event,'${esc(d.id)}')">
     <div class="sb-drive-top">
       <div class="sb-drive-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg></div>
       <div class="sb-drive-info"><div class="sb-drive-name" title="${esc(d.label)}">${esc(d.label)}</div><div class="sb-drive-dev">${esc(d.device)}</div></div>
@@ -40,7 +41,7 @@ function startStatsPoll() {
   _statsPoll = setInterval(loadStats, 4000);
 }
 async function loadStats() {
-  const r = await api('/api/system/stats'); if (!r?.ok) return;
+  const r = await api('/api/system/stats', {bg: true}); if (!r?.ok) return;
   const s = await r.json();
   const cpu = document.getElementById('pill-cpu-val'), temp = document.getElementById('pill-temp-val');
   if (cpu)  cpu.textContent  = s.cpu_percent == null ? '—' : s.cpu_percent + '%';

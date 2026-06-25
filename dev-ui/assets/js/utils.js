@@ -40,12 +40,29 @@ function toast(msg, type = 'info', dur = 3500) {
   }, dur);
 }
 
+// Show a full-screen "still working" loader when a foreground request runs long.
+// Background polls pass {bg:true} so the periodic stats/OTA checks never trigger it.
+let _apiInflight = 0, _slowTimer = null;
+function _slowLoader(show) {
+  document.getElementById('slow-loader')?.classList.toggle('hidden', !show);
+}
 async function api(path, opts = {}) {
+  const {bg, ...fetchOpts} = opts;
   const headers = {'Content-Type':'application/json', ...(opts.headers || {})};
   if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
-  const r = await fetch(API + path, {...opts, headers, credentials:'include'});
-  if (r.status === 401) { showLogin(); return null; }
-  return r;
+  if (!bg) {
+    _apiInflight++;
+    if (!_slowTimer) _slowTimer = setTimeout(() => _slowLoader(true), 4000);
+  }
+  try {
+    const r = await fetch(API + path, {...fetchOpts, headers, credentials:'include'});
+    if (r.status === 401) { showLogin(); return null; }
+    return r;
+  } finally {
+    if (!bg && --_apiInflight <= 0) {
+      _apiInflight = 0; clearTimeout(_slowTimer); _slowTimer = null; _slowLoader(false);
+    }
+  }
 }
 
 // Classify a file into one of the customisable type buckets.

@@ -159,12 +159,18 @@ def _cpu_temp() -> float | None:
         return None
 
 
+def _vcgencmd(*args: str) -> str:
+    """Run vcgencmd, resolving its path — the systemd unit's PATH may not include
+    /usr/bin, which would make every call silently fail (e.g. blank power pill)."""
+    import shutil, subprocess
+    exe = shutil.which("vcgencmd") or "/usr/bin/vcgencmd"
+    return subprocess.run([exe, *args], capture_output=True, text=True, timeout=3).stdout
+
+
 def _undervoltage() -> bool:
     """Pi power health: bit 0 of vcgencmd get_throttled = under-voltage now."""
-    import subprocess
     try:
-        out = subprocess.run(["vcgencmd", "get_throttled"], capture_output=True, text=True, timeout=3).stdout
-        val = int(out.strip().split("=")[1], 16)
+        val = int(_vcgencmd("get_throttled").strip().split("=")[1], 16)
         return bool(val & 0x1)
     except Exception:
         return False
@@ -173,9 +179,9 @@ def _undervoltage() -> bool:
 def _power_watts() -> float | None:
     """Total board draw in watts, summed across the Pi 5 PMIC rails (volts × amps).
     Returns None on Pi 4 / older where pmic_read_adc isn't available."""
-    import re, subprocess
+    import re
     try:
-        out = subprocess.run(["vcgencmd", "pmic_read_adc"], capture_output=True, text=True, timeout=3).stdout
+        out = _vcgencmd("pmic_read_adc")
     except Exception:
         return None
     volts: dict[str, float] = {}
@@ -231,6 +237,14 @@ def system_info(_: str = Depends(require_auth)):
     code, _ = _run(["pgrep", "-x", "cloudflared"], timeout=3)
     if code == 0:
         vpns.append({"name": "Cloudflare Tunnel", "ip": None})
+
+    # Also trust systemd: any VPN unit that's active counts even if we couldn't
+    # spot its interface — keeps this in sync with the System tab (which is why
+    # ZeroTier showed there but "None" here).
+    present = {v["name"] for v in vpns}
+    for name, (_tool, unit) in _VPN_UNITS.items():
+        if name not in present and _sysctl("is-active", unit) == "active":
+            vpns.append({"name": name, "ip": None})
 
     try:
         hostname = socket.gethostname()

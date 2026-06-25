@@ -40,7 +40,13 @@ def _current_version() -> str:
         timeout=5,
     )
     if code == 0 and out:
-        return out.lstrip("v")  # UI adds its own "v" — don't double it (vv0.1.0)
+        out = out.lstrip("v")  # UI adds its own "v" — don't double it (vv0.1.0)
+        # "0.1.0-4-g069d35e" (4 commits past the v0.1.0 tag) → clean "0.1.4".
+        m = re.match(r"(\d+)\.(\d+)\.(\d+)-(\d+)-g[0-9a-f]+$", out)
+        if m:
+            maj, mnr, pat, n = (int(x) for x in m.groups())
+            return f"{maj}.{mnr}.{pat + n}"
+        return out
     f = INSTALL_DIR / "VERSION"
     return f.read_text().strip().lstrip("v") if f.exists() else "unknown"
 

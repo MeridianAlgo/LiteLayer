@@ -355,7 +355,7 @@ async function startXfer(dstDrive, dstLabel, paths) {
 }
 
 async function _pollXfer(dstLabel) {
-  const r = await api('/api/files/transfer/status'); if (!r?.ok) return;
+  const r = await api('/api/files/transfer/status', {bg: true}); if (!r?.ok) return;
   const s = await r.json();
   const pct = s.total ? Math.min(100, Math.round(s.done / s.total * 100)) : 0;
   document.getElementById('xfer-bar').style.width = pct + '%';
@@ -367,6 +367,87 @@ async function _pollXfer(dstLabel) {
     else toast(`Copied to ${dstLabel}`, 'success');
     closeXfer();
   }
+}
+
+// ── Internal drag & drop (move within a drive / copy across drives) ───────────
+// _dragPaths holds the items being dragged. Set on dragstart, read on drop.
+let _dragPaths = null;
+
+function onItemDragStart(e, idx) {
+  const entries = _filtered || dirEntries, entry = entries[idx];
+  if (!entry) return;
+  // A row mousedown also armed the marquee — cancel it so native drag wins cleanly.
+  _rbActive = false; document.removeEventListener('mousemove', _rbMove);
+  document.getElementById('rb-rect').style.display = 'none';
+  // Drag the whole selection if the grabbed item is part of it, else just it.
+  _dragPaths = _sel.has(entry.path) ? [..._sel] : [entry.path];
+  e.dataTransfer.effectAllowed = 'copyMove';
+  try { e.dataTransfer.setData('text/plain', 'litelayer'); } catch {}
+}
+
+function onItemDragOver(e, el) {
+  if (!_dragPaths) return;          // only react to our own internal drags
+  e.preventDefault(); e.stopPropagation();
+  el.classList.add('drop-into');
+}
+
+async function onItemDrop(e, destPath) {
+  e.preventDefault(); e.stopPropagation();
+  document.querySelectorAll('.drop-into').forEach(el => el.classList.remove('drop-into'));
+  if (!_dragPaths?.length) return;
+  const paths = _dragPaths.filter(p => p !== destPath);  // can't drop onto self
+  _dragPaths = null;
+  if (paths.length) await moveInto(destPath, paths);
+}
+
+async function moveInto(destPath, paths) {
+  if (!await ensureWritable()) return;
+  const r = await api('/api/files/move', {method: 'POST', body: JSON.stringify({drive: currentDriveId, paths, dest: destPath})});
+  if (!r) return;
+  if (r.ok) { const d = await r.json(); toast(`Moved ${d.count} item${d.count !== 1 ? 's' : ''}`, 'success'); clearSel(false); loadFiles(currentPath); }
+  else { const d = await r.json().catch(() => ({})); toast(d.detail || 'Move failed', 'error', 4000); }
+}
+
+// Drop from a file drag onto a sidebar drive card → same drive moves to root,
+// a different drive copies via the transfer pipeline.
+async function onDriveDrop(e, driveId) {
+  e.preventDefault(); e.stopPropagation();
+  document.getElementById(`sbcard-${driveId}`)?.classList.remove('drop-target');
+  if (!_dragPaths?.length) return;
+  const paths = _dragPaths; _dragPaths = null;
+  if (driveId === currentDriveId) { await moveInto('/', paths); return; }
+  if (driveId === 'system-root') { toast("Can't drop onto the system drive", 'info', 3000); return; }
+  const label = document.getElementById(`sbcard-${driveId}`)?.querySelector('.sb-drive-name')?.textContent || 'drive';
+  document.getElementById('xfer-count').textContent = paths.length;
+  document.getElementById('xfer-pick').style.display = 'none';
+  document.getElementById('xfer-progress').style.display = '';
+  show('xfer-modal');
+  startXfer(driveId, label, paths);
+}
+
+function onDriveDragOver(e, id) {
+  if (!_dragPaths) return;
+  e.preventDefault();
+  document.getElementById(`sbcard-${id}`)?.classList.add('drop-target');
+}
+
+// ── New folder (and "new folder from selection") ──────────────────────────────
+async function newFolderFromSelection() {
+  const entries = _filtered || dirEntries;
+  const paths = entries.filter(e => _sel.has(e.path)).map(e => e.path);
+  const name = prompt('New folder name:', paths.length ? 'New Folder' : 'New Folder');
+  if (name == null) return;
+  const folder = name.trim();
+  if (!folder) return;
+  if (!await ensureWritable()) return;
+  const mk = await api('/api/files/mkdir', {method: 'POST', body: JSON.stringify({drive: currentDriveId, path: currentPath, name: folder})});
+  if (!mk?.ok) { const d = await mk?.json().catch(() => ({})); toast(d?.detail || 'Could not create folder', 'error', 4000); return; }
+  const dest = (await mk.json()).path;
+  if (paths.length) {
+    const mv = await api('/api/files/move', {method: 'POST', body: JSON.stringify({drive: currentDriveId, paths: paths.filter(p => p !== dest), dest})});
+    if (!mv?.ok) { const d = await mv?.json().catch(() => ({})); toast(d?.detail || 'Folder made, but move failed', 'error', 4000); }
+  }
+  toast('Folder created', 'success'); clearSel(false); loadFiles(currentPath);
 }
 
 // ── Upload ────────────────────────────────────────────────────────────────────
@@ -433,7 +514,8 @@ function renderFiles(entries, path) {
     container.innerHTML = `<div class="file-list-header"><div style="width:14px"></div><div style="width:26px"></div><div class="flex-1">Name</div><div class="file-sort-btn" data-sort="modified" onclick="setSort('modified')">Modified</div><div class="file-sort-btn" data-sort="size" onclick="setSort('size')" style="text-align:right">Size</div><div style="width:26px"></div></div>
     <div class="file-list">${upRow}${entries.map((e, i) => {
       const sel = _sel.has(e.path), tc = textColorVar(fileType(e.name, e.is_dir));
-      return `<div class="file-row${sel ? ' selected' : ''}" data-idx="${i}" onclick="handleFileClick(${i},event)" ondblclick="handleFileOpen(${i})" oncontextmenu="showCtxMenu(event,${i});return false">
+      const drop = e.is_dir ? ` ondragover="onItemDragOver(event,this)" ondragleave="this.classList.remove('drop-into')" ondrop="onItemDrop(event,'${esc(e.path)}')"` : '';
+      return `<div class="file-row${sel ? ' selected' : ''}" data-idx="${i}" draggable="true" ondragstart="onItemDragStart(event,${i})"${drop} onclick="handleFileClick(${i},event)" ondblclick="handleFileOpen(${i})" oncontextmenu="showCtxMenu(event,${i});return false">
         <div class="file-row-check">${sel ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
         ${fileIconHtml(e.name, e.is_dir)}
         <div class="file-row-name" title="${esc(e.name)}"${tc ? ` style="color:${tc}"` : ''}>${esc(e.name)}</div>
@@ -447,7 +529,8 @@ function renderFiles(entries, path) {
     container.innerHTML = `<div class="file-grid">${upCell}${entries.map((e, i) => {
       const sel = _sel.has(e.path), isImg = !e.is_dir && isImageFile(e.name), tc = textColorVar(fileType(e.name, e.is_dir));
       const thumbSrc = isImg ? `${API}/api/files/download?drive=${currentDriveId}&path=${encodeURIComponent(e.path)}` : '';
-      return `<div class="file-cell${sel ? ' selected' : ''}" data-idx="${i}" onclick="handleFileClick(${i},event)" ondblclick="handleFileOpen(${i})" oncontextmenu="showCtxMenu(event,${i});return false" title="${esc(e.name)}"${isImg ? ` data-preview-src="${esc(thumbSrc)}"` : ''}>
+      const drop = e.is_dir ? ` ondragover="onItemDragOver(event,this)" ondragleave="this.classList.remove('drop-into')" ondrop="onItemDrop(event,'${esc(e.path)}')"` : '';
+      return `<div class="file-cell${sel ? ' selected' : ''}" data-idx="${i}" draggable="true" ondragstart="onItemDragStart(event,${i})"${drop} onclick="handleFileClick(${i},event)" ondblclick="handleFileOpen(${i})" oncontextmenu="showCtxMenu(event,${i});return false" title="${esc(e.name)}"${isImg ? ` data-preview-src="${esc(thumbSrc)}"` : ''}>
         ${isImg ? `<div class="file-cell-thumb fi-wrap-lg"></div>` : fileIconHtml(e.name, e.is_dir, 19, 'fi-wrap-lg')}
         <div class="file-cell-name"${tc ? ` style="color:${tc}"` : ''}>${esc(e.name)}</div>
         <div class="file-cell-size">${e.is_dir ? '' : fmt(e.size_bytes)}</div>
