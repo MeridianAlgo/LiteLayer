@@ -86,6 +86,21 @@ function applyTheme(t) {
   document.getElementById('theme-card-light')?.classList.toggle('active', t === 'light');
 }
 
+// User clicked the other theme card. Custom colors are inline :root overrides
+// tuned for the old theme — carried into the new one they look garbled, so wipe
+// them on switch (keeping the accent, which is theme-independent).
+function switchTheme(t) {
+  if (t !== _currentTheme) {
+    localStorage.removeItem('ll-custom-colors');
+    Object.keys(_COLOR_DEFAULTS.dark).forEach(k => document.documentElement.style.removeProperty(k));
+  }
+  applyTheme(t);
+  const ac = localStorage.getItem('ll-accent') || 'purple';
+  if (ac === 'custom') applyAccentColor(localStorage.getItem('ll-accent-hex') || '#7c3aed');
+  else applyAccent(ac);
+  buildColorPickers();  // no-op if the settings panel isn't open
+}
+
 function applyAccent(id) {
   const a = ACCENTS.find(x => x.id === id) || ACCENTS[0];
   _currentAccent = id;

@@ -308,11 +308,11 @@
         <div class="settings-section">
           <div class="settings-section-title">Theme</div>
           <div class="theme-row">
-            <button id="theme-card-dark" class="theme-card active" onclick="applyTheme('dark')">
+            <button id="theme-card-dark" class="theme-card active" onclick="switchTheme('dark')">
               <div class="theme-preview tp-dark"><div class="tp-bar"></div><div class="tp-sidebar"></div><div class="tp-dot" id="tp-dot-dark" style="background:var(--accent)"></div></div>
               <div class="theme-card-label">Dark</div>
             </button>
-            <button id="theme-card-light" class="theme-card" onclick="applyTheme('light')">
+            <button id="theme-card-light" class="theme-card" onclick="switchTheme('light')">
               <div class="theme-preview tp-light"><div class="tp-bar"></div><div class="tp-sidebar"></div><div class="tp-dot" id="tp-dot-light" style="background:var(--accent)"></div></div>
               <div class="theme-card-label">Light</div>
             </button>
@@ -365,6 +365,22 @@
               <small>Open a file or folder with one click instead of a double-click. Ctrl/Shift-click still selects.</small>
             </div>
             <div class="toggle-sw" id="single-click-sw" onclick="toggleSingleClick()"></div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Keyboard shortcuts</div>
+          <div class="kbd-list">
+            <div class="kbd-row"><span>Command palette</span><span><kbd>Ctrl</kbd><kbd>K</kbd></span></div>
+            <div class="kbd-row"><span>Select all</span><span><kbd>Ctrl</kbd><kbd>A</kbd></span></div>
+            <div class="kbd-row"><span>Delete selected</span><span><kbd>Del</kbd></span></div>
+            <div class="kbd-row"><span>Clear selection / close</span><span><kbd>Esc</kbd></span></div>
+            <div class="kbd-row"><span>Add to / range selection</span><span><kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click</span></div>
+            <div class="divider-label">Image viewer</div>
+            <div class="kbd-row"><span>Previous / next</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
+            <div class="kbd-row"><span>Zoom in / out</span><span><kbd>+</kbd><kbd>−</kbd></span></div>
+            <div class="kbd-row"><span>Fit / actual size</span><span><kbd>F</kbd><kbd>0</kbd></span></div>
+            <div class="divider-label">Text editor</div>
+            <div class="kbd-row"><span>Save</span><span><kbd>Ctrl</kbd><kbd>S</kbd></span></div>
           </div>
         </div>
         <div class="settings-section">
