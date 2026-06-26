@@ -1,21 +1,71 @@
 # LiteLayer
 
-Secure, self-hosted NAS backend for Raspberry Pi.
-Plug in any drive with any filesystem — browse and download files from any device, over LAN or any VPN.
+[![Latest tag](https://img.shields.io/github/v/tag/MeridianAlgo/LiteLayer?label=release&sort=semver)](https://github.com/MeridianAlgo/LiteLayer/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
+[![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi%203--5-c51a4a.svg)](#compatibility)
+[![Python](https://img.shields.io/badge/python-3.9%2B-3776ab.svg)](#stack)
 
-> **Two-repo architecture** — this repo is the storage backend only.
-> The production web UI lives in a separate `litelayer-ui` repo.
-> `dev-ui/index.html` in this repo is a throwaway dev tool, not the production UI.
+**A secure, self-hosted NAS backend for the Raspberry Pi.** Plug in any drive with
+any filesystem and browse or download its files from any device — over your LAN or
+any VPN. Drives mount **read-only by default**, so your data is never modified or
+reformatted.
+
+[**Website**](https://meridianalgo.github.io/LiteLayer/) · [Setup guide](#complete-setup-guide-pi--litelayer) · [How it compares](#how-it-compares) · [API](#api)
+
+> **Architecture note** — this repository is the storage backend only. The
+> production web UI lives in a separate `litelayer-ui` repository.
+> `dev-ui/index.html` here is a development tool, not the shipped UI.
 
 ---
 
-## One-liner install
+## Highlights
+
+- **Reads any drive, untouched.** ext4, NTFS, exFAT, FAT32, Btrfs, XFS, HFS+, F2FS, and more — with kernel auto-detect as the fallback. Existing data is never erased.
+- **Safe by default.** Read-only on mount; write is an explicit per-drive opt-in. No code path runs `mkfs`, `fdisk`, or `parted`.
+- **Reachable anywhere.** Browse from a phone or laptop over LAN or any VPN (Tailscale, WireGuard, ZeroTier, Netbird) with no app changes.
+- **Lightweight.** Installs onto the Raspberry Pi OS you already run. No database, no Docker — runs on a 512 MB Pi Zero 2 W.
+- **Updates in place.** OTA over GitHub with a one-click apply and pinned version rollback.
+
+---
+
+## Install
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh)
 ```
 
-Supports Pi 3 → Pi 5, 32-bit and 64-bit Raspberry Pi OS (Bullseye+, Bookworm recommended).
+Supports Pi 3 → Pi 5, 32- and 64-bit Raspberry Pi OS (Bullseye or newer; Bookworm recommended).
+Full walkthrough in the [setup guide](#complete-setup-guide-pi--litelayer) below.
+
+---
+
+## How it compares
+
+LiteLayer is a **backend layer, not a full operating system.** You install it onto
+the Raspberry Pi OS you already run, rather than flashing a dedicated NAS appliance
+or standing up a container stack. That keeps the footprint small and the failure
+surface narrow.
+
+| | **LiteLayer** | OpenMediaVault | TrueNAS SCALE | CasaOS / Umbrel | Samba (raw) |
+|---|---|---|---|---|---|
+| Deployment model | Service on your existing OS | Full NAS OS (flash an image) | Full NAS OS + ZFS | Docker app platform | Config files, no UI |
+| Minimum RAM | Runs on **512 MB** (Pi Zero 2 W) | ~1 GB recommended | **8 GB** documented minimum | ~2 GB (Docker + apps) | Minimal |
+| Architecture | ARM — Pi 3–5 (ARMv7/ARM64) | x86-64 + ARM (OMV-Extras) | x86-64 only | x86-64 + ARM | Any |
+| Runtime dependencies | Python venv + Caddy, no DB | nginx + PHP-FPM stack | Linux + ZFS + Kubernetes | Docker daemon | `smbd` |
+| Drive handling | Auto-detect, read-only first | Manual mount + share setup | ZFS pools | Varies by app | Manual share config |
+| Reformats your disks? | **Never** | Optional | Yes (creates ZFS pools) | Varies | No |
+| Built-in web UI | Yes | Yes | Yes | Yes | No |
+
+**How much lighter, concretely:** LiteLayer's supported memory floor is **512 MB**
+versus TrueNAS SCALE's documented **8 GB** minimum — roughly a **16× lower floor** —
+and it needs no database, no container runtime, and no dedicated disk.
+
+> Figures are each project's **published minimums or recommendations**, not measured
+> runtime usage; LiteLayer's is its lowest supported board. This is deliberately not
+> apples-to-apples: TrueNAS and OpenMediaVault are full appliances with features
+> (ZFS, RAID, plugin ecosystems) that LiteLayer does not attempt to match. LiteLayer
+> aims at the opposite end — the smallest thing that safely serves a drive you
+> already have.
 
 ---
 
@@ -171,16 +221,7 @@ VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `none`
 
 ---
 
-## What it does
-
-- **Detects any drive you plug in** — ext4, ntfs, exfat, vfat, btrfs, xfs, hfsplus, iso9660, udf, f2fs, and more; kernel auto-detect as final fallback
-- **Mounts read-only by default** — your data is never modified or formatted
-- **Browse and download** from any browser on your LAN or VPN
-- **Updates itself** — OTA via GitHub, daily check, one-command apply from the UI
-
----
-
-## Security rules
+## Security model
 
 | Rule | Detail |
 |------|--------|
