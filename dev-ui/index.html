@@ -118,8 +118,8 @@
         <button class="btn btn-ghost btn-xs" onclick="copySelectedTo()" title="Copy to another drive">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy to drive
         </button>
-        <button class="btn btn-ghost btn-xs" onclick="newFolderFromSelection()" title="New folder from selection">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>New folder
+        <button class="btn btn-ghost btn-xs" onclick="newFolderFromSelection()" title="Move selected into a new folder">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>Move to new folder
         </button>
         <button class="btn btn-danger btn-xs" onclick="deleteSelected()">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>Delete
@@ -352,6 +352,15 @@
               <small>Auto-mount drives (read-only) when you plug them in and after a reboot, so you never lose access. Ejecting a drive keeps it off until you mount it again.</small>
             </div>
             <div class="toggle-sw" id="auto-mount-sw" onclick="toggleAutoMount()"></div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Files</div>
+          <div class="toggle-row">
+            <div class="toggle-row-text">Single-click to open
+              <small>Open a file or folder with one click instead of a double-click. Ctrl/Shift-click still selects.</small>
+            </div>
+            <div class="toggle-sw" id="single-click-sw" onclick="toggleSingleClick()"></div>
           </div>
         </div>
         <div class="settings-section">

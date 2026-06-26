@@ -28,6 +28,7 @@ function setSettingsTab(tab) {
 
 async function _loadSystem() {
   document.getElementById('boot-drive-sw')?.classList.toggle('on', localStorage.getItem('ll-boot-drive') === '1');
+  document.getElementById('single-click-sw')?.classList.toggle('on', localStorage.getItem('ll-single-click') === '1');
 
   // Keep-drives-mounted preference (source of truth is the backend state file).
   const amSw = document.getElementById('auto-mount-sw');
@@ -63,6 +64,14 @@ async function toggleAutoMount() {
   sw.classList.toggle('on', enabled);
   toast(enabled ? 'Drives will stay mounted' : 'Auto-mount off', 'success', 2500);
   loadDrives();
+}
+
+function toggleSingleClick() {
+  const sw = document.getElementById('single-click-sw');
+  const on = !sw.classList.contains('on');
+  sw.classList.toggle('on', on);
+  localStorage.setItem('ll-single-click', on ? '1' : '0');
+  toast(on ? 'Single-click to open' : 'Double-click to open', 'success', 2000);
 }
 
 async function toggleBootDrive() {

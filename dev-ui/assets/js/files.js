@@ -154,7 +154,8 @@ function handleFileClick(idx, e) {
     _lastClickIdx = idx; updateSelBar(); renderFiles(entries, currentPath); return;
   }
 
-  // plain click → select just this item
+  // plain click → open directly if single-click mode is on, else just select.
+  if (localStorage.getItem('ll-single-click') === '1') { _sel.clear(); handleFileOpen(idx); return; }
   _sel = new Set([entry.path]); _lastClickIdx = idx;
   updateSelBar(); renderFiles(entries, currentPath);
 }
@@ -383,6 +384,15 @@ function onItemDragStart(e, idx) {
   _dragPaths = _sel.has(entry.path) ? [..._sel] : [entry.path];
   e.dataTransfer.effectAllowed = 'copyMove';
   try { e.dataTransfer.setData('text/plain', 'litelayer'); } catch {}
+  // Show a count badge while dragging more than one item.
+  if (_dragPaths.length > 1) {
+    const badge = document.createElement('div');
+    badge.className = 'drag-count';
+    badge.textContent = `${_dragPaths.length} items`;
+    document.body.appendChild(badge);
+    try { e.dataTransfer.setDragImage(badge, -10, -10); } catch {}
+    setTimeout(() => badge.remove(), 0);
+  }
 }
 
 function onItemDragOver(e, el) {
