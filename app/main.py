@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -552,6 +552,72 @@ def toggle_boot_drive(req: BootDriveRequest, _: str = Depends(require_auth)):
     detect.INCLUDE_SYSTEM = req.enabled
     hotplug._refresh()
     return {"enabled": req.enabled}
+
+
+# ── Web terminal (interactive shell on the Pi) ────────────────────────────────
+# A real PTY bridged over a websocket. Auth via the session token in the query
+# string (browsers can't set headers on a WebSocket). Linux-only — uses os/pty.
+# ponytail: shell runs as whatever user runs LiteLayer; this is the same
+# privilege level the app already wields (remount, reset, boot-drive). Auth-gated.
+@app.websocket("/api/system/terminal")
+async def terminal_ws(ws: WebSocket, token: str = Query(default="")):
+    import asyncio
+    if not sessions.validate_session(token):
+        await ws.close(code=4401)
+        return
+    try:
+        import fcntl, json, os, pty, signal, struct, termios
+    except ImportError:
+        await ws.accept()
+        await ws.send_text("\r\nTerminal is only available on the Raspberry Pi (Linux).\r\n")
+        await ws.close()
+        return
+
+    await ws.accept()
+    pid, fd = pty.fork()
+    if pid == 0:  # child → become the shell
+        os.environ["TERM"] = "xterm-256color"
+        os.execvp("bash", ["bash", "-l"])
+        os._exit(1)
+
+    loop = asyncio.get_running_loop()
+
+    def _on_master_readable():
+        try:
+            data = os.read(fd, 65536)
+        except OSError:
+            data = b""
+        if not data:
+            loop.remove_reader(fd)
+            asyncio.ensure_future(ws.close())
+            return
+        asyncio.ensure_future(ws.send_bytes(data))
+
+    loop.add_reader(fd, _on_master_readable)
+    try:
+        while True:
+            msg = await ws.receive()
+            if msg.get("type") == "websocket.disconnect":
+                break
+            if (b := msg.get("bytes")) is not None:
+                os.write(fd, b)
+            elif (t := msg.get("text")) is not None:
+                # control messages are JSON: {"resize":[cols,rows]}
+                if t.startswith('{"resize"'):
+                    cols, rows = json.loads(t)["resize"]
+                    fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+                else:
+                    os.write(fd, t.encode())
+    except WebSocketDisconnect:
+        pass
+    finally:
+        loop.remove_reader(fd)
+        try:
+            os.kill(pid, signal.SIGKILL)
+            os.waitpid(pid, 0)
+        except OSError:
+            pass
+        os.close(fd)
 
 
 _assets_dir = DEV_UI_PATH / "assets"

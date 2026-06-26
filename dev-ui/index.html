@@ -48,6 +48,9 @@
       <button id="ota-btn" class="btn btn-ghost btn-sm" onclick="openOtaModal()" title="Check for updates">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><polyline points="23 20 23 14 17 14"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg><span id="ota-badge" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:transparent;vertical-align:middle"></span><span class="btn-lbl">Updates</span>
       </button>
+      <button class="btn btn-ghost btn-sm" onclick="openTerminal()" title="Pi terminal">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg><span class="btn-lbl">Terminal</span>
+      </button>
       <button class="btn btn-ghost btn-sm" onclick="openSettings()" title="Settings (⌘,)">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span class="btn-lbl">Settings</span>
       </button>
@@ -136,6 +139,7 @@
 
       <div id="files-area" class="files-area hidden"
            onmousedown="_startRubberBand(event)"
+           oncontextmenu="showEmptyCtxMenu(event)"
            ondragover="event.preventDefault();this.classList.add('drag-over')"
            ondragleave="this.classList.remove('drag-over')"
            ondrop="handleDropUpload(event)">
@@ -463,6 +467,19 @@
   <div id="reset-status" style="font-size:13px;color:var(--text-3);max-width:420px;line-height:1.6">The Pi is downloading the latest version and rebooting. You'll be signed out — this can take a few minutes. Keep this tab open; it reloads automatically when LiteLayer is back.</div>
 </div>
 
+<!-- ── Pi Terminal ── -->
+<div id="terminal-overlay" class="dv-overlay hidden" style="background:#0c0c12">
+  <div class="dv-hdr" style="background:#15151f">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+    <span class="dv-filename">Raspberry Pi terminal</span>
+    <span id="term-status" style="color:var(--text-3);font-size:11px"></span>
+    <div class="dv-hcontrols">
+      <button class="dv-btn" onclick="closeTerminal()" title="Close" style="color:rgba(255,255,255,0.5)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+  </div>
+  <div id="term-body" style="flex:1;overflow:hidden;padding:8px 10px"></div>
+</div>
+
 <!-- ── JS modules (load order matters) ── -->
 <script src="/assets/js/state.js"></script>
 <script src="/assets/js/utils.js"></script>
@@ -474,6 +491,7 @@
 <script src="/assets/js/ota.js"></script>
 <script src="/assets/js/settings.js"></script>
 <script src="/assets/js/cmd.js"></script>
+<script src="/assets/js/terminal.js"></script>
 <script src="/assets/js/app.js"></script>
 </body>
 </html>

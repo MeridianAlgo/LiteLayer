@@ -15,7 +15,7 @@ import threading
 from app.config import STATE_FILE
 
 _lock = threading.Lock()
-_DEFAULT = {"auto_mount": True, "ejected": []}
+_DEFAULT = {"auto_mount": True, "ejected": [], "labels": {}}
 
 
 def _load() -> dict:
@@ -57,6 +57,22 @@ def mark_ejected(uuid: str) -> None:
         if uuid not in d["ejected"]:
             d["ejected"].append(uuid)
             _save(d)
+
+
+def get_labels() -> dict:
+    """Custom drive nicknames (UI-only — never touches the filesystem label)."""
+    with _lock:
+        return dict(_load()["labels"])
+
+
+def set_label(drive_id: str, label: str) -> None:
+    with _lock:
+        d = _load()
+        if label:
+            d["labels"][drive_id] = label
+        else:
+            d["labels"].pop(drive_id, None)
+        _save(d)
 
 
 def mark_mounted(uuid: str) -> None:

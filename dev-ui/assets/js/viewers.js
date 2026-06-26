@@ -146,8 +146,11 @@ async function openTextViewer(idx) {
   _tvEntry = entry; _tvDirty = false; _tvPreview = false;
   document.getElementById('tv-filename').textContent = entry.name;
   document.getElementById('tv-dirty').style.display = 'none';
-  document.getElementById('tv-preview-btn').style.display = _tvIsMd(entry.name) ? '' : 'none';
-  document.getElementById('tv-preview').style.display = 'none';
+  const pvBtn = document.getElementById('tv-preview-btn');
+  pvBtn.style.display = _tvIsMd(entry.name) ? '' : 'none';
+  pvBtn.classList.remove('active');
+  const pvEl = document.getElementById('tv-preview');
+  pvEl.style.display = 'none'; pvEl.innerHTML = '';
   const ta = document.getElementById('tv-edit');
   ta.style.display = ''; ta.value = 'Loading…'; ta.disabled = true;
   show('text-viewer'); document.body.style.overflow = 'hidden';
@@ -170,7 +173,13 @@ function _tvKey(e) {
 async function tvTogglePreview() {
   _tvPreview = !_tvPreview;
   const ta = document.getElementById('tv-edit'), pv = document.getElementById('tv-preview');
-  if (!_tvPreview) { pv.style.display = 'none'; ta.style.display = ''; return; }
+  const btn = document.getElementById('tv-preview-btn');
+  btn?.classList.toggle('active', _tvPreview);
+  if (!_tvPreview) {
+    // Back to edit — show exactly one pane.
+    pv.style.display = 'none'; pv.innerHTML = ''; ta.style.display = 'block';
+    return;
+  }
   if (!window.marked) {
     await new Promise((res, rej) => {
       const s = document.createElement('script');
@@ -179,7 +188,8 @@ async function tvTogglePreview() {
     }).catch(() => {});
   }
   pv.innerHTML = window.marked ? marked.parse(ta.value) : `<pre>${esc(ta.value)}</pre>`;
-  ta.style.display = 'none'; pv.style.display = '';
+  // Show exactly one pane — hide the editor, reveal the preview.
+  ta.style.display = 'none'; pv.style.display = 'block';
 }
 
 async function tvSave() {

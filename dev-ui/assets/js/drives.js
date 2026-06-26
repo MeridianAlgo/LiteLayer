@@ -20,7 +20,8 @@ function sbDriveCard(d) {
     ondragover="onDriveDragOver(event,'${esc(d.id)}')" ondragleave="this.classList.remove('drop-target')" ondrop="onDriveDrop(event,'${esc(d.id)}')">
     <div class="sb-drive-top">
       <div class="sb-drive-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 5v14c0 1.66-4.03 3-9 3S3 20.66 3 19V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/></svg></div>
-      <div class="sb-drive-info"><div class="sb-drive-name" title="${esc(d.label)}">${esc(d.label)}</div><div class="sb-drive-dev">${esc(d.device)}</div></div>
+      <div class="sb-drive-info"><div class="sb-drive-name" title="${esc(d.label)} — double-click to rename" ondblclick="event.stopPropagation();renameDrive('${esc(d.id)}','${esc(d.label)}')">${esc(d.label)}</div><div class="sb-drive-dev">${esc(d.device)}</div></div>
+      <button class="btn btn-ghost btn-xs sb-rename-btn" title="Rename drive" onclick="event.stopPropagation();renameDrive('${esc(d.id)}','${esc(d.label)}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg></button>
       <div class="sb-fs-tag" style="background:${fc}18;color:${fc};border:1px solid ${fc}33">${esc(d.fstype)}</div>
     </div>
     ${mounted ? `<div><div class="sb-bar-track"><div class="sb-bar-fill ${barCls}" style="width:${pct}%"></div></div><div class="sb-bar-stats"><span>${fmt(used)}</span><span>${fmt(d.free_bytes)} free</span></div></div>` : ''}
@@ -57,6 +58,16 @@ async function loadStats() {
   }
   const power = document.getElementById('pill-power');
   if (power) power.style.display = s.undervoltage ? '' : 'none';
+}
+
+async function renameDrive(id, current) {
+  const name = prompt('Rename drive (nickname only — your files are untouched):', current);
+  if (name == null) return;
+  const r = await api(`/api/drives/${id}/rename`, {method: 'POST', body: JSON.stringify({label: name.trim()})});
+  if (!r?.ok) { toast('Rename failed', 'error'); return; }
+  const d = await r.json();
+  if (currentDriveId === id) { currentDriveLabel = d.label; setBreadcrumb(_crumbsFor(currentPath)); }
+  toast('Drive renamed', 'success', 2000); loadDrives();
 }
 
 async function mountDrive(id) {

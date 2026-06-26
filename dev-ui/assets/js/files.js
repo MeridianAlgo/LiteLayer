@@ -410,6 +410,27 @@ async function onItemDrop(e, destPath) {
   if (paths.length) await moveInto(destPath, paths);
 }
 
+// Parent of the current folder ('/' when already at root).
+function _parentPath() {
+  const parts = currentPath.split('/').filter(Boolean);
+  parts.pop();
+  return parts.length ? '/' + parts.join('/') : '/';
+}
+
+// Drop onto the ".." row → move the dragged items up into the parent folder.
+function onUpDragOver(e, el) {
+  if (!_dragPaths) return;
+  e.preventDefault(); e.stopPropagation();
+  el.classList.add('drop-into');
+}
+async function onUpDrop(e) {
+  e.preventDefault(); e.stopPropagation();
+  document.querySelectorAll('.drop-into').forEach(el => el.classList.remove('drop-into'));
+  if (!_dragPaths?.length) return;
+  const paths = _dragPaths; _dragPaths = null;
+  await moveInto(_parentPath(), paths);
+}
+
 async function moveInto(destPath, paths) {
   if (!await ensureWritable()) return;
   const r = await api('/api/files/move', {method: 'POST', body: JSON.stringify({drive: currentDriveId, paths, dest: destPath})});
@@ -442,6 +463,34 @@ function onDriveDragOver(e, id) {
 }
 
 // ── New folder (and "new folder from selection") ──────────────────────────────
+async function newFolder() {
+  if (!currentDriveId) { toast('Select a drive first', 'info', 2000); return; }
+  const name = prompt('New folder name:', 'New Folder');
+  if (name == null) return;
+  const folder = name.trim();
+  if (!folder) return;
+  if (!await ensureWritable()) return;
+  const mk = await api('/api/files/mkdir', {method: 'POST', body: JSON.stringify({drive: currentDriveId, path: currentPath, name: folder})});
+  if (!mk?.ok) { const d = await mk?.json().catch(() => ({})); toast(d?.detail || 'Could not create folder', 'error', 4000); return; }
+  toast('Folder created', 'success'); loadFiles(currentPath);
+}
+
+// Right-click on empty space in the file area → quick actions.
+function showEmptyCtxMenu(e) {
+  if (e.target.closest('.file-row, .file-cell')) return;  // let item menu handle items
+  e.preventDefault(); closeCtxMenu();
+  if (!currentDriveId) return;
+  const items = [
+    `<div class="ctx-item" onclick="newFolder();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>New folder</div>`,
+    `<div class="ctx-item" onclick="loadFiles(currentPath);closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Refresh</div>`,
+  ];
+  const menu = document.getElementById('ctx-menu');
+  menu.innerHTML = items.join(''); menu.classList.remove('hidden');
+  const vw = window.innerWidth, vh = window.innerHeight, mw = 166, mh = items.length * 34;
+  menu.style.left = (e.clientX + mw > vw ? e.clientX - mw : e.clientX) + 'px';
+  menu.style.top  = (e.clientY + mh > vh ? e.clientY - mh : e.clientY) + 'px';
+}
+
 async function newFolderFromSelection() {
   const entries = _filtered || dirEntries;
   const paths = entries.filter(e => _sel.has(e.path)).map(e => e.path);
@@ -517,8 +566,8 @@ function renderFiles(entries, path) {
     container.innerHTML = `<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${noMatch ? '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' : '<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>'}</svg><div>${noMatch ? 'No results' : 'Empty folder'}</div></div>`;
     return;
   }
-  const upRow  = path !== '/' ? `<div class="file-row" onclick="navigateUp()"><div class="file-row-check"></div><div class="fi-wrap" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-row-name" style="color:var(--text-3);font-size:12px">..</div><div class="file-row-date"></div><div class="file-row-size"></div><div class="file-row-dl"></div></div>` : '';
-  const upCell = path !== '/' ? `<div class="file-cell" onclick="navigateUp()"><div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-cell-name">..</div></div>` : '';
+  const upRow  = path !== '/' ? `<div class="file-row" onclick="navigateUp()" ondragover="onUpDragOver(event,this)" ondragleave="this.classList.remove('drop-into')" ondrop="onUpDrop(event)" title="Drop here to move up a folder"><div class="file-row-check"></div><div class="fi-wrap" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-row-name" style="color:var(--text-3);font-size:12px">..</div><div class="file-row-date"></div><div class="file-row-size"></div><div class="file-row-dl"></div></div>` : '';
+  const upCell = path !== '/' ? `<div class="file-cell" onclick="navigateUp()" ondragover="onUpDragOver(event,this)" ondragleave="this.classList.remove('drop-into')" ondrop="onUpDrop(event)" title="Drop here to move up a folder"><div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-cell-name">..</div></div>` : '';
 
   if (fileView === 'list') {
     container.innerHTML = `<div class="file-list-header"><div style="width:14px"></div><div style="width:26px"></div><div class="flex-1">Name</div><div class="file-sort-btn" data-sort="modified" onclick="setSort('modified')">Modified</div><div class="file-sort-btn" data-sort="size" onclick="setSort('size')" style="text-align:right">Size</div><div style="width:26px"></div></div>

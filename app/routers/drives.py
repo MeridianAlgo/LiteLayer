@@ -44,10 +44,11 @@ class DriveOut(BaseModel):
 
 
 def _enrich(d) -> DriveOut:
+    label = persist.get_labels().get(d.id, d.label)
     return DriveOut(
         id=d.id,
         device=d.device,
-        label=d.label,
+        label=label,
         fstype=d.fstype,
         size_bytes=d.size_bytes,
         used_bytes=d.used_bytes,
@@ -61,6 +62,22 @@ def _enrich(d) -> DriveOut:
 @router.get("", response_model=list[DriveOut])
 def list_drives(_: str = Depends(require_auth)):
     return [_enrich(d) for d in registry.get_all()]
+
+
+class RenameDriveRequest(BaseModel):
+    label: str
+
+
+@router.post("/{drive_id}/rename")
+def rename_drive(drive_id: str, req: RenameDriveRequest, _: str = Depends(require_auth)):
+    """Set a UI nickname for a drive. Doesn't touch the filesystem label — safe,
+    survives reboots. Empty string clears it back to the real label."""
+    drive = registry.get(drive_id)
+    if not drive:
+        raise HTTPException(404, "Drive not found")
+    label = req.label.strip()[:64]
+    persist.set_label(drive_id, label)
+    return {"id": drive_id, "label": label or drive.label}
 
 
 @router.post("/{drive_id}/mount")
