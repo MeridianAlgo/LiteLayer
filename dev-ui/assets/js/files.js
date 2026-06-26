@@ -142,6 +142,13 @@ function handleFileClick(idx, e) {
   const entries = _filtered || dirEntries, entry = entries[idx];
   if (!entry) return;
 
+  // Checkbox click → pure toggle-select, never open (even in single-click mode).
+  // Lets you tick several items without each one opening.
+  if (e.target.closest('.file-row-check')) {
+    if (_sel.has(entry.path)) _sel.delete(entry.path); else _sel.add(entry.path);
+    _lastClickIdx = idx; updateSelBar(); renderFiles(entries, currentPath); return;
+  }
+
   if (e.shiftKey && _lastClickIdx >= 0) {
     const lo = Math.min(_lastClickIdx, idx), hi = Math.max(_lastClickIdx, idx);
     const next = new Set(_sel);
@@ -562,13 +569,16 @@ async function uploadFiles(files) {
 
 function renderFiles(entries, path) {
   const container = document.getElementById('files-container');
-  if (!entries.length) {
-    const noMatch = _filtered !== null;
-    container.innerHTML = `<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${noMatch ? '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' : '<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>'}</svg><div>${noMatch ? 'No results' : 'Empty folder'}</div></div>`;
-    return;
-  }
   const upRow  = path !== '/' ? `<div class="file-row" onclick="navigateUp()" ondragover="onUpDragOver(event,this)" ondragleave="this.classList.remove('drop-into')" ondrop="onUpDrop(event)" title="Drop here to move up a folder"><div class="file-row-check"></div><div class="fi-wrap" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-row-name" style="color:var(--text-3);font-size:12px">..</div><div class="file-row-date"></div><div class="file-row-size"></div><div class="file-row-dl"></div></div>` : '';
   const upCell = path !== '/' ? `<div class="file-cell" onclick="navigateUp()" ondragover="onUpDragOver(event,this)" ondragleave="this.classList.remove('drop-into')" ondrop="onUpDrop(event)" title="Drop here to move up a folder"><div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-cell-name">..</div></div>` : '';
+
+  if (!entries.length) {
+    const noMatch = _filtered !== null;
+    // Keep the ".." row visible so you can always get out of an empty folder.
+    const up = fileView === 'list' ? upRow : (path !== '/' ? `<div class="file-grid">${upCell}</div>` : '');
+    container.innerHTML = up + `<div class="empty-state"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">${noMatch ? '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' : '<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>'}</svg><div>${noMatch ? 'No results' : 'Empty folder'}</div></div>`;
+    return;
+  }
 
   if (fileView === 'list') {
     container.innerHTML = `<div class="file-list-header"><div style="width:14px"></div><div style="width:26px"></div><div class="flex-1">Name</div><div class="file-sort-btn" data-sort="modified" onclick="setSort('modified')">Modified</div><div class="file-sort-btn" data-sort="size" onclick="setSort('size')" style="text-align:right">Size</div><div style="width:26px"></div></div>
