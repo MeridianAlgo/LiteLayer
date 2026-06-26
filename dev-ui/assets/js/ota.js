@@ -62,18 +62,18 @@ async function _checkLastUpdateResult() {
   } catch {}
 }
 
-let _otaSelectedSha = null;  // null = latest
+let _otaSelectedSha = null;  // set only when the user picks a version from the list
 
-function selectOtaVersion(sha, el) {
+function selectOtaVersion(sha, el, name) {
   if (el && el.classList.contains('current')) return;  // already installed
   _otaSelectedSha = sha;
   document.querySelectorAll('.ota-ver-item').forEach(x => x.classList.remove('selected'));
   if (el) el.classList.add('selected');
   const runBtn = document.getElementById('ota-modal-run-btn');
   if (runBtn) {
-    // Picking any version enables install — including downgrades while "up to date".
+    // Install only becomes available once a version is chosen — including downgrades.
     runBtn.disabled = false;
-    runBtn.textContent = sha ? `Install ${sha.slice(0,7)}` : 'Apply Update';
+    runBtn.textContent = `Install ${name || (sha || '').slice(0,7)}`;
   }
 }
 
@@ -85,7 +85,8 @@ async function openOtaModal() {
   const logDetails = document.getElementById('ota-log-details');
   if (logDetails) logDetails.style.display = 'none';
   const runBtn = document.getElementById('ota-modal-run-btn'), cancelBtn = document.getElementById('ota-cancel-btn');
-  runBtn.disabled = true; runBtn.textContent = 'Apply Update'; cancelBtn.style.display = '';
+  // Install stays disabled until a version is picked from the list below.
+  runBtn.disabled = true; runBtn.textContent = 'Select a version'; cancelBtn.style.display = '';
 
   // Open instantly with a checking state, then fill in once GitHub responds —
   // the status/tags calls can take a second and shouldn't block the modal.
@@ -106,47 +107,55 @@ async function openOtaModal() {
   if (statusEl) {
     if (!d?.github_reachable) {
       statusEl.innerHTML = `<span style="color:var(--text-3)">GitHub unreachable</span>`;
-      runBtn.disabled = true;
     } else if (!d?.update_available) {
       statusEl.innerHTML = `<span style="color:var(--green)">Up to date · v${d?.current_version || '—'}</span>`;
-      runBtn.disabled = true; runBtn.textContent = 'Up to date';
     } else {
       statusEl.innerHTML = `<span style="color:var(--yellow)">v${d.latest_version || d.current_version} available</span>`;
-      runBtn.disabled = false;
     }
   }
 
-  const isMajor = d?.is_major || false;
-  document.getElementById('ota-major-warn').style.display = isMajor ? 'block' : 'none';
-  if (isMajor && d?.update_available) runBtn.textContent = 'Full Reinstall';
+  // Major-version note is informational only — installing always targets the
+  // version you pick below, never a silent full reinstall.
+  document.getElementById('ota-major-warn').style.display = (d?.is_major && d?.update_available) ? 'block' : 'none';
 
-  // Version picker — show release TAGS (v0.1.0 …), not raw commits.
+  // Version picker — release tags, plus the latest available version up top so
+  // it's selectable even before it's been tagged. Install needs an explicit pick.
   const verWrap = document.getElementById('ota-ver-pick-wrap');
   const verList = document.getElementById('ota-ver-list');
   if (verWrap && verList) {
     let tags = [];
     try { const tr = await api('/api/ota/tags'); if (tr?.ok) tags = (await tr.json()).tags || []; } catch {}
-    if (tags.length) {
-      verList.innerHTML = tags.map((t, i) => {
-        const ghUrl = `https://github.com/${GH_REPO}/releases/tag/${t.name}`;
-        return `<div class="ota-ver-item${t.current ? ' current' : i === 0 && !tags.some(x => x.current) ? ' selected' : ''}" data-sha="${t.sha}"
-          onclick="selectOtaVersion('${t.sha}',this)">
-          <span class="ota-ver-sha">${esc(t.name)}</span>
-          <a class="ota-ver-msg" href="${ghUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--text-3)">release notes ↗</a>
-          ${t.current ? `<span class="ota-cur-tag">installed</span>` : ''}
-        </div>`;
-      }).join('');
-      verWrap.style.display = '';
-    } else {
-      verWrap.style.display = 'none';
+
+    const rows = [];
+    const haveLatest = d?.latest_sha && tags.some(t => t.sha && t.sha.startsWith(d.latest_sha));
+    if (d?.update_available && d?.latest_sha && !haveLatest) {
+      const name = d.latest_version ? `v${d.latest_version}` : 'latest';
+      rows.push(`<div class="ota-ver-item" data-sha="${d.latest_sha}"
+        onclick="selectOtaVersion('${d.latest_sha}',this,'${esc(name)}')">
+        <span class="ota-ver-sha">${esc(name)}</span>
+        <span class="ota-ver-msg" style="color:var(--text-3)">newest on main</span>
+        <span class="ota-cur-tag" style="background:var(--y20,rgba(245,158,11,.18));color:var(--yellow)">latest</span>
+      </div>`);
     }
+    tags.forEach(t => {
+      const ghUrl = `https://github.com/${GH_REPO}/releases/tag/${t.name}`;
+      rows.push(`<div class="ota-ver-item${t.current ? ' current' : ''}" data-sha="${t.sha}"
+        onclick="selectOtaVersion('${t.sha}',this,'${esc(t.name)}')">
+        <span class="ota-ver-sha">${esc(t.name)}</span>
+        <a class="ota-ver-msg" href="${ghUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--text-3)">release notes ↗</a>
+        ${t.current ? `<span class="ota-cur-tag">installed</span>` : ''}
+      </div>`);
+    });
+
+    if (rows.length) { verList.innerHTML = rows.join(''); verWrap.style.display = ''; }
+    else verWrap.style.display = 'none';
   }
 }
 
 function closeOtaModal() { hide('ota-modal'); }
 
 async function applyOtaUpdate() {
-  const isMajor = _otaData?.is_major || false;
+  if (!_otaSelectedSha) { toast('Pick a version to install first', 'info', 2500); return; }
   const runBtn = document.getElementById('ota-modal-run-btn'), cancelBtn = document.getElementById('ota-cancel-btn');
   runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner"></span>'; cancelBtn.style.display = 'none';
   const steps = document.querySelectorAll('#ota-steps .ota-step');
@@ -180,9 +189,8 @@ async function applyOtaUpdate() {
   startLogPoll();
 
   try {
-    // A specifically-picked version always wins (lets you downgrade to any sha).
-    const body = _otaSelectedSha ? {sha: _otaSelectedSha} : (isMajor ? {reinstall: true} : {});
-    const r = await api('/api/ota/update', {method:'POST', body: JSON.stringify(body)});
+    // Always install the exact version the user picked from the list.
+    const r = await api('/api/ota/update', {method:'POST', body: JSON.stringify({sha: _otaSelectedSha})});
     if (!r?.ok) {
       clearInterval(_logPoll);
       const j = await r?.json(); toast(j?.detail || 'Update failed', 'error', 5000);
