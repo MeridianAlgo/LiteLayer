@@ -417,6 +417,12 @@ body {
 .divider-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
 .divider-label::before, .divider-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
+/* ── Settings: Keyboard shortcuts ── */
+.kbd-list { display: flex; flex-direction: column; gap: 2px; }
+.kbd-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 7px 0; font-size: 13px; color: var(--text-2); }
+.kbd-row > span:last-child { display: flex; align-items: center; gap: 3px; color: var(--text-3); font-size: 12px; }
+kbd { font-family: var(--mono); font-size: 11px; line-height: 1; color: var(--text-2); background: var(--bg3); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 3px 6px; min-width: 18px; text-align: center; }
+
 /* ── Sidebar footer ── */
 .sidebar-footer { flex-shrink: 0; padding: 8px 12px 10px; border-top: 1px solid var(--border); }
 .sb-ver-wrap { display: flex; align-items: center; gap: 6px; }
