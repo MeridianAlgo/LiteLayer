@@ -151,7 +151,9 @@ def list_tags(_: str = Depends(require_auth)):
     """Release tags (newest first) for the version picker — shows v0.1.0 etc.
     rather than raw commit shas."""
     _fetch()
-    _run(["git", "-C", str(INSTALL_DIR), "fetch", "origin", "--tags", "--quiet"], timeout=20)
+    # --force so a re-pointed tag updates locally; without it a stale local tag
+    # sticks and freshly pushed versions never show up in the picker.
+    _run(["git", "-C", str(INSTALL_DIR), "fetch", "origin", "--tags", "--force", "--quiet"], timeout=20)
     code, out = _run(
         ["git", "-C", str(INSTALL_DIR), "tag", "-l", "v*", "--sort=-version:refname"],
         timeout=5,

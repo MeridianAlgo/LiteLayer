@@ -127,6 +127,18 @@ async function openOtaModal() {
     try { const tr = await api('/api/ota/tags'); if (tr?.ok) tags = (await tr.json()).tags || []; } catch {}
 
     const rows = [];
+
+    // Installed build may have no release tag (releases are cut at majors only),
+    // so it'd otherwise be absent from the list — pin it on top, marked installed.
+    const curTagged = d?.current_sha && tags.some(t => t.sha && t.sha.startsWith(d.current_sha));
+    if (d?.current_version && !curTagged) {
+      rows.push(`<div class="ota-ver-item current" data-sha="${d.current_sha || ''}">
+        <span class="ota-ver-sha">v${esc(d.current_version)}</span>
+        <span class="ota-ver-msg" style="color:var(--text-3)">currently installed</span>
+        <span class="ota-cur-tag">installed</span>
+      </div>`);
+    }
+
     const haveLatest = d?.latest_sha && tags.some(t => t.sha && t.sha.startsWith(d.latest_sha));
     if (d?.update_available && d?.latest_sha && !haveLatest) {
       const name = d.latest_version ? `v${d.latest_version}` : 'latest';
