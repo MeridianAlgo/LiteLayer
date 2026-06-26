@@ -55,12 +55,8 @@
   .bar-in{display:flex;align-items:center;gap:16px;height:60px}
   .mark{display:flex;align-items:center;gap:10px;font-family:var(--display);
     font-weight:700;font-size:18px;letter-spacing:-.01em}
-  .led{
-    width:9px;height:9px;border-radius:50%;background:var(--led);
-    box-shadow:0 0 10px 1px var(--led);
-    animation:blink 2.4s steps(1,end) infinite;
-  }
-  @keyframes blink{0%,72%,100%{opacity:1}74%,86%{opacity:.18}}
+  .logo{display:flex}
+  .logo svg{display:block}
   .bar .spacer{flex:1}
   .ver{font-family:var(--mono);font-size:12px;color:var(--label);
     border:1px solid var(--etch);border-radius:999px;padding:3px 10px}
@@ -124,7 +120,8 @@
   .screen .foot{color:var(--label);margin-top:6px;border-top:1px dashed var(--etch);padding-top:10px}
   .screen .foot .ok{color:var(--ok)}
   .caret{display:inline-block;width:8px;background:var(--led);
-    margin-left:2px;animation:blink 1s steps(1,end) infinite}
+    margin-left:2px;animation:caret 1s steps(1,end) infinite}
+  @keyframes caret{0%,50%{opacity:1}51%,100%{opacity:0}}
   @keyframes reveal{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
   /* ---- generic section ---- */
@@ -152,14 +149,23 @@
   .card h3{font-family:var(--display);font-weight:600;font-size:18px;margin:12px 0 0}
   .card p{color:var(--label);font-size:15px;margin:8px 0 0}
 
-  /* safety table */
-  .safety{margin-top:36px;border:1px solid var(--etch);border-radius:14px;overflow:hidden}
-  .safety .r{display:grid;grid-template-columns:230px 1fr;gap:0;border-top:1px solid var(--etch)}
-  .safety .r:first-child{border-top:0}
-  .safety .r .rule{background:var(--panel-2);padding:18px 22px;font-family:var(--mono);
-    font-size:14px;color:var(--led);display:flex;align-items:center;gap:10px}
-  .safety .r .detail{background:var(--panel);padding:18px 22px;color:var(--text);font-size:15.5px}
-  .safety .r .detail code{font-family:var(--mono);font-size:13px;color:var(--label)}
+  /* safety — card grid over a graph-paper pattern */
+  .safety{
+    margin-top:36px;border:1px solid var(--etch);border-radius:16px;padding:7px;
+    background-color:#11151a;
+    background-image:
+      linear-gradient(var(--etch) 1px, transparent 1px),
+      linear-gradient(90deg, var(--etch) 1px, transparent 1px);
+    background-size:26px 26px;background-position:-1px -1px;
+  }
+  .sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .scard{background:var(--panel);border:1px solid var(--etch);border-radius:11px;padding:22px}
+  .scard .num{font-family:var(--mono);font-size:12px;color:var(--label);letter-spacing:.12em}
+  .scard h3{font-family:var(--display);font-weight:600;font-size:17px;margin:10px 0 6px}
+  .scard p{color:var(--label);font-size:14.5px;margin:0}
+  .scard p code{font-family:var(--mono);font-size:12.5px;color:var(--text)}
+  .scard.ethos{background:transparent;border-color:var(--led-dim);display:flex;align-items:center}
+  .scard.ethos p{font-family:var(--display);font-weight:600;font-size:18px;color:var(--led);line-height:1.3}
 
   /* fs chips */
   .chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
@@ -185,8 +191,7 @@
     .hero-grid{grid-template-columns:1fr;gap:36px}
     .truths{grid-template-columns:repeat(2,1fr)}
     .feat{grid-template-columns:1fr}
-    .safety .r{grid-template-columns:1fr}
-    .safety .r .rule{border-bottom:1px solid var(--etch)}
+    .sgrid{grid-template-columns:1fr}
   }
   @media(max-width:480px){
     body{font-size:16px}
@@ -212,9 +217,9 @@
 
 <header class="bar">
   <div class="wrap bar-in">
-    <div class="mark"><span class="led" aria-hidden="true"></span>LiteLayer</div>
+    <div class="mark"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M12 3 21 8 12 13 3 8z" fill="var(--led)"/><path d="M3.2 12 12 16.8 20.8 12" stroke="#9aa7b4" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M3.2 15.8 12 20.6 20.8 15.8" stroke="#6c7884" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></span>LiteLayer</div>
     <div class="spacer"></div>
-    <span class="ver">v1.2.0</span>
+    <span class="ver">v1.3.0</span>
     <a class="gh" href="https://github.com/MeridianAlgo/LiteLayer">GitHub ↗</a>
   </div>
 </header>
@@ -226,7 +231,7 @@
       <div>
         <span class="eyebrow">Self-hosted NAS backend · Raspberry Pi</span>
         <h1>Plug in a drive.<br>Browse it <span class="amber">anywhere</span>.</h1>
-        <p class="lede">LiteLayer turns a Raspberry Pi and any USB drive into a private file server you reach from any device — over your LAN or any VPN. It mounts <strong>read-only by default</strong> and <strong>never erases</strong> what's already there.</p>
+        <p class="lede">LiteLayer turns a Raspberry Pi and any USB drive into your own file server. You can open it from any device on your network and it keeps every drive <strong>read only</strong> so your files stay exactly as they are.</p>
 
         <div class="cmd" role="group" aria-label="Install command">
           <code id="install"><span class="dim">$ </span>bash &lt;(curl -fsSL litelayer/install.sh)</code>
@@ -238,8 +243,7 @@
       <!-- SIGNATURE: device readout -->
       <div class="readout" aria-label="Example drive detection output">
         <div class="readout-top">
-          <span>litelayer · /dev</span>
-          <span class="led" aria-hidden="true"></span>
+          <span>litelayer /dev</span>
         </div>
         <div class="screen" id="screen">
           <div class="line" style="animation-delay:.1s"><span class="prompt"><b>litelayer</b> detect</span></div>
@@ -270,17 +274,17 @@
   <section>
     <div class="wrap">
       <div class="sec-head">
-        <span class="eyebrow">Under the hood</span>
-        <h2>A small, honest stack that gets out of the way.</h2>
-        <p>FastAPI does the work; Caddy fronts it with local TLS; the kernel does the mounting. Nothing exotic to maintain.</p>
+        <span class="eyebrow">Features</span>
+        <h2>Everything you want from a NAS, nothing you don't.</h2>
+        <p>The things that matter for living with your files day to day.</p>
       </div>
       <div class="feat">
-        <div class="card"><div class="k">hotplug</div><h3>Detects on plug-in</h3><p>pyudev watches for new drives with a polling fallback, so a freshly inserted disk shows up on its own.</p></div>
-        <div class="card"><div class="k">confinement</div><h3>No path escapes</h3><p>Every request path is realpath-resolved and confined to the mount root. <code>..</code> traversal and symlink escapes return 403.</p></div>
-        <div class="card"><div class="k">transfer</div><h3>Drive-to-drive copy</h3><p>Move files between disks in the background with a live progress bar — write is auto-enabled only on the destination.</p></div>
-        <div class="card"><div class="k">viewer</div><h3>View, don't download</h3><p>Open images right in the browser instead of forcing a download for every file you want to glance at.</p></div>
-        <div class="card"><div class="k">auth</div><h3>Locked by default</h3><p>argon2 password hashing, HttpOnly session cookie or Bearer token. Every drive and file endpoint requires a session.</p></div>
-        <div class="card"><div class="k">mobile</div><h3>Works on a phone</h3><p>A two-screen layout for small screens — drives are home, tap one to browse its files. No off-screen overflow.</p></div>
+        <div class="card"><div class="k">AUTO DETECT</div><h3>Shows up on its own</h3><p>Plug a drive in and it appears in the browser. No mounting, no config, no terminal needed.</p></div>
+        <div class="card"><div class="k">SANDBOXED</div><h3>Stays in its lane</h3><p>Every request is locked to the drive you opened. There is no way to reach the rest of the Pi.</p></div>
+        <div class="card"><div class="k">TRANSFER</div><h3>Move between drives</h3><p>Copy files from one disk to another in the background and watch the progress as it goes.</p></div>
+        <div class="card"><div class="k">PREVIEW</div><h3>Look before you grab</h3><p>Open photos right in the browser instead of downloading every file just to see what it is.</p></div>
+        <div class="card"><div class="k">LOGIN</div><h3>Locked by default</h3><p>One password gets you in. Every drive and every file needs a valid session to reach.</p></div>
+        <div class="card"><div class="k">MOBILE</div><h3>Fits a phone</h3><p>Drives are the home screen and tapping one opens its files. The whole thing works one handed.</p></div>
       </div>
     </div>
   </section>
@@ -294,11 +298,14 @@
         <p>These aren't settings you can fumble — they're how LiteLayer behaves out of the box.</p>
       </div>
       <div class="safety">
-        <div class="r"><div class="rule"><span class="led" aria-hidden="true"></span>Read-only by default</div><div class="detail">Read-write is an explicit per-drive opt-in via <code>POST /api/drives/{id}/enable-write</code>.</div></div>
-        <div class="r"><div class="rule"><span class="led" aria-hidden="true"></span>System disk protected</div><div class="detail">The boot disk is found via <code>findmnt /</code> and excluded — it is never mounted or touched.</div></div>
-        <div class="r"><div class="rule"><span class="led" aria-hidden="true"></span>Path confinement</div><div class="detail">Every path is realpath-resolved; <code>..</code> traversal and symlink escapes return 403.</div></div>
-        <div class="r"><div class="rule"><span class="led" aria-hidden="true"></span>No formatting</div><div class="detail"><code>mount.py</code> never calls mkfs, fdisk, or parted. There is no code path that erases a drive.</div></div>
-        <div class="r"><div class="rule"><span class="led" aria-hidden="true"></span>Soft eject</div><div class="detail">Unmount runs <code>sync</code> before <code>umount</code>, so an eject never loses in-flight writes.</div></div>
+        <div class="sgrid">
+          <div class="scard"><div class="num">01</div><h3>Read only by default</h3><p>Writing to a drive is a deliberate per drive choice you turn on yourself.</p></div>
+          <div class="scard"><div class="num">02</div><h3>Boot disk protected</h3><p>The Pi system disk is found and left out, so it is never mounted or touched.</p></div>
+          <div class="scard"><div class="num">03</div><h3>Stays in the drive</h3><p>Every path is resolved and locked to the drive. Attempts to climb out return 403.</p></div>
+          <div class="scard"><div class="num">04</div><h3>Never formats</h3><p>There is no code path that runs mkfs, fdisk, or parted. It cannot wipe a disk.</p></div>
+          <div class="scard"><div class="num">05</div><h3>Clean eject</h3><p>Unmount flushes pending writes first, so ejecting never loses a file in flight.</p></div>
+          <div class="scard ethos"><p>Your data is the one thing that never changes.</p></div>
+        </div>
       </div>
     </div>
   </section>
@@ -343,7 +350,7 @@
 
 <footer>
   <div class="wrap">
-    <span class="mark" style="font-size:15px"><span class="led" aria-hidden="true"></span>LiteLayer</span>
+    <span class="mark" style="font-size:15px"><span class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M12 3 21 8 12 13 3 8z" fill="var(--led)"/><path d="M3.2 12 12 16.8 20.8 12" stroke="#9aa7b4" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M3.2 15.8 12 20.6 20.8 15.8" stroke="#6c7884" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></span>LiteLayer</span>
     <span class="spacer"></span>
     <a href="https://github.com/MeridianAlgo/LiteLayer">GitHub</a>
     <a href="https://github.com/MeridianAlgo/LiteLayer#readme">Setup guide</a>

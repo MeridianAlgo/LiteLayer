@@ -78,8 +78,6 @@ function selectOtaVersion(sha, el) {
 }
 
 async function openOtaModal() {
-  if (!_otaData) await checkOtaStatus();
-  const d = _otaData;
   _otaSelectedSha = null;
   document.querySelectorAll('#ota-steps .ota-step').forEach(s => s.classList.remove('active','done'));
   document.getElementById('ota-bar-fill').style.width = '0%';
@@ -87,7 +85,18 @@ async function openOtaModal() {
   const logDetails = document.getElementById('ota-log-details');
   if (logDetails) logDetails.style.display = 'none';
   const runBtn = document.getElementById('ota-modal-run-btn'), cancelBtn = document.getElementById('ota-cancel-btn');
-  runBtn.disabled = false; runBtn.textContent = 'Apply Update'; cancelBtn.style.display = '';
+  runBtn.disabled = true; runBtn.textContent = 'Apply Update'; cancelBtn.style.display = '';
+
+  // Open instantly with a checking state, then fill in once GitHub responds —
+  // the status/tags calls can take a second and shouldn't block the modal.
+  document.getElementById('ota-cur-ver').textContent = _otaData?.current_version ? `v${_otaData.current_version}` : '—';
+  document.getElementById('ota-status-val').innerHTML = `<span style="color:var(--text-3)">Checking…</span>`;
+  document.getElementById('ota-major-warn').style.display = 'none';
+  document.getElementById('ota-ver-pick-wrap').style.display = 'none';
+  show('ota-modal');
+
+  if (!_otaData) await checkOtaStatus();
+  const d = _otaData;
 
   // Installed version
   document.getElementById('ota-cur-ver').textContent = d?.current_version ? `v${d.current_version}` : '—';
@@ -103,6 +112,7 @@ async function openOtaModal() {
       runBtn.disabled = true; runBtn.textContent = 'Up to date';
     } else {
       statusEl.innerHTML = `<span style="color:var(--yellow)">v${d.latest_version || d.current_version} available</span>`;
+      runBtn.disabled = false;
     }
   }
 
@@ -131,9 +141,6 @@ async function openOtaModal() {
       verWrap.style.display = 'none';
     }
   }
-
-  // Versions only — no raw commit shas in the updater (tags link to GitHub above).
-  show('ota-modal');
 }
 
 function closeOtaModal() { hide('ota-modal'); }

@@ -251,9 +251,10 @@ let _rbActive = false, _rbStart = {x:0, y:0}, _rbBase = null, _rbDownTarget = nu
 
 function _startRubberBand(e) {
   if (e.button !== 0) return;
-  // Don't start a marquee on interactive controls, but DO allow starting over a
-  // file item — a tiny move is treated as a click, a real drag becomes a marquee.
-  if (e.target.closest('.btn, .file-row-check, .file-row-dl, .sel-bar, .files-toolbar')) return;
+  // Marquee only starts on empty space. On a file item, mousedown means either a
+  // click (handled by onclick) or the start of a native drag — arming the marquee
+  // here would wipe the selection mid-drag, so only one item ends up dragged.
+  if (e.target.closest('.btn, .file-row-check, .file-row-dl, .sel-bar, .files-toolbar, .file-row, .file-cell')) return;
   _rbActive = true; _rbMoved = false; _rbStart = {x: e.clientX, y: e.clientY};
   _rbDownTarget = e.target;
   // Additive only when Ctrl/Cmd held; otherwise a fresh marquee replaces the selection.
