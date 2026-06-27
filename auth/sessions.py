@@ -7,8 +7,12 @@ _sessions: dict[str, tuple[str, float]] = {}
 
 
 def create_session(username: str) -> str:
+    now = time.time()
+    # Drop expired tokens so the dict doesn't grow unbounded over the Pi's uptime.
+    for t in [t for t, (_, exp) in _sessions.items() if exp <= now]:
+        del _sessions[t]
     token = secrets.token_hex(32)
-    _sessions[token] = (username, time.time() + SESSION_TTL_HOURS * 3600)
+    _sessions[token] = (username, now + SESSION_TTL_HOURS * 3600)
     return token
 
 

@@ -107,11 +107,18 @@ def download_file(
             while chunk := f.read(1024 * 1024):  # 1 MB chunks
                 yield chunk
 
+    # A filename can contain quotes/newlines on disk — never interpolate it raw
+    # into the header (CRLF would let it inject other headers). ASCII-only token
+    # for the legacy field, RFC 5987 filename* carries the real (UTF-8) name.
+    from urllib.parse import quote
+    ascii_name = "".join(c for c in target.name if 32 <= ord(c) < 127 and c != '"') or "download"
+    disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(target.name)}"
+
     return StreamingResponse(
         stream(),
         media_type=mime,
         headers={
-            "Content-Disposition": f'attachment; filename="{target.name}"',
+            "Content-Disposition": disposition,
             "Content-Length": str(size),
         },
     )
@@ -148,9 +155,17 @@ async def upload_file(
     if not dest.is_relative_to(root.resolve()):
         raise HTTPException(403, "Filename escape rejected")
 
-    data = await file.read()   # buffer once so we can retry after a remount
+    import shutil
+
+    def _write() -> None:
+        # Stream from the upload's spooled temp file straight to disk — never load
+        # the whole (potentially multi-GB) file into RAM. seek(0) lets us retry.
+        file.file.seek(0)
+        with open(dest, "wb") as out:
+            shutil.copyfileobj(file.file, out, 1024 * 1024)
+
     try:
-        dest.write_bytes(data)
+        _write()
     except OSError as exc:
         # Drive is mounted read-only — remount it rw and try again. Drives are
         # ro by default for safety; uploading is an explicit opt-in to write.
@@ -164,7 +179,7 @@ async def upload_file(
             remount_rw(d)
             d.state = "mounted_rw"
             registry.update(d)
-            dest.write_bytes(data)
+            _write()
         except OSError as exc2:
             raise HTTPException(500, f"Could not write (drive read-only): {exc2}")
         except Exception as exc2:  # noqa: BLE001

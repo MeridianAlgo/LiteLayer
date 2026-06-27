@@ -6,6 +6,9 @@ CREDENTIALS_FILE = Path(os.environ.get("LITELAYER_CREDENTIALS", "/etc/litelayer/
 # Persists the auto-mount preference + which drives the user explicitly ejected.
 STATE_FILE = Path(os.environ.get("LITELAYER_STATE", str(CREDENTIALS_FILE.parent / "state.json")))
 SESSION_TTL_HOURS = int(os.environ.get("LITELAYER_SESSION_TTL", "24"))
+# Set to 1 when LiteLayer is reached over HTTPS directly (no Caddy in front) so the
+# session cookie carries the Secure flag. Default off — Caddy terminates TLS.
+COOKIE_SECURE = os.environ.get("LITELAYER_COOKIE_SECURE", "0") == "1"
 DEV_UI_PATH = Path(__file__).parent.parent / "dev-ui"
 
 # Comma-separated allowed origins for the separate UI repo's dev server

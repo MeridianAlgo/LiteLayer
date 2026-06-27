@@ -255,6 +255,9 @@ def _do_reinstall() -> None:
 @router.post("/update")
 def trigger_update(body: UpdateRequest = UpdateRequest(), _: str = Depends(require_auth)):
     global _update_running
+    # Only ever check out a real commit sha — never an arbitrary git ref/flag.
+    if body.sha and not re.fullmatch(r"[0-9a-fA-F]{7,40}", body.sha):
+        raise HTTPException(400, "Invalid commit sha")
     with _update_lock:
         if _update_running:
             raise HTTPException(409, "Update already in progress")

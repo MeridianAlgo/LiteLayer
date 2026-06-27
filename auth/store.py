@@ -7,6 +7,9 @@ from argon2.exceptions import VerifyMismatchError
 from app.config import CREDENTIALS_FILE
 
 _ph = PasswordHasher()
+# A real hash to verify against when the username is unknown, so a missing user
+# takes the same time as a wrong password (no username enumeration via timing).
+_DUMMY_HASH = _ph.hash("litelayer-dummy")
 
 
 def _load() -> dict:
@@ -24,6 +27,10 @@ def _save(data: dict) -> None:
 def verify_password(username: str, password: str) -> bool:
     data = _load()
     if username not in data:
+        try:  # spend the same time as a real verify, then fail
+            _ph.verify(_DUMMY_HASH, password)
+        except Exception:
+            pass
         return False
     try:
         _ph.verify(data[username], password)

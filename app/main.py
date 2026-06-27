@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from app.config import CORS_ORIGINS, DEV_UI_PATH
+from app.config import CORS_ORIGINS, COOKIE_SECURE, DEV_UI_PATH, SESSION_TTL_HOURS
 from app.deps import require_auth
 from app.routers import drives, files, ota
 from auth import sessions, store as auth_store
@@ -46,10 +46,15 @@ app.add_middleware(
 )
 
 @app.middleware("http")
-async def _no_cache_ui(request: Request, call_next):
-    """Never cache the dev UI — otherwise the browser keeps stale JS after an
-    update (e.g. new index.html referencing a function the old cached JS lacks)."""
+async def _security_and_cache(request: Request, call_next):
     resp = await call_next(request)
+    # Defense in depth: Caddy sets these, but the Cloudflare Tunnel path proxies
+    # straight to localhost:8000 and never sees Caddy — so set them here too.
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # Never cache the dev UI — otherwise the browser keeps stale JS after an update
+    # (e.g. new index.html referencing a function the old cached JS lacks).
     p = request.url.path
     if p == "/" or p.startswith("/assets"):
         resp.headers["Cache-Control"] = "no-store, must-revalidate"
@@ -67,18 +72,42 @@ class LoginRequest(BaseModel):
     password: str
 
 
+# Per-IP login throttle: brute force is the main risk on an internet-exposed NAS.
+# In-memory is fine — single process, and a restart clearing it is harmless.
+# ponytail: dict of recent failure timestamps; swap for redis only if multi-process.
+import time as _time
+
+_login_fails: dict[str, list[float]] = {}
+_LOGIN_WINDOW = 300   # seconds
+_LOGIN_MAX = 10       # failures per window before lockout
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "?")
+
+
 @app.post("/api/login")
-def login(req: LoginRequest, response: Response):
+def login(req: LoginRequest, request: Request, response: Response):
+    ip = _client_ip(request)
+    now = _time.time()
+    fails = [t for t in _login_fails.get(ip, []) if now - t < _LOGIN_WINDOW]
+    if len(fails) >= _LOGIN_MAX:
+        _login_fails[ip] = fails
+        raise HTTPException(429, "Too many failed logins. Wait a few minutes and try again.")
     if not auth_store.verify_password(req.username, req.password):
+        fails.append(now)
+        _login_fails[ip] = fails
         raise HTTPException(401, "Invalid credentials")
+    _login_fails.pop(ip, None)   # clear on success
     token = sessions.create_session(req.username)
     response.set_cookie(
         key="litelayer_session",
         value=token,
         httponly=True,
         samesite="lax",
-        secure=False,   # Caddy handles TLS termination; set True if serving HTTPS directly
-        max_age=86400,
+        secure=COOKIE_SECURE,   # Caddy terminates TLS; set LITELAYER_COOKIE_SECURE=1 if serving HTTPS directly
+        max_age=SESSION_TTL_HOURS * 3600,
     )
     return {"token": token, "username": req.username}
 
@@ -93,19 +122,8 @@ def logout(request: Request, response: Response):
 
 
 @app.get("/api/me")
-def me(request: Request):
-    """Quick auth check — returns 401 if not logged in, username otherwise."""
-    from app.deps import require_auth
-    from fastapi import Cookie
-    token = request.cookies.get("litelayer_session")
-    auth = request.headers.get("authorization", "")
-    if not token and auth.startswith("Bearer "):
-        token = auth[7:]
-    if not token:
-        raise HTTPException(401, "Not authenticated")
-    username = sessions.validate_session(token)
-    if not username:
-        raise HTTPException(401, "Session expired")
+def me(username: str = Depends(require_auth)):
+    """Quick auth check — 401 if not logged in, username otherwise."""
     return {"username": username}
 
 
@@ -497,6 +515,10 @@ def install_vpn(req: VpnInstallRequest, _: str = Depends(require_auth)):
     import threading
     if req.name not in _VPN_UNITS:
         raise HTTPException(400, f"Unknown VPN: {req.name}")
+    # A ZeroTier network id is exactly 16 hex chars; reject anything else so it
+    # can't smuggle flags/args into the `zerotier-cli join` call.
+    if req.network_id and not _re.fullmatch(r"[0-9a-fA-F]{16}", req.network_id):
+        raise HTTPException(400, "Invalid ZeroTier network ID (expected 16 hex characters)")
     with _vpn_lock:
         if _vpn_state["running"]:
             raise HTTPException(409, "A VPN install is already running")
