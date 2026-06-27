@@ -15,7 +15,7 @@ import threading
 from app.config import STATE_FILE
 
 _lock = threading.Lock()
-_DEFAULT = {"auto_mount": True, "ejected": [], "labels": {}}
+_DEFAULT = {"auto_mount": True, "ejected": [], "labels": {}, "terminal_enabled": True}
 
 
 def _load() -> dict:
@@ -43,6 +43,18 @@ def set_auto_mount(enabled: bool) -> None:
     with _lock:
         d = _load()
         d["auto_mount"] = bool(enabled)
+        _save(d)
+
+
+def is_terminal_enabled() -> bool:
+    with _lock:
+        return bool(_load()["terminal_enabled"])
+
+
+def set_terminal_enabled(enabled: bool) -> None:
+    with _lock:
+        d = _load()
+        d["terminal_enabled"] = bool(enabled)
         _save(d)
 
 

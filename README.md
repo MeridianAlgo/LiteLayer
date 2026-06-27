@@ -22,7 +22,9 @@ reformatted.
 
 - **Reads any drive, untouched.** ext4, NTFS, exFAT, FAT32, Btrfs, XFS, HFS+, F2FS, and more — with kernel auto-detect as the fallback. Existing data is never erased.
 - **Safe by default.** Read-only on mount; write is an explicit per-drive opt-in. No code path runs `mkfs`, `fdisk`, or `parted`.
-- **Reachable anywhere.** Browse from a phone or laptop over LAN or any VPN (Tailscale, WireGuard, ZeroTier, Netbird) with no app changes.
+- **Reachable anywhere.** Browse from a phone or laptop over LAN or any VPN — local mesh (ZeroTier, WireGuard) or remote access (Tailscale, Cloudflare Tunnel). Switch between installed VPNs from **Settings → System**, no reboot.
+- **Real file manager.** Right-click for **Properties** or **New file**, rename without re-typing the extension, toggle **Autosave** in the editor, and upload whole folders (subdirs preserved) with a live progress bar.
+- **Stays signed in where it matters.** If a terminal session expires, re-auth in place — no logging out of the whole app.
 - **Lightweight.** Installs onto the Raspberry Pi OS you already run. No database, no Docker — runs on a 512 MB Pi Zero 2 W.
 - **Updates in place.** OTA over GitHub with a one-click apply and pinned version rollback.
 
@@ -300,6 +302,8 @@ POST /api/ota/update                     apply update
 
 Caddy binds on all interfaces — any VPN works without app changes.
 Supported (installer can set up): Tailscale · ZeroTier · Netbird · WireGuard · Cloudflare Tunnel (documented seam).
+
+VPNs group as **local mesh** (ZeroTier, WireGuard) and **remote access** (Tailscale, Cloudflare Tunnel) in **Settings → System → VPN**. Install one over SSH, then click **Use this** to switch — it enables the chosen VPN and turns the others off, no reboot.
 
 ---
 

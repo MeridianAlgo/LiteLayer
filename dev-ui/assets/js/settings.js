@@ -30,6 +30,12 @@ async function _loadSystem() {
   document.getElementById('boot-drive-sw')?.classList.toggle('on', localStorage.getItem('ll-boot-drive') === '1');
   document.getElementById('single-click-sw')?.classList.toggle('on', localStorage.getItem('ll-single-click') === '1');
 
+  // Terminal on/off — backend is the source of truth.
+  const tSw = document.getElementById('terminal-sw');
+  if (tSw) {
+    try { const r = await api('/api/system/terminal/status'); if (r?.ok) tSw.classList.toggle('on', (await r.json()).enabled); } catch {}
+  }
+
   // Keep-drives-mounted preference (source of truth is the backend state file).
   const amSw = document.getElementById('auto-mount-sw');
   if (amSw) {
@@ -39,21 +45,40 @@ async function _loadSystem() {
     } catch {}
   }
 
-  // VPN is read-only here — configured from the shell. Just show what's active.
+  // VPN — show installed VPNs grouped local-mesh vs remote-access and let the
+  // user switch to any installed one (backend turns the others off, no reboot).
   const box = document.getElementById('vpn-list');
   if (!box) return;
   box.innerHTML = `<div class="cl-loading" style="padding:10px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>Checking…</div>`;
   try {
     const r = await api('/api/system/vpns');
-    const active = r?.ok ? (await r.json()).vpns.find(v => v.active) : null;
-    box.innerHTML = `<div class="vpn-current">In use right now: <strong>${active ? esc(active.name) : 'None'}</strong></div>
-      <div class="vpn-help-note">VPNs are set up from the Pi's shell — not here, so nothing in the UI can break your connection.
-      Install / switch / remove a VPN over SSH, then it shows up above.
-      If your VPN drops after a reboot, enable it at boot once: <code>sudo systemctl enable --now &lt;unit&gt;</code>
-      (e.g. <code>tailscaled</code>, <code>wg-quick@wg0</code>, <code>zerotier-one</code>). See <code>docs/networking.md</code>.</div>`;
+    const vpns = r?.ok ? (await r.json()).vpns : [];
+    const by = Object.fromEntries(vpns.map(v => [v.name, v]));
+    const groups = {'Local mesh': ['ZeroTier', 'WireGuard'], 'Global / remote access': ['Tailscale', 'Cloudflare Tunnel']};
+    let html = '';
+    for (const [label, names] of Object.entries(groups)) {
+      html += `<div class="color-group-label">${label}</div>`;
+      for (const name of names) {
+        const v = by[name] || {installed: false, active: false};
+        const badge = v.active ? `<span class="vpn-row-badge active">In use</span>`
+                    : v.installed ? `<span class="vpn-row-badge">Installed</span>`
+                                  : `<span class="vpn-row-badge">Not installed</span>`;
+        const btn = v.installed && !v.active
+          ? `<button class="btn btn-ghost btn-xs" onclick="switchVpn('${esc(name)}')">Use this</button>` : '';
+        html += `<div class="vpn-row"><span class="vpn-row-name">${esc(name)}</span>${badge}${btn}</div>`;
+      }
+    }
+    box.innerHTML = html + `<div class="vpn-help-note">Install a VPN once over SSH; then switch between the installed ones right here — "Use this" turns the chosen VPN on and the others off (no reboot). See <code>docs/networking.md</code>.</div>`;
   } catch {
     box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not read VPN status</div>`;
   }
+}
+
+async function switchVpn(name) {
+  if (!confirm(`Switch to ${name}? This turns any other VPN off.`)) return;
+  const r = await api('/api/system/vpn/switch', {method: 'POST', body: JSON.stringify({name})});
+  if (!r?.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Could not switch VPN', 'error', 5000); return; }
+  toast(`Switched to ${name}`, 'success'); _loadSystem();
 }
 
 async function toggleAutoMount() {
@@ -72,6 +97,54 @@ function toggleSingleClick() {
   sw.classList.toggle('on', on);
   localStorage.setItem('ll-single-click', on ? '1' : '0');
   toast(on ? 'Single-click to open' : 'Double-click to open', 'success', 2000);
+}
+
+// Promise-based masked password prompt (re-enabling terminal, sensitive actions).
+// Resolves with the typed password, or null if cancelled.
+function askPassword(title, msg) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('pw-modal');
+    const input = document.getElementById('pw-modal-input');
+    const err   = document.getElementById('pw-modal-error');
+    const ok    = document.getElementById('pw-modal-confirm');
+    document.getElementById('pw-modal-title').textContent = title || 'Confirm password';
+    document.getElementById('pw-modal-msg').textContent   = msg || 'Enter your password to continue.';
+    input.value = ''; err.style.display = 'none';
+    show('pw-modal'); setTimeout(() => input.focus(), 50);
+
+    let done = false;
+    const finish = val => { if (done) return; done = true; cleanup(); hide('pw-modal'); resolve(val); };
+    const onOk = () => { if (!input.value) { err.textContent = 'Password required.'; err.style.display = 'block'; return; } finish(input.value); };
+    const onKey = e => { if (e.key === 'Enter') onOk(); else if (e.key === 'Escape') finish(null); };
+    const onX = () => finish(null);
+    function cleanup() {
+      ok.removeEventListener('click', onOk);
+      input.removeEventListener('keydown', onKey);
+      modal.removeEventListener('click', onBackdrop);
+    }
+    const onBackdrop = e => { if (e.target === modal) finish(null); };
+    ok.addEventListener('click', onOk);
+    input.addEventListener('keydown', onKey);
+    modal.addEventListener('click', onBackdrop);
+    window._pwModalCancel = onX;  // close button hook
+  });
+}
+function closePwModal() { if (window._pwModalCancel) window._pwModalCancel(); else hide('pw-modal'); }
+
+async function toggleTerminal() {
+  const sw = document.getElementById('terminal-sw');
+  const enable = !sw.classList.contains('on');
+  let password = null;
+  if (enable) {
+    password = await askPassword('Re-enable terminal', 'The terminal is a root shell. Enter your password to turn it back on.');
+    if (password == null) return;  // cancelled
+  } else {
+    if (!confirm('Disable the Pi terminal? The shell will be turned off until you re-enable it with your password.')) return;
+  }
+  const r = await api('/api/system/terminal/toggle', {method: 'POST', body: JSON.stringify({enabled: enable, password})});
+  if (!r?.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Could not change terminal setting', 'error', 4000); return; }
+  sw.classList.toggle('on', enable);
+  toast(enable ? 'Terminal enabled' : 'Terminal disabled', 'success', 2500);
 }
 
 async function toggleBootDrive() {

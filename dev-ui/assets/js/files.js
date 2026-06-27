@@ -240,10 +240,16 @@ async function ensureWritable() {
 async function renameEntry(idx) {
   const entries = _filtered || dirEntries, entry = entries[idx];
   if (!entry) return;
+  // Show only the base name; re-attach the original extension unless the user
+  // types their own, so renaming a file never means re-typing ".pdf"/".txt".
+  const dot = entry.is_dir ? -1 : entry.name.lastIndexOf('.');
+  const ext = dot > 0 ? entry.name.slice(dot) : '';
+  const base = ext ? entry.name.slice(0, dot) : entry.name;
   // ponytail: native prompt — swap for inline edit if it needs polish
-  const input = prompt('Rename to:', entry.name);
+  const input = prompt('Rename to:', base);
   if (input == null) return;
-  const newName = input.trim();
+  let newName = input.trim();
+  if (ext && !newName.includes('.')) newName += ext;
   if (!newName || newName === entry.name) return;
   if (!await ensureWritable()) return;
   const r = await api('/api/files/rename', {method: 'POST', body: JSON.stringify({drive: currentDriveId, path: entry.path, new_name: newName})});
@@ -490,6 +496,7 @@ function showEmptyCtxMenu(e) {
   if (!currentDriveId) return;
   const items = [
     `<div class="ctx-item" onclick="newFolder();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>New folder</div>`,
+    `<div class="ctx-item" onclick="newFile();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>New file</div>`,
     `<div class="ctx-item" onclick="loadFiles(currentPath);closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Refresh</div>`,
   ];
   const menu = document.getElementById('ctx-menu');
@@ -497,6 +504,20 @@ function showEmptyCtxMenu(e) {
   const vw = window.innerWidth, vh = window.innerHeight, mw = 166, mh = items.length * 34;
   menu.style.left = (e.clientX + mw > vw ? e.clientX - mw : e.clientX) + 'px';
   menu.style.top  = (e.clientY + mh > vh ? e.clientY - mh : e.clientY) + 'px';
+}
+
+// New empty file — reuses the upload endpoint with a zero-byte file (no new API).
+async function newFile() {
+  if (!currentDriveId) { toast('Select a drive first', 'info', 2000); return; }
+  const name = prompt('New file name:', 'untitled.txt');
+  if (name == null) return;
+  const fname = name.trim();
+  if (!fname) return;
+  if (!await ensureWritable()) return;
+  try {
+    await _uploadOne(new File([''], fname, {type: 'text/plain'}), currentPath || '/', () => {});
+    toast('File created', 'success'); loadFiles(currentPath);
+  } catch (e) { toast(e.message || 'Could not create file', 'error', 4000); }
 }
 
 async function newFolderFromSelection() {
@@ -529,39 +550,66 @@ function handleDropUpload(e) {
   else console.warn('[upload] drop had no files');
 }
 
+// POST one file via XHR so we get an upload-progress event (fetch can't).
+// destPath = the folder to drop it in (used for folder uploads that keep subdirs).
+function _uploadOne(file, destPath, onProgress) {
+  return new Promise((resolve, reject) => {
+    const url = `${API}/api/files/upload?drive=${encodeURIComponent(currentDriveId)}&path=${encodeURIComponent(destPath)}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    if (authToken) xhr.setRequestHeader('Authorization', `Bearer ${authToken}`);
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(e.loaded, e.total); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else { let d = xhr.responseText; try { d = JSON.parse(xhr.responseText).detail || d; } catch {} reject(new Error(d || `HTTP ${xhr.status}`)); }
+    };
+    xhr.onerror = () => reject(new Error('network error'));
+    const fd = new FormData(); fd.append('file', file);
+    xhr.send(fd);
+  });
+}
+
 async function uploadFiles(files) {
   files = [...(files || [])];
-  console.log('[upload] start —', files.length, 'file(s), drive:', currentDriveId, 'path:', currentPath);
-  if (!currentDriveId) { toast('Select a drive first', 'error'); console.warn('[upload] no drive selected'); return; }
-  if (!files.length) { console.warn('[upload] no files passed'); return; }
-  const wrote = await ensureWritable();   // best-effort; upload endpoint also self-heals a ro mount
-  console.log('[upload] ensureWritable ->', wrote);
-  let ok = 0, fail = 0;
-  for (const file of files) {
-    const url = `${API}/api/files/upload?drive=${encodeURIComponent(currentDriveId)}&path=${encodeURIComponent(currentPath)}`;
-    const fd = new FormData(); fd.append('file', file);
-    console.log(`[upload] POST ${url}  (${file.name}, ${file.size} bytes)`);
+  if (!currentDriveId) { toast('Select a drive first', 'error'); return; }
+  if (!files.length) return;
+  await ensureWritable();   // best-effort; upload endpoint also self-heals a ro mount
+
+  const base = currentPath.replace(/\/$/, '');
+  const totalBytes = files.reduce((s, f) => s + f.size, 0);
+  let doneBytes = 0, ok = 0, fail = 0;
+
+  // Show the progress modal (skip the chrome for a single tiny file — it'd just flash).
+  const showUi = files.length > 1 || totalBytes > 2 * 1024 * 1024;
+  if (showUi) show('upload-modal');
+  const bar = document.getElementById('upload-bar'), lbl = document.getElementById('upload-label'), stat = document.getElementById('upload-stat');
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    // Folder uploads carry webkitRelativePath ("folder/sub/x.txt") — keep the subdirs.
+    const rel = file.webkitRelativePath || '';
+    const sub = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+    const destPath = sub ? `${base}/${sub}` : (base || '/');
+    if (showUi) lbl.textContent = `Uploading ${i + 1} of ${files.length}: ${rel || file.name}`;
     try {
-      const r = await fetch(url, {
-        method: 'POST',
-        headers: authToken ? {Authorization: `Bearer ${authToken}`} : {},
-        credentials: 'include',
-        body: fd,
+      let last = 0;
+      await _uploadOne(file, destPath, (loaded, total) => {
+        doneBytes += loaded - last; last = loaded;
+        if (showUi) {
+          const pct = totalBytes ? Math.min(100, Math.round(doneBytes / totalBytes * 100)) : 0;
+          bar.style.width = pct + '%';
+          stat.textContent = `${fmt(doneBytes)} of ${fmt(totalBytes)} · ${pct}%`;
+        }
       });
-      const text = await r.text().catch(() => '');
-      console.log(`[upload] <- ${r.status} ${r.statusText}`, text);
-      if (r.ok) ok++;
-      else {
-        let detail = text; try { detail = JSON.parse(text).detail || text; } catch {}
-        toast(detail || `Upload failed (${r.status}): ${file.name}`, 'error', 5000);
-        console.error('[upload] FAILED:', r.status, detail); fail++;
-      }
+      doneBytes += file.size - last;   // ensure totals settle even if no final progress event
+      ok++;
     } catch (err) {
-      console.error('[upload] network/exception:', err);
-      toast(`Upload error: ${file.name} — ${err.message}`, 'error', 5000); fail++;
+      console.error('[upload] failed:', file.name, err);
+      toast(`Upload failed: ${file.name} — ${err.message}`, 'error', 5000); fail++;
     }
   }
-  console.log(`[upload] done — ok:${ok} fail:${fail}`);
+  if (showUi) hide('upload-modal');
   if (ok) { toast(`Uploaded ${ok} file${ok > 1 ? 's' : ''}`, 'success'); loadFiles(currentPath); }
 }
 
@@ -668,6 +716,7 @@ function showCtxMenu(e, idx) {
   }
   if (_sel.size <= 1) {
     items.push(`<div class="ctx-item" onclick="renameEntry(${idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4z"/></svg>Rename</div>`);
+    items.push(`<div class="ctx-item" onclick="showProperties(${idx});closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>Properties</div>`);
   }
   if (_sel.size > 1) { items.push(`<div class="ctx-sep"></div>`); items.push(`<div class="ctx-item" onclick="downloadSelected();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Download ${_sel.size} selected</div>`); }
   items.push(`<div class="ctx-sep"></div>`);
@@ -681,3 +730,26 @@ function showCtxMenu(e, idx) {
 }
 
 function closeCtxMenu() { document.getElementById('ctx-menu').classList.add('hidden'); }
+
+// ── File / folder properties ──────────────────────────────────────────────────
+function showProperties(idx) {
+  const entries = _filtered || dirEntries, e = entries[idx];
+  if (!e) return;
+  const ext = !e.is_dir && e.name.includes('.') ? e.name.split('.').pop().toUpperCase() + ' file' : 'File';
+  const type = e.is_dir ? 'Folder' : ext;
+  const slash = e.path.lastIndexOf('/');
+  const loc = slash > 0 ? e.path.slice(0, slash) : '/';
+  const when = e.modified ? new Date(e.modified * 1000).toLocaleString() : '—';
+  const rows = [
+    ['Name', e.name],
+    ['Type', type],
+    ['Size', e.is_dir ? '—' : fmt(e.size_bytes)],
+    ['Location', `${currentDriveLabel}${loc}`],
+    ['Modified', when],
+  ];
+  document.getElementById('props-body').innerHTML = rows.map(([k, v]) =>
+    `<div class="about-info-row"><div class="about-info-label">${k}</div><div class="about-info-value" style="word-break:break-word">${esc(v)}</div></div>`
+  ).join('');
+  show('props-modal');
+}
+function closeProps() { hide('props-modal'); }

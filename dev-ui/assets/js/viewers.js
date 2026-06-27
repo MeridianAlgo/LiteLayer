@@ -135,7 +135,7 @@ function dvDownload() { if (_dvEntry) downloadFile(_dvEntry.path, _dvEntry.name)
 // ── Text / Markdown Editor ─────────────────────────────────────────────────────
 
 const TEXT_EXTS = new Set(['txt','md','markdown','log','json','csv','xml','yaml','yml','ini','conf','cfg','sh','py','js','ts','css','html','env']);
-let _tvEntry = null, _tvDirty = false, _tvPreview = false;
+let _tvEntry = null, _tvDirty = false, _tvPreview = false, _tvSaveTimer = null;
 
 function isTextFile(name) { return TEXT_EXTS.has((name.split('.').pop() || '').toLowerCase()); }
 function _tvIsMd(name) { const e = (name.split('.').pop() || '').toLowerCase(); return e === 'md' || e === 'markdown'; }
@@ -153,6 +153,7 @@ async function openTextViewer(idx) {
   pvEl.style.display = 'none'; pvEl.innerHTML = '';
   const ta = document.getElementById('tv-edit');
   ta.style.display = ''; ta.value = 'Loading…'; ta.disabled = true;
+  document.getElementById('tv-autosave-btn')?.classList.toggle('active', localStorage.getItem('ll-autosave') === '1');
   show('text-viewer'); document.body.style.overflow = 'hidden';
   document.addEventListener('keydown', _tvKey);
   try {
@@ -163,7 +164,20 @@ async function openTextViewer(idx) {
   } catch (e) { console.error('[text] load failed', e); toast('Could not open file', 'error'); closeTextViewer(); }
 }
 
-function tvOnInput() { _tvDirty = true; document.getElementById('tv-dirty').style.display = ''; }
+function tvOnInput() {
+  _tvDirty = true; document.getElementById('tv-dirty').style.display = '';
+  if (localStorage.getItem('ll-autosave') !== '1') return;
+  clearTimeout(_tvSaveTimer);            // debounce — save ~1s after typing stops
+  _tvSaveTimer = setTimeout(() => { if (_tvDirty) tvSave(); }, 1000);
+}
+
+function tvToggleAutosave() {
+  const on = localStorage.getItem('ll-autosave') !== '1';
+  localStorage.setItem('ll-autosave', on ? '1' : '0');
+  document.getElementById('tv-autosave-btn')?.classList.toggle('active', on);
+  toast(on ? 'Autosave on' : 'Autosave off', 'success', 1800);
+  if (on && _tvDirty) tvSave();
+}
 
 function _tvKey(e) {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); tvSave(); }
@@ -213,6 +227,7 @@ async function tvSave() {
 
 function closeTextViewer() {
   if (_tvDirty && !confirm('Discard unsaved changes?')) return;
+  clearTimeout(_tvSaveTimer);
   hide('text-viewer'); document.body.style.overflow = '';
   document.removeEventListener('keydown', _tvKey);
   _tvEntry = null; _tvDirty = false;

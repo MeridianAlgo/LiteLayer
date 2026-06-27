@@ -555,6 +555,31 @@ def toggle_boot_drive(req: BootDriveRequest, _: str = Depends(require_auth)):
 
 
 # ── Web terminal (interactive shell on the Pi) ────────────────────────────────
+# The root shell is the app's biggest attack surface, so it can be switched off
+# entirely from Settings. Re-enabling requires the account password (an attacker
+# with a hijacked session still can't flip it back on without the password).
+from drives import persist as _persist
+
+
+@app.get("/api/system/terminal/status")
+def terminal_status(_: str = Depends(require_auth)):
+    return {"enabled": _persist.is_terminal_enabled()}
+
+
+class TerminalToggleRequest(BaseModel):
+    enabled: bool
+    password: Optional[str] = None   # required only to re-enable
+
+
+@app.post("/api/system/terminal/toggle")
+def terminal_toggle(req: TerminalToggleRequest, username: str = Depends(require_auth)):
+    # Re-enabling is the sensitive direction — gate it behind the password.
+    if req.enabled and not auth_store.verify_password(username, req.password or ""):
+        raise HTTPException(401, "Password required to re-enable the terminal")
+    _persist.set_terminal_enabled(req.enabled)
+    return {"enabled": req.enabled}
+
+
 # A real PTY bridged over a websocket. Auth via the session token in the query
 # string (browsers can't set headers on a WebSocket). Linux-only — uses os/pty.
 # ponytail: shell runs as whatever user runs LiteLayer; this is the same
@@ -564,6 +589,11 @@ async def terminal_ws(ws: WebSocket, token: str = Query(default="")):
     import asyncio
     if not sessions.validate_session(token):
         await ws.close(code=4401)
+        return
+    if not _persist.is_terminal_enabled():
+        await ws.accept()
+        await ws.send_text("\r\nTerminal is disabled. Re-enable it in Settings → System.\r\n")
+        await ws.close(code=4403)
         return
     try:
         import fcntl, json, os, pty, signal, struct, termios

@@ -131,6 +131,14 @@ async def upload_file(
         raise HTTPException(409, "Drive not mounted")
     root = Path(d.mount_point)
     target_dir = _safe_path(root, path)
+    # Folder uploads target subdirs ("folder/sub") that may not exist yet — create
+    # them (within the safe root) so the whole tree lands in one pass.
+    if not target_dir.exists():
+        _ensure_writable(d)
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise HTTPException(500, f"Could not create folder: {exc}")
     if not target_dir.is_dir():
         raise HTTPException(400, "Not a directory")
     safe_name = Path(file.filename or "upload").name

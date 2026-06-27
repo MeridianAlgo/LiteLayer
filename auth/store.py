@@ -26,9 +26,13 @@ def verify_password(username: str, password: str) -> bool:
     if username not in data:
         return False
     try:
-        return _ph.verify(data[username], password)
+        _ph.verify(data[username], password)
     except (VerifyMismatchError, Exception):
         return False
+    # Transparently upgrade the stored hash if argon2's parameters have moved on.
+    if _ph.check_needs_rehash(data[username]):
+        set_password(username, password)
+    return True
 
 
 def set_password(username: str, password: str) -> None:
