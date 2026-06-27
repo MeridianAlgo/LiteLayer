@@ -207,6 +207,12 @@ function _crumbsFor(path) {
   return crumbs;
 }
 
+// Click a parent crumb (<a>) navigates; click anywhere else in the bar → type a path.
+function breadcrumbClick(e) {
+  if (e.target.closest('a')) return;
+  if (currentDriveId) editPath();
+}
+
 function editPath() {
   if (!currentDriveId) return;
   const nav = document.getElementById('breadcrumb');

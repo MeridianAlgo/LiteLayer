@@ -93,7 +93,7 @@
         <button class="ft-back" onclick="backToDrives()" title="Back to drives" aria-label="Back to drives">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <nav class="ft-breadcrumb" id="breadcrumb" ondblclick="editPath()" title="Double-click to type a path"><span class="crumb-current" style="color:var(--text-3)">Select a drive</span></nav>
+        <nav class="ft-breadcrumb" id="breadcrumb" onclick="breadcrumbClick(event)" title="Click to type a path"><span class="crumb-current" style="color:var(--text-3)">Select a drive</span></nav>
         <div class="search-wrap">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input id="file-search" class="search-input" placeholder="Filter…" oninput="filterFiles(this.value)" autocomplete="off">
@@ -368,11 +368,8 @@
           </div>
         </div>
         <div class="settings-section">
-          <div class="settings-section-title">Accent Color</div>
-          <div class="accent-grid" id="accent-grid"></div>
-        </div>
-        <div class="settings-section">
           <div class="settings-section-title">Custom Colors <span style="font-size:10px;font-weight:400;color:var(--text-3)">(every individual color)</span></div>
+          <div style="font-size:11px;color:var(--text-3);margin:-4px 0 12px">Set the accent under <b>Accent</b> below (primary, gradient, light).</div>
           <div id="color-pickers-grid"></div>
           <button class="btn btn-ghost btn-sm" style="margin-top:14px;width:100%" onclick="resetCustomColors()">Reset to theme defaults</button>
         </div>
@@ -414,6 +411,15 @@
               <small>Open a file or folder with one click instead of a double-click. Ctrl/Shift-click still selects.</small>
             </div>
             <div class="toggle-sw" id="single-click-sw" onclick="toggleSingleClick()"></div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Status bar</div>
+          <div class="toggle-row">
+            <div class="toggle-row-text">Show resource pills
+              <small>Show the live CPU, temperature and power pills in the top bar.</small>
+            </div>
+            <div class="toggle-sw" id="stats-pills-sw" onclick="toggleStatsPills()"></div>
           </div>
         </div>
         <div class="settings-section">
@@ -479,7 +485,8 @@
           </div>
           <div class="about-info-row"><div class="about-info-label">Platform</div><div class="about-info-value">Raspberry Pi · self-hosted NAS</div></div>
           <div class="about-info-row"><div class="about-info-label">URL</div><div class="about-info-value" id="about-url">—</div></div>
-          <div class="about-info-row"><div class="about-info-label">Local name</div><div class="about-info-value"><span id="about-hostname" style="font-family:var(--mono)">—</span><small style="display:block;color:var(--text-3);margin-top:3px">Reach it at this <code>.local</code> name on the same Wi-Fi. If it won't resolve, use the IP above, or install Bonjour (Windows) / enable mDNS on your router.</small></div></div>
+          <div class="about-info-row"><div class="about-info-label">Local name</div><div class="about-info-value" style="display:flex;align-items:center;gap:10px"><span id="about-hostname" style="font-family:var(--mono)">—</span><a href="https://github.com/MeridianAlgo/LiteLayer/blob/main/docs/networking.md" target="_blank" rel="noopener" class="vpn-help-link" style="margin:0">Help</a></div></div>
+          <div class="about-info-row" id="about-cf-row" style="display:none"><div class="about-info-label">Public URL</div><div class="about-info-value"><a id="about-cf" href="#" target="_blank" rel="noopener" style="color:var(--accent-light);text-decoration:none">—</a></div></div>
           <div class="about-info-row"><div class="about-info-label">Commit</div><div class="about-info-value" id="about-sha" style="font-family:var(--mono);font-size:11px">—</div></div>
           <div class="about-info-row"><div class="about-info-label">VPN</div><div class="about-info-value" id="about-vpn">Checking…</div></div>
           <div class="about-info-row"><div class="about-info-label">API</div><div class="about-info-value">FastAPI · uvicorn</div></div>

@@ -154,8 +154,9 @@ async function openOtaModal() {
       rows.push(`<div class="ota-ver-item${t.current ? ' current' : ''}" data-sha="${t.sha}"
         onclick="selectOtaVersion('${t.sha}',this,'${esc(t.name)}')">
         <span class="ota-ver-sha">${esc(t.name)}</span>
-        <a class="ota-ver-msg" href="${ghUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--text-3)">release notes ↗</a>
+        <span style="flex:1"></span>
         ${t.current ? `<span class="ota-cur-tag">installed</span>` : ''}
+        <a class="ota-ver-notes" href="${ghUrl}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Release notes ↗</a>
       </div>`);
     });
 

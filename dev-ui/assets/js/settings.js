@@ -1,7 +1,6 @@
 let _settingsTab = 'appearance';
 
 function openSettings() {
-  buildAccentGrid();
   buildColorPickers();
   applyTheme(_currentTheme);
   document.getElementById('settings-username-display').textContent = currentUsername;
@@ -29,6 +28,7 @@ function setSettingsTab(tab) {
 async function _loadSystem() {
   document.getElementById('boot-drive-sw')?.classList.toggle('on', localStorage.getItem('ll-boot-drive') === '1');
   document.getElementById('single-click-sw')?.classList.toggle('on', localStorage.getItem('ll-single-click') === '1');
+  document.getElementById('stats-pills-sw')?.classList.toggle('on', localStorage.getItem('ll-hide-stats') !== '1');
 
   // Terminal on/off — backend is the source of truth.
   const tSw = document.getElementById('terminal-sw');
@@ -89,6 +89,21 @@ async function toggleAutoMount() {
   sw.classList.toggle('on', enabled);
   toast(enabled ? 'Drives will stay mounted' : 'Auto-mount off', 'success', 2500);
   loadDrives();
+}
+
+// Resource pills in the top bar — show/hide preference (default shown).
+function applyStatsPillsPref() {
+  const el = document.getElementById('stat-pills');
+  if (el) el.style.display = localStorage.getItem('ll-hide-stats') === '1' ? 'none' : '';
+}
+
+function toggleStatsPills() {
+  const sw = document.getElementById('stats-pills-sw');
+  const show = !sw.classList.contains('on');      // "on" = pills shown
+  sw.classList.toggle('on', show);
+  localStorage.setItem('ll-hide-stats', show ? '0' : '1');
+  applyStatsPillsPref();
+  toast(show ? 'Resource pills shown' : 'Resource pills hidden', 'success', 2000);
 }
 
 function toggleSingleClick() {
@@ -161,8 +176,9 @@ async function toggleBootDrive() {
 
 async function resetPi() {
   if (!confirm('Reset LiteLayer and reinstall the latest version?\n\nThe Pi will reboot and may be offline for a few minutes.')) return;
-  if (!confirm('Are you sure? This re-runs the full installer from scratch.')) return;
-  const r = await api('/api/system/reset', {method: 'POST'});
+  const password = await askPassword('Confirm reset', 'Enter your password to reset & reinstall LiteLayer.');
+  if (password == null) return;  // cancelled
+  const r = await api('/api/system/reset', {method: 'POST', body: JSON.stringify({password})});
   if (!r?.ok) { const d = await r.json().catch(() => ({})); toast(d.detail || 'Reset failed to start', 'error', 8000); return; }
   // Kick the user out behind a full-screen loader; reload once the Pi is back.
   authToken = null; try { localStorage.removeItem('ll-token'); } catch {}
@@ -236,6 +252,14 @@ async function _loadAbout() {
     const d = await r.json();
     const hn = document.getElementById('about-hostname');
     if (hn) hn.textContent = d.hostname && d.hostname !== 'unknown' ? `http://${d.hostname}.local` : '—';
+    // Cloudflare Tunnel public URL — only shown when a tunnel is up.
+    const cfRow = document.getElementById('about-cf-row'), cf = document.getElementById('about-cf');
+    if (cfRow && cf) {
+      if (d.cloudflare_domain) {
+        const url = d.cloudflare_domain.startsWith('http') ? d.cloudflare_domain : `https://${d.cloudflare_domain}`;
+        cf.textContent = d.cloudflare_domain; cf.href = url; cfRow.style.display = '';
+      } else cfRow.style.display = 'none';
+    }
     if (!d.vpns?.length) {
       vpnEl.textContent = 'None';
     } else {

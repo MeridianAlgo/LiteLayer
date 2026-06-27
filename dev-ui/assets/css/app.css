@@ -395,7 +395,8 @@ body {
 .about-info-value { font-size: 12px; font-family: var(--mono); }
 
 /* ── Settings: Appearance ── */
-.settings-section { margin-bottom: 26px; }
+.settings-section { margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
+.settings-section:last-child { border-bottom: none; padding-bottom: 0; }
 .settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
 .theme-row { display: flex; gap: 10px; }
 .theme-card { flex: 1; border: 2px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color 0.15s; text-align: center; background: none; }
@@ -573,6 +574,8 @@ kbd { font-family: var(--mono); font-size: 11px; line-height: 1; color: var(--te
 .ota-ver-item.current { opacity: 0.55; cursor: default; }
 .ota-ver-sha { font-family: var(--mono); font-size: 10px; color: var(--accent-light); background: var(--a10); border: 1px solid var(--a20); border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
 .ota-ver-msg { font-size: 12px; color: var(--text-2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ota-ver-notes { font-size: 11px; color: var(--accent-light); text-decoration: none; padding: 3px 9px; border: 1px solid var(--border); border-radius: 6px; white-space: nowrap; flex-shrink: 0; transition: background 0.1s, border-color 0.1s; }
+.ota-ver-notes:hover { background: var(--surface-h); border-color: var(--a30); }
 .ota-ver-rel { font-size: 10px; color: var(--text-3); font-family: var(--mono); flex-shrink: 0; }
 .ota-cur-tag { font-size: 9px; font-weight: 700; background: var(--a20); color: var(--accent-light); border-radius: 99px; padding: 1px 6px; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; }
 

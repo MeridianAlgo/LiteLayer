@@ -251,7 +251,30 @@ def system_info(_: str = Depends(require_auth)):
     except Exception:
         hostname = "unknown"
 
-    return {"hostname": hostname, "vpns": vpns}
+    cf_domain = _cloudflare_domain() if any(v["name"] == "Cloudflare Tunnel" for v in vpns) else None
+    return {"hostname": hostname, "vpns": vpns, "cloudflare_domain": cf_domain}
+
+
+def _cloudflare_domain() -> "str | None":
+    """The Cloudflare Tunnel's public hostname — a named tunnel's config hostname,
+    else the quick-tunnel *.trycloudflare.com URL from the service journal."""
+    import re, subprocess
+    for cfg in ("/etc/cloudflared/config.yml", "/etc/cloudflared/config.yaml"):
+        try:
+            m = re.search(r"hostname:\s*([\w.-]+)", Path(cfg).read_text())
+            if m:
+                return m.group(1)
+        except Exception:
+            pass
+    try:
+        out = subprocess.run(["journalctl", "-u", "litelayer-cloudflare", "--no-pager", "-n", "200"],
+                             capture_output=True, text=True, timeout=5).stdout
+        urls = re.findall(r"https://[\w.-]+\.trycloudflare\.com", out)
+        if urls:
+            return urls[-1]
+    except Exception:
+        pass
+    return None
 
 
 # ── VPN switching (writes boot default + reboots) ─────────────────────────────
@@ -533,9 +556,16 @@ def _reset_worker() -> None:
         pass
 
 
+class ResetRequest(BaseModel):
+    password: Optional[str] = None
+
+
 @app.post("/api/system/reset")
-def system_reset(_: str = Depends(require_auth)):
-    """Re-run the installer for a fresh latest LiteLayer, then reboot the Pi."""
+def system_reset(req: ResetRequest, username: str = Depends(require_auth)):
+    """Re-run the installer for a fresh latest LiteLayer, then reboot the Pi.
+    Password-gated — a reboot + reinstall is too destructive to fire on one click."""
+    if not auth_store.verify_password(username, req.password or ""):
+        raise HTTPException(401, "Password is required to reset LiteLayer")
     import threading
     threading.Thread(target=_reset_worker, daemon=True, name="ll-reset").start()
     return {"status": "resetting"}
