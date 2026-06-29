@@ -430,8 +430,21 @@ _VPN_SIGNIN = {
 }
 _AUTH_URL_RE = _re.compile(r"https://(?:login\.tailscale\.com|[\w.-]*netbird[\w.-]*|[\w.-]*trycloudflare\.com)\S*")
 
-_vpn_state = {"running": False, "name": None, "auth_url": None, "error": None}
+_vpn_state = {"running": False, "name": None, "auth_url": None, "error": None, "started": 0.0}
 _vpn_lock = __import__("threading").Lock()
+
+
+def _vpn_busy() -> bool:
+    """True if a VPN worker is genuinely still running. A worker can never run
+    longer than its 600s subprocess timeout, so anything older is a stale flag
+    (e.g. the app restarted mid-op) — clear it so the UI isn't wedged on 409."""
+    import time
+    if not _vpn_state["running"]:
+        return False
+    if time.time() - _vpn_state.get("started", 0) > 600:
+        _vpn_state["running"] = False
+        return False
+    return True
 
 
 def _vlog(msg: str) -> None:
@@ -529,9 +542,9 @@ def uninstall_vpn(req: VpnNameRequest, _: str = Depends(require_auth)):
     if req.name not in _VPN_UNITS:
         raise HTTPException(400, f"Unknown VPN: {req.name}")
     with _vpn_lock:
-        if _vpn_state["running"]:
+        if _vpn_busy():
             raise HTTPException(409, "A VPN operation is already running")
-        _vpn_state.update(running=True, name=req.name, auth_url=None, error=None)
+        _vpn_state.update(running=True, name=req.name, auth_url=None, error=None, started=__import__("time").time())
     threading.Thread(target=_vpn_uninstall_worker, args=(req.name,),
                      daemon=True, name="vpn-uninstall").start()
     return {"status": "uninstalling", "name": req.name}
@@ -552,9 +565,9 @@ def install_vpn(req: VpnInstallRequest, _: str = Depends(require_auth)):
     if req.network_id and not _re.fullmatch(r"[0-9a-fA-F]{16}", req.network_id):
         raise HTTPException(400, "Invalid ZeroTier network ID (expected 16 hex characters)")
     with _vpn_lock:
-        if _vpn_state["running"]:
+        if _vpn_busy():
             raise HTTPException(409, "A VPN install is already running")
-        _vpn_state.update(running=True, name=req.name, auth_url=None, error=None)
+        _vpn_state.update(running=True, name=req.name, auth_url=None, error=None, started=__import__("time").time())
     threading.Thread(target=_vpn_install_worker, args=(req.name, req.network_id),
                      daemon=True, name="vpn-install").start()
     return {"status": "installing", "name": req.name}
@@ -654,7 +667,7 @@ def _cf_configure(mode: str, token: "str | None") -> None:
 
 
 def _cf_enable_worker(mode: str, token: "str | None") -> None:
-    import os, subprocess, datetime
+    import os, subprocess, datetime, time
     env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
     try:
         _vlog(f"\n--- cloudflare enable ({mode}) {datetime.datetime.now().isoformat(timespec='seconds')} ---")
@@ -670,15 +683,21 @@ def _cf_enable_worker(mode: str, token: "str | None") -> None:
                     return
         _cf_configure(mode, token)
         _stop_other_vpns("Cloudflare Tunnel")   # exclusive switch — turn mesh VPNs off
-        # Quick tunnel: the *.trycloudflare.com URL only lands in the journal a few
-        # seconds after cloudflared connects. Wait for it so the UI gets a real URL
-        # instead of giving up while the tunnel is still coming up.
-        if mode == "quick":
-            import time
-            for _ in range(30):
-                time.sleep(1)
-                if _cloudflare_domain():
-                    break
+        # The tunnel takes a few seconds to connect. Wait for the unit to go active
+        # (quick mode also waits for the *.trycloudflare.com URL to hit the journal),
+        # so the UI gets a real answer instead of giving up mid-startup.
+        for _ in range(30):
+            time.sleep(1)
+            if _sysctl("is-active", "litelayer-cloudflare") == "active" \
+               and (mode != "quick" or _cloudflare_domain()):
+                break
+        # If it still isn't up, surface the journal tail so the user sees *why*
+        # rather than a toggle that silently stays off with no link.
+        if _sysctl("is-active", "litelayer-cloudflare") != "active":
+            jr = subprocess.run(["journalctl", "-u", "litelayer-cloudflare", "--no-pager", "-n", "15"],
+                                capture_output=True, text=True).stdout
+            tail = " | ".join(jr.strip().splitlines()[-6:])
+            _vpn_state["error"] = "Cloudflare tunnel didn't start: " + (tail or "run: journalctl -u litelayer-cloudflare")
         _vlog("--- cloudflare tunnel enabled ---")
     except Exception as exc:  # noqa: BLE001
         _vpn_state["error"] = str(exc)
@@ -720,9 +739,9 @@ def cloudflare_set(req: CloudflareRequest, _: str = Depends(require_auth)):
     else:
         token = None
     with _vpn_lock:
-        if _vpn_state["running"]:
+        if _vpn_busy():
             raise HTTPException(409, "A VPN operation is already running")
-        _vpn_state.update(running=True, name="Cloudflare Tunnel", auth_url=None, error=None)
+        _vpn_state.update(running=True, name="Cloudflare Tunnel", auth_url=None, error=None, started=__import__("time").time())
     threading.Thread(target=_cf_enable_worker, args=(mode, token),
                      daemon=True, name="cf-enable").start()
     return {"status": "enabling", "mode": mode}

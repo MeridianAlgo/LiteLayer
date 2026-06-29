@@ -90,6 +90,10 @@ async function _loadCloudflare() {
   if (on && url) {
     urlHtml = `<div class="cf-url"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(d.url)}</a>
       <button class="btn btn-ghost btn-xs" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>toast('Copied','success',1500))">Copy</button></div>`;
+  } else if (on && d.mode === 'token') {
+    // Token tunnels are remotely-managed — the hostname lives in your Cloudflare
+    // dashboard, so there's no local URL to show, just the connected state.
+    urlHtml = `<div style="font-size:12px;color:var(--green);margin-top:8px">Connected — your tunnel is live at your Cloudflare domain.</div>`;
   } else if (on) {
     urlHtml = `<div style="font-size:12px;color:var(--text-3);margin-top:8px">Tunnel starting — the public URL appears here in a few seconds.</div>`;
   }
@@ -143,7 +147,8 @@ function _cfPoll(n = 0) {
       const d = r?.ok ? await r.json() : null;
       const s = await api('/api/system/vpn/status', {bg: true}).then(x => x?.ok ? x.json() : null).catch(() => null);
       if (s?.error) { toast(s.error, 'error', 7000); _loadCloudflare(); return; }
-      if (d?.active && d.url) { _loadCloudflare(); toast('Public URL ready', 'success'); return; }
+      // Quick mode needs the URL; token mode is "done" once the unit is active.
+      if (d?.active && (d.url || d.mode === 'token')) { _loadCloudflare(); toast(d.url ? 'Public URL ready' : 'Cloudflare tunnel connected', 'success'); return; }
     } catch {}
     _cfPoll(n + 1);
   }, 3000);
