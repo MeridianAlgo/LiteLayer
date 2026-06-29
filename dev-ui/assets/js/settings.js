@@ -133,9 +133,10 @@ async function connectCloudflareToken() {
   _cfPoll();
 }
 
-// Poll until the public URL is up (or the worker reports an error).
+// Poll until the public URL is up (or the worker reports an error). The first
+// enable also downloads + installs cloudflared, so give it up to ~2 min.
 function _cfPoll(n = 0) {
-  if (n > 12) { _loadCloudflare(); return; }
+  if (n > 40) { _loadCloudflare(); return; }
   setTimeout(async () => {
     try {
       const r = await api('/api/system/cloudflare', {bg: true});

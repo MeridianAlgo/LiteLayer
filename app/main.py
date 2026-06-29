@@ -371,14 +371,14 @@ class VpnSwitchRequest(BaseModel):
 
 
 def _stop_other_vpns(keep: str) -> None:
-    """Disable + stop every mesh VPN except the chosen one. The Cloudflare Tunnel
-    is outbound-only and conflicts with nothing, so it's never stopped — and
-    turning it on never stops a mesh VPN (you can run both at once)."""
+    """Disable + stop every VPN except the chosen one. Switching is exclusive —
+    one VPN at a time — so the System/About pages never show a stale 'in use'
+    (e.g. ZeroTier left running after you switch to the Cloudflare Tunnel)."""
     import subprocess
-    if keep == "Cloudflare Tunnel":
-        return
-    for name, (_tool, unit) in _VPN_UNITS.items():
-        if name == keep or name == "Cloudflare Tunnel":
+    units = {name: unit for name, (_tool, unit) in _VPN_UNITS.items()}
+    units["Cloudflare Tunnel"] = "litelayer-cloudflare"
+    for name, unit in units.items():
+        if name == keep:
             continue
         subprocess.run(["systemctl", "disable", "--now", unit], capture_output=True, text=True)
 
@@ -589,6 +589,7 @@ def vpn_status(_: str = Depends(require_auth)):
 # ── Cloudflare Tunnel: one-click public URL ───────────────────────────────────
 # The only VPN safe to fully drive from the UI: it's an outbound connection, so
 # it can never break the LAN/SSH path the way flipping Tailscale/WireGuard can.
+# Enabling it is an exclusive switch like the others — any mesh VPN is stopped.
 # Two modes — a free quick tunnel (random *.trycloudflare.com, no account) or a
 # named tunnel run from a token you paste from the Cloudflare dashboard (your own
 # stable domain). We (re)write the unit each enable so the token mode always works
@@ -668,6 +669,16 @@ def _cf_enable_worker(mode: str, token: "str | None") -> None:
                     _vpn_state["error"] = "cloudflared install failed: " + " | ".join(tail)
                     return
         _cf_configure(mode, token)
+        _stop_other_vpns("Cloudflare Tunnel")   # exclusive switch — turn mesh VPNs off
+        # Quick tunnel: the *.trycloudflare.com URL only lands in the journal a few
+        # seconds after cloudflared connects. Wait for it so the UI gets a real URL
+        # instead of giving up while the tunnel is still coming up.
+        if mode == "quick":
+            import time
+            for _ in range(30):
+                time.sleep(1)
+                if _cloudflare_domain():
+                    break
         _vlog("--- cloudflare tunnel enabled ---")
     except Exception as exc:  # noqa: BLE001
         _vpn_state["error"] = str(exc)
