@@ -619,7 +619,7 @@ Requires=litelayer.service
 
 [Service]
 Type=simple
-Environment=CF_TUNNEL_ARGS=--url http://localhost:8000
+Environment="CF_TUNNEL_ARGS=--url http://localhost:8000"
 EnvironmentFile=-/etc/litelayer/cloudflare.env
 ExecStart=/usr/bin/cloudflared tunnel $CF_TUNNEL_ARGS
 Restart=on-failure
