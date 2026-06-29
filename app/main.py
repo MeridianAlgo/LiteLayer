@@ -415,9 +415,12 @@ _VPN_INSTALL = {
     "Tailscale":          ["curl -fsSL https://tailscale.com/install.sh | sh"],
     "ZeroTier":           ["curl -fsSL https://install.zerotier.com | bash"],
     "Cloudflare Tunnel":  [
-        "curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null",
-        'echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared $(. /etc/os-release && echo $VERSION_CODENAME) main" | tee /etc/apt/sources.list.d/cloudflared.list >/dev/null',
-        "apt-get update -qq && apt-get install -y cloudflared",
+        # ponytail: install the .deb straight from GitHub releases keyed off arch.
+        # The apt repo (pkg.cloudflare.com) only ships a few codenames and has no
+        # Release file for e.g. Debian trixie / Raspberry Pi OS, so it breaks there.
+        'ARCH=$(dpkg --print-architecture); case "$ARCH" in armhf) A=arm;; i386) A=386;; *) A=$ARCH;; esac; '
+        'curl -fsSL -o /tmp/cloudflared.deb "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-$A.deb" && '
+        'apt-get install -y /tmp/cloudflared.deb && rm -f /tmp/cloudflared.deb',
     ],
     "WireGuard":          ["apt-get install -y --no-install-recommends wireguard wireguard-tools"],
 }

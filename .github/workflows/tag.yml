@@ -43,5 +43,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ steps.ver.outputs.tag }}"
-          gh release view "$TAG" >/dev/null 2>&1 && exit 0
-          gh release create "$TAG" --title "$TAG" --generate-notes
+          # Every release is a Beta prerelease — keeps the whole tag history
+          # labelled consistently. If the release already exists, make sure it's
+          # still marked Beta (e.g. relabelling v2.2.0).
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG - Beta" --prerelease
+            exit 0
+          fi
+          gh release create "$TAG" --title "$TAG - Beta" --prerelease --generate-notes
