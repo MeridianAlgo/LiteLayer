@@ -45,6 +45,8 @@ async function _loadSystem() {
     } catch {}
   }
 
+  _loadCloudflare();
+
   // VPN — show installed VPNs grouped local-mesh vs remote-access and let the
   // user switch to any installed one (backend turns the others off, no reboot).
   const box = document.getElementById('vpn-list');
@@ -72,6 +74,78 @@ async function _loadSystem() {
   } catch {
     box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not read VPN status</div>`;
   }
+}
+
+// ── Cloudflare Tunnel ────────────────────────────────────────────────────────
+
+async function _loadCloudflare() {
+  const box = document.getElementById('cf-box');
+  if (!box) return;
+  let d;
+  try { const r = await api('/api/system/cloudflare'); d = r?.ok ? await r.json() : null; } catch {}
+  if (!d) { box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">Could not read Cloudflare status</div>`; return; }
+  const on = d.active, quickOn = on && d.mode === 'quick';
+  const url = d.url ? (d.url.startsWith('http') ? d.url : 'https://' + d.url) : '';
+  let urlHtml = '';
+  if (on && url) {
+    urlHtml = `<div class="cf-url"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(d.url)}</a>
+      <button class="btn btn-ghost btn-xs" onclick="navigator.clipboard.writeText('${esc(url)}').then(()=>toast('Copied','success',1500))">Copy</button></div>`;
+  } else if (on) {
+    urlHtml = `<div style="font-size:12px;color:var(--text-3);margin-top:8px">Tunnel starting — the public URL appears here in a few seconds.</div>`;
+  }
+  box.innerHTML = `
+    <div class="toggle-row">
+      <div class="toggle-row-text">Public URL (quick tunnel)
+        <small>Installs cloudflared and serves LiteLayer at a free https://…trycloudflare.com address. No Cloudflare account needed. The URL changes if the tunnel restarts.</small>
+      </div>
+      <div class="toggle-sw ${quickOn ? 'on' : ''}" onclick="toggleCloudflareQuick(${quickOn})"></div>
+    </div>
+    ${urlHtml}
+    <details class="cf-token" ${d.mode === 'token' ? 'open' : ''}>
+      <summary>Use your own domain (Cloudflare token)</summary>
+      <div style="font-size:12px;color:var(--text-3);margin:8px 0">Create a tunnel in the Cloudflare Zero Trust dashboard, copy its connector token, and paste it here for a stable custom domain.${d.mode === 'token' ? ' <b>Connected.</b>' : ''}</div>
+      <div class="cf-token-row">
+        <input id="cf-token-input" type="password" placeholder="eyJh…  (tunnel token)" autocomplete="off" spellcheck="false">
+        <button class="btn btn-primary btn-sm" onclick="connectCloudflareToken()">Connect</button>
+      </div>
+    </details>`;
+}
+
+async function toggleCloudflareQuick(isOn) {
+  if (isOn) {
+    if (!confirm('Turn off the Cloudflare tunnel? The public URL will stop working.')) return;
+    const r = await api('/api/system/cloudflare', {method: 'POST', body: JSON.stringify({action: 'disable'})});
+    if (!r?.ok) { toast('Could not turn off the tunnel', 'error'); return; }
+    toast('Cloudflare tunnel off', 'success'); _loadCloudflare(); return;
+  }
+  const r = await api('/api/system/cloudflare', {method: 'POST', body: JSON.stringify({action: 'enable', mode: 'quick'})});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not start the tunnel', 'error', 5000); return; }
+  toast('Starting Cloudflare tunnel — fetching your public URL…', 'info', 4000);
+  _cfPoll();
+}
+
+async function connectCloudflareToken() {
+  const t = (document.getElementById('cf-token-input')?.value || '').trim();
+  if (!t) { toast('Paste your Cloudflare tunnel token first', 'error'); return; }
+  const r = await api('/api/system/cloudflare', {method: 'POST', body: JSON.stringify({action: 'enable', mode: 'token', token: t})});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not connect', 'error', 6000); return; }
+  toast('Connecting your domain via Cloudflare…', 'info', 4000);
+  _cfPoll();
+}
+
+// Poll until the public URL is up (or the worker reports an error).
+function _cfPoll(n = 0) {
+  if (n > 12) { _loadCloudflare(); return; }
+  setTimeout(async () => {
+    try {
+      const r = await api('/api/system/cloudflare', {bg: true});
+      const d = r?.ok ? await r.json() : null;
+      const s = await api('/api/system/vpn/status', {bg: true}).then(x => x?.ok ? x.json() : null).catch(() => null);
+      if (s?.error) { toast(s.error, 'error', 7000); _loadCloudflare(); return; }
+      if (d?.active && d.url) { _loadCloudflare(); toast('Public URL ready', 'success'); return; }
+    } catch {}
+    _cfPoll(n + 1);
+  }, 3000);
 }
 
 async function switchVpn(name) {

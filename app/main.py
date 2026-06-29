@@ -1,3 +1,4 @@
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -125,6 +126,30 @@ def logout(request: Request, response: Response):
 def me(username: str = Depends(require_auth)):
     """Quick auth check — 401 if not logged in, username otherwise."""
     return {"username": username}
+
+
+# ── Cross-device UI settings (encrypted at rest) ──────────────────────────────
+# The browser owns the live copy in localStorage; this is the synced copy so a
+# second device pulls the same theme/look on login. See app/settings_store.py.
+from app import settings_store
+
+
+@app.get("/api/settings")
+def get_settings(_: str = Depends(require_auth)):
+    return {"settings": settings_store.load()}
+
+
+class SettingsRequest(BaseModel):
+    settings: dict
+
+
+@app.put("/api/settings")
+def put_settings(req: SettingsRequest, _: str = Depends(require_auth)):
+    # Cap size so a hijacked session can't write an unbounded blob to disk.
+    if len(json.dumps(req.settings)) > 64_000:
+        raise HTTPException(413, "Settings payload too large")
+    settings_store.save(req.settings)
+    return {"status": "ok"}
 
 
 class UpdateCredentialsRequest(BaseModel):
@@ -346,10 +371,14 @@ class VpnSwitchRequest(BaseModel):
 
 
 def _stop_other_vpns(keep: str) -> None:
-    """Disable + stop every VPN unit except the chosen one."""
+    """Disable + stop every mesh VPN except the chosen one. The Cloudflare Tunnel
+    is outbound-only and conflicts with nothing, so it's never stopped — and
+    turning it on never stops a mesh VPN (you can run both at once)."""
     import subprocess
+    if keep == "Cloudflare Tunnel":
+        return
     for name, (_tool, unit) in _VPN_UNITS.items():
-        if name == keep:
+        if name == keep or name == "Cloudflare Tunnel":
             continue
         subprocess.run(["systemctl", "disable", "--now", unit], capture_output=True, text=True)
 
@@ -552,6 +581,137 @@ def vpn_status(_: str = Depends(require_auth)):
         except OSError:
             pass
     return {**_vpn_state, "active": active, "zt_node": zt_node, "log": log}
+
+
+# ── Cloudflare Tunnel: one-click public URL ───────────────────────────────────
+# The only VPN safe to fully drive from the UI: it's an outbound connection, so
+# it can never break the LAN/SSH path the way flipping Tailscale/WireGuard can.
+# Two modes — a free quick tunnel (random *.trycloudflare.com, no account) or a
+# named tunnel run from a token you paste from the Cloudflare dashboard (your own
+# stable domain). We (re)write the unit each enable so the token mode always works
+# even on an older installed copy.
+CF_UNIT = Path("/etc/systemd/system/litelayer-cloudflare.service")
+CF_ENV = Path("/etc/litelayer/cloudflare.env")
+_CF_TOKEN_RE = _re.compile(r"^[A-Za-z0-9_\-./+=]{20,3000}$")
+_CF_UNIT_TEMPLATE = """\
+[Unit]
+Description=LiteLayer Cloudflare Tunnel
+After=network-online.target litelayer.service
+Wants=network-online.target
+Requires=litelayer.service
+
+[Service]
+Type=simple
+Environment=CF_TUNNEL_ARGS=--url http://localhost:8000
+EnvironmentFile=-/etc/litelayer/cloudflare.env
+ExecStart=/usr/bin/cloudflared tunnel $CF_TUNNEL_ARGS
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=litelayer-cloudflare
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def _cf_mode() -> "str | None":
+    """'token' if a named-tunnel token is configured, else 'quick' if the unit is
+    enabled, else None."""
+    if not _sysctl("is-enabled", "litelayer-cloudflare") == "enabled" \
+       and not _sysctl("is-active", "litelayer-cloudflare") == "active":
+        return None
+    try:
+        if "--token" in CF_ENV.read_text():
+            return "token"
+    except OSError:
+        pass
+    return "quick"
+
+
+def _cf_configure(mode: str, token: "str | None") -> None:
+    """Write the unit + env for the chosen mode, then (re)start it."""
+    import subprocess
+    CF_UNIT.write_text(_CF_UNIT_TEMPLATE)
+    CF_ENV.parent.mkdir(parents=True, exist_ok=True)
+    if mode == "token":
+        # Token goes into an env file (never a shell), and is charset-validated by
+        # the caller — so it can't smuggle extra args or a newline into the unit.
+        CF_ENV.write_text(f"CF_TUNNEL_ARGS=run --token {token}\n")
+    else:
+        try:
+            CF_ENV.unlink()
+        except FileNotFoundError:
+            pass
+    _sysctl("daemon-reload")
+    subprocess.run(["systemctl", "enable", "--now", "litelayer-cloudflare"],
+                   capture_output=True, text=True)
+
+
+def _cf_enable_worker(mode: str, token: "str | None") -> None:
+    import os, subprocess, datetime
+    env = {**os.environ, "DEBIAN_FRONTEND": "noninteractive"}
+    try:
+        _vlog(f"\n--- cloudflare enable ({mode}) {datetime.datetime.now().isoformat(timespec='seconds')} ---")
+        if not _vpn_installed(*_VPN_UNITS["Cloudflare Tunnel"]):
+            for cmd in _VPN_INSTALL["Cloudflare Tunnel"]:
+                _vlog(f"$ {cmd}")
+                r = subprocess.run("set -o pipefail; " + cmd, shell=True, executable="/bin/bash",
+                                   capture_output=True, text=True, timeout=600, env=env)
+                _vlog(r.stdout + r.stderr)
+                if r.returncode != 0:
+                    tail = (r.stderr or r.stdout or "").strip().splitlines()[-4:]
+                    _vpn_state["error"] = "cloudflared install failed: " + " | ".join(tail)
+                    return
+        _cf_configure(mode, token)
+        _vlog("--- cloudflare tunnel enabled ---")
+    except Exception as exc:  # noqa: BLE001
+        _vpn_state["error"] = str(exc)
+        _vlog(f"ERROR: {exc}")
+    finally:
+        _vpn_state["running"] = False
+
+
+@app.get("/api/system/cloudflare")
+def cloudflare_status(_: str = Depends(require_auth)):
+    return {
+        "installed": _vpn_installed(*_VPN_UNITS["Cloudflare Tunnel"]),
+        "active": _sysctl("is-active", "litelayer-cloudflare") == "active",
+        "mode": _cf_mode(),
+        "url": _cloudflare_domain(),
+    }
+
+
+class CloudflareRequest(BaseModel):
+    action: str                       # "enable" | "disable"
+    mode: str = "quick"               # "quick" | "token"
+    token: Optional[str] = None       # required for token mode
+
+
+@app.post("/api/system/cloudflare")
+def cloudflare_set(req: CloudflareRequest, _: str = Depends(require_auth)):
+    import subprocess, threading
+    if req.action == "disable":
+        subprocess.run(["systemctl", "disable", "--now", "litelayer-cloudflare"],
+                       capture_output=True, text=True)
+        return {"status": "disabled"}
+    if req.action != "enable":
+        raise HTTPException(400, "action must be 'enable' or 'disable'")
+    mode = req.mode if req.mode in ("quick", "token") else "quick"
+    token = (req.token or "").strip()
+    if mode == "token":
+        if not _CF_TOKEN_RE.fullmatch(token):
+            raise HTTPException(400, "That doesn't look like a Cloudflare tunnel token. Copy it from the dashboard's 'Install and run a connector' command.")
+    else:
+        token = None
+    with _vpn_lock:
+        if _vpn_state["running"]:
+            raise HTTPException(409, "A VPN operation is already running")
+        _vpn_state.update(running=True, name="Cloudflare Tunnel", auth_url=None, error=None)
+    threading.Thread(target=_cf_enable_worker, args=(mode, token),
+                     daemon=True, name="cf-enable").start()
+    return {"status": "enabling", "mode": mode}
 
 
 # ── Factory reset: wipe + reinstall the latest LiteLayer ──────────────────────

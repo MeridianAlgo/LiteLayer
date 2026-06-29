@@ -23,6 +23,8 @@ reformatted.
 - **Reads any drive, untouched.** ext4, NTFS, exFAT, FAT32, Btrfs, XFS, HFS+, F2FS, and more — with kernel auto-detect as the fallback. Existing data is never erased.
 - **Safe by default.** Read-only on mount; write is an explicit per-drive opt-in. No code path runs `mkfs`, `fdisk`, or `parted`.
 - **Reachable anywhere.** Browse from a phone or laptop over LAN or any VPN — local mesh (ZeroTier, WireGuard) or remote access (Tailscale, Cloudflare Tunnel). Switch between installed VPNs from **Settings → System**, no reboot.
+- **One-click public URL.** Turn on a **Cloudflare Tunnel** from **Settings → System** to reach LiteLayer from anywhere — no open ports, no port forwarding. Use the free `*.trycloudflare.com` quick tunnel, or paste a Cloudflare token to serve it on your own domain.
+- **Your look follows you.** Theme, accent, and custom colors **sync across devices**, encrypted at rest on the Pi. Set it on your laptop, sign in on your phone, and everything matches.
 - **Real file manager.** Right-click for **Properties** or **New file**, rename without re-typing the extension, toggle **Autosave** in the editor, and upload whole folders (subdirs preserved) with a live progress bar.
 - **Stays signed in where it matters.** If a terminal session expires, re-auth in place — no logging out of the whole app.
 - **Lightweight.** Installs onto the Raspberry Pi OS you already run. No database, no Docker — runs on a 512 MB Pi Zero 2 W.
@@ -101,18 +103,18 @@ Everything from zero to a working NAS. About 15–20 minutes total.
 - If you have a Pi 3 or older and see issues, choose the 32-bit Lite version instead.
 
 **1.5** Click **CHOOSE STORAGE** and select your microSD card.
-> ⚠️ This will erase everything on that card — double-check the device name before proceeding.
+> Note: This will erase everything on that card — double-check the device name before proceeding.
 
 **1.6** Click **NEXT** → **EDIT SETTINGS** when prompted. Fill in all tabs:
 
 *General tab:*
-- ✅ **Set hostname** — e.g. `litelayer` (you'll access it as `litelayer.local`)
-- ✅ **Set username and password** — username `pi`, choose a strong password
-- ✅ **Configure wireless LAN** — enter your Wi-Fi SSID, password, and country code (skip if using Ethernet)
-- ✅ **Set locale** — your timezone and keyboard layout
+- **Set hostname** — e.g. `litelayer` (you'll access it as `litelayer.local`)
+- **Set username and password** — username `pi`, choose a strong password
+- **Configure wireless LAN** — enter your Wi-Fi SSID, password, and country code (skip if using Ethernet)
+- **Set locale** — your timezone and keyboard layout
 
 *Services tab:*
-- ✅ **Enable SSH** → **"Use password authentication"**
+- **Enable SSH** → **"Use password authentication"**
 
 Click **SAVE**, then **YES** to confirm writing.
 
@@ -182,7 +184,7 @@ The installer will:
 
 Total time: **3–8 minutes** depending on connection speed.
 
-When you see `✓ LiteLayer is running`, it's ready.
+When you see `LiteLayer is running`, it's ready.
 
 ---
 
@@ -219,7 +221,7 @@ LITELAYER_PASSWORD=yourpassword LITELAYER_VPN=none \
   bash <(curl -fsSL https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh)
 ```
 
-VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `none`
+VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `cloudflare` · `none`
 
 ---
 
@@ -239,11 +241,11 @@ VPN options: `tailscale` · `zerotier` · `netbird` · `wireguard` · `none`
 
 | Hardware | RAM | Notes |
 |----------|-----|-------|
-| Pi 3 / 3B+ | 1 GB | ✓ ARM64 or ARMv7; ntfs3 falls back to ntfs-3g on 32-bit kernels |
-| Pi 4 | 2–8 GB | ✓ Full support |
-| Pi 5 | 4–8 GB | ✓ Full support; NVMe HATs work |
-| Pi Zero 2W | 512 MB | ✓ Low RAM mode (1 uvicorn worker) |
-| Future Pi | — | ✓ ARM64 Debian-compatible |
+| Pi 3 / 3B+ | 1 GB | ARM64 or ARMv7; ntfs3 falls back to ntfs-3g on 32-bit kernels |
+| Pi 4 | 2–8 GB | Full support |
+| Pi 5 | 4–8 GB | Full support; NVMe HATs work |
+| Pi Zero 2W | 512 MB | Low RAM mode (1 uvicorn worker) |
+| Future Pi | — | ARM64 Debian-compatible |
 
 **Minimum OS:** Raspberry Pi OS Bullseye (Python 3.9+). Bookworm recommended (Python 3.11, ntfs3 in kernel).
 
@@ -290,9 +292,17 @@ POST /api/drives/{id}/unmount            eject
 POST /api/drives/{id}/enable-write       opt-in read-write
 GET  /api/files?drive=&path=             directory listing
 GET  /api/files/download?drive=&path=    download file
+GET  /api/settings                       pull synced UI settings (encrypted at rest)
+PUT  /api/settings                       push synced UI settings
+GET  /api/system/cloudflare              Cloudflare Tunnel status + public URL
+POST /api/system/cloudflare              enable/disable the tunnel (quick or token)
 GET  /api/ota/status                     check for updates
 POST /api/ota/update                     apply update
 ```
+
+### Settings sync
+
+Your appearance choices (theme, accent, custom colors, single-click, status pills, boot-drive view) are stored once on the Pi, **encrypted at rest** with Fernet, and pulled on every sign-in — so a phone shows the same look you set on a laptop. One account, one synced copy; the browser keeps the live values and the Pi keeps the encrypted mirror.
 
 ---
 
@@ -301,9 +311,18 @@ POST /api/ota/update                     apply update
 → See **[docs/vpn.md](docs/vpn.md)** for full setup per provider.
 
 Caddy binds on all interfaces — any VPN works without app changes.
-Supported (installer can set up): Tailscale · ZeroTier · Netbird · WireGuard · Cloudflare Tunnel (documented seam).
+Supported (installer can set up): Tailscale · ZeroTier · Netbird · WireGuard · Cloudflare Tunnel.
 
 VPNs group as **local mesh** (ZeroTier, WireGuard) and **remote access** (Tailscale, Cloudflare Tunnel) in **Settings → System → VPN**. Install one over SSH, then click **Use this** to switch — it enables the chosen VPN and turns the others off, no reboot.
+
+### Cloudflare Tunnel (one-click, in the UI)
+
+The Cloudflare Tunnel is the one path you can turn on directly from **Settings → System → Cloudflare Tunnel** — it's an outbound connection, so toggling it can never cut off your LAN or SSH the way flipping a mesh VPN can. It also runs alongside any mesh VPN.
+
+- **Quick tunnel** — flip the toggle. LiteLayer installs `cloudflared`, starts the tunnel, and shows your free `https://<random>.trycloudflare.com` URL. No Cloudflare account, no open ports. The URL changes if the tunnel restarts.
+- **Your own domain** — create a tunnel in the Cloudflare Zero Trust dashboard, copy its connector token, and paste it under **Use your own domain** for a stable custom hostname.
+
+Full setup, including the named-tunnel route, is in [docs/vpn.md](docs/vpn.md#cloudflare-tunnel).
 
 ---
 

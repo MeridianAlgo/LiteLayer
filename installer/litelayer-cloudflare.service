@@ -1,5 +1,5 @@
 [Unit]
-Description=LiteLayer Cloudflare Quick Tunnel
+Description=LiteLayer Cloudflare Tunnel
 Documentation=https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/
 After=network-online.target litelayer.service
 Wants=network-online.target
@@ -7,7 +7,12 @@ Requires=litelayer.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/cloudflared tunnel --url http://localhost:8000
+# Default: free quick tunnel (random *.trycloudflare.com URL). A named tunnel set
+# up from the UI drops a /etc/litelayer/cloudflare.env that overrides CF_TUNNEL_ARGS
+# with `run --token <token>` for a stable custom domain.
+Environment=CF_TUNNEL_ARGS=--url http://localhost:8000
+EnvironmentFile=-/etc/litelayer/cloudflare.env
+ExecStart=/usr/bin/cloudflared tunnel $CF_TUNNEL_ARGS
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal

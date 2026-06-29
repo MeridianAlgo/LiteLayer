@@ -93,6 +93,39 @@ Pass the session as an HttpOnly cookie (`litelayer_session`) or as
 
 ---
 
+## Settings (cross-device, encrypted at rest)
+
+The UI keeps the live appearance values in the browser's `localStorage`; these
+endpoints store one signed-in copy on the Pi so a second device pulls the same
+look on login. The blob is encrypted at rest (Fernet; key in
+`/etc/litelayer/settings.key`, mode 0600). One account, one synced copy.
+
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| GET | `/api/settings` | — | `{ "settings": { ... } }` — the synced key/value map |
+| PUT | `/api/settings` | `{ "settings": { ... } }` | Replace the synced map (max 64 KB) |
+
+Synced keys: `ll-theme`, `ll-accent`, `ll-accent-hex`, `ll-custom-colors`,
+`ll-single-click`, `ll-hide-stats`, `ll-boot-drive`.
+
+## Cloudflare Tunnel
+
+Enable a public URL straight from the app. Safe to toggle from the UI — the tunnel
+is outbound, so it can't break LAN/SSH, and it coexists with any mesh VPN.
+
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| GET | `/api/system/cloudflare` | — | `{ installed, active, mode, url }` (`mode`: `quick`/`token`/`null`) |
+| POST | `/api/system/cloudflare` | `{ "action": "enable", "mode": "quick" }` | Install (if needed) + start a free quick tunnel |
+| POST | `/api/system/cloudflare` | `{ "action": "enable", "mode": "token", "token": "…" }` | Run a named tunnel on your own domain |
+| POST | `/api/system/cloudflare` | `{ "action": "disable" }` | Stop and disable the tunnel |
+
+Enable runs in the background (apt install can take a minute); poll
+`GET /api/system/cloudflare` for `url`, and `GET /api/system/vpn/status` for any
+`error`.
+
+---
+
 ## Error format
 
 All errors return standard FastAPI JSON:

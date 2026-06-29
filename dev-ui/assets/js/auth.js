@@ -21,6 +21,7 @@ function showLogin() {
 
 function showApp() {
   hide('view-login'); show('view-app'); startOtaPoll(); startStatsPoll();
+  pullSettings();   // pull this account's synced theme/look from the Pi
   applyStatsPillsPref();
   // Re-apply boot-drive visibility (backend flag resets on restart)
   if (localStorage.getItem('ll-boot-drive') === '1') {
