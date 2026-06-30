@@ -79,6 +79,64 @@ def list_dir(
     return DirListing(drive_id=drive, path=display_path, entries=entries)
 
 
+class SearchResult(BaseModel):
+    drive_id: str
+    query: str
+    entries: list[FileEntry]
+    truncated: bool      # True if the result cap was hit (refine the query)
+
+
+@router.get("/search", response_model=SearchResult)
+def search(
+    drive: str = Query(..., description="Drive UUID"),
+    q: str = Query(..., min_length=1, description="Name substring to find"),
+    tok: str = Depends(current_token),
+    limit: int = Query(default=500, le=2000),
+):
+    """Walk the WHOLE drive and return every file/folder whose name contains q
+    (case-insensitive). This is the recursive 'find anywhere' search — unlike the
+    plain listing, it descends into every subfolder."""
+    pinlock.assert_access(drive, tok)
+    d = registry.get(drive)
+    if not d:
+        raise HTTPException(404, "Drive not found")
+    if not d.mount_point:
+        raise HTTPException(409, "Drive not mounted — mount it first")
+
+    root = Path(d.mount_point)
+    needle = q.casefold()
+    entries: list[FileEntry] = []
+    truncated = False
+
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        # Don't descend into the Windows system-metadata folder.
+        dirnames[:] = [dn for dn in dirnames if dn != "System Volume Information"]
+        base = Path(dirpath)
+        for name in dirnames + filenames:
+            if needle not in name.casefold():
+                continue
+            item = base / name
+            try:
+                st = item.stat(follow_symlinks=False)
+                rel = item.relative_to(root)
+            except (OSError, ValueError):
+                continue
+            entries.append(FileEntry(
+                name=name,
+                path="/" + str(rel).replace("\\", "/"),
+                is_dir=item.is_dir(),
+                size_bytes=st.st_size,
+                modified=st.st_mtime,
+            ))
+            if len(entries) >= limit:
+                truncated = True
+                break
+        if truncated:
+            break
+
+    return SearchResult(drive_id=drive, query=q, entries=entries, truncated=truncated)
+
+
 @router.get("/download")
 def download_file(
     drive: str = Query(...),

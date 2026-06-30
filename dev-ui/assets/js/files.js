@@ -30,6 +30,9 @@ function _applyThumb(cell, url) {
 let _typeFilter = 'all';
 let _sortKey    = 'name';  // 'name' | 'size' | 'modified'
 let _sortAsc    = true;
+let _searchResults = null; // recursive matches from across the whole drive, or null
+let _searchSeq  = 0;       // guards against out-of-order responses
+let _searchTimer = null;
 
 const _TYPE_EXTS = {
   image:   new Set(['jpg','jpeg','png','gif','webp','svg','bmp','ico','avif','heic','raw','tiff']),
@@ -43,7 +46,7 @@ const _TYPE_EXTS = {
 function setTypeFilter(type) {
   _typeFilter = type;
   document.querySelectorAll('.type-pill').forEach(el => el.classList.toggle('active', el.dataset.type === type));
-  applyFilters();
+  applyView();
 }
 
 function setSort(key) {
@@ -52,14 +55,35 @@ function setSort(key) {
     el.classList.toggle('active', el.dataset.sort === key);
     if (el.dataset.sort === key) el.dataset.dir = _sortAsc ? 'asc' : 'desc';
   });
-  applyFilters();
+  applyView();
 }
 
-function applyFilters() {
-  const text = (document.getElementById('file-search')?.value || '').trim().toLowerCase();
-  let entries = [...dirEntries];
+// Search box: debounce, then walk the WHOLE drive on the server for matches.
+function filterFiles(q) {
+  clearTimeout(_searchTimer);
+  const text = (document.getElementById('file-search')?.value || '').trim();
+  if (!text) { _searchResults = null; applyView(); return; }
+  _searchTimer = setTimeout(runSearch, 250);
+}
 
-  if (text) entries = entries.filter(e => e.name.toLowerCase().includes(text));
+async function runSearch() {
+  const text = (document.getElementById('file-search')?.value || '').trim();
+  if (!text || !currentDriveId) { _searchResults = null; applyView(); return; }
+  const seq = ++_searchSeq;
+  const r = await api(`/api/files/search?drive=${currentDriveId}&q=${encodeURIComponent(text)}`, { bg: true });
+  if (!r || seq !== _searchSeq) return;   // a newer keystroke already fired
+  if (!r.ok) { toast('Search failed', 'error', 2500); return; }
+  const data = await r.json();
+  _searchResults = data.entries.filter(e => e.name !== 'System Volume Information');
+  applyView();
+  if (data.truncated) toast(`Showing the first ${_searchResults.length} matches — refine your search`, 'info', 3000);
+}
+
+// Apply the active type filter + sort to whatever base set we're showing (the
+// drive-wide search results when searching, else the current folder).
+function applyView() {
+  const searching = _searchResults !== null;
+  let entries = [...(searching ? _searchResults : dirEntries)];
 
   if (_typeFilter !== 'all') {
     entries = entries.filter(e => {
@@ -69,7 +93,6 @@ function applyFilters() {
     });
   }
 
-  // Sort (dirs always first, then by chosen key)
   entries.sort((a, b) => {
     if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
     let av, bv;
@@ -81,11 +104,12 @@ function applyFilters() {
     return 0;
   });
 
-  _filtered = (text || _typeFilter !== 'all') ? entries : null;
-  clearSel(false); renderFiles(_filtered || dirEntries, currentPath);
+  _filtered = (searching || _typeFilter !== 'all') ? entries : null;
+  clearSel(false);
+  renderFiles(_filtered || dirEntries, currentPath, searching);
 }
 
-function filterFiles(q) { applyFilters(); }
+function applyFilters() { applyView(); }   // back-compat for other callers
 
 // ── File browser ──────────────────────────────────────────────────────────────
 
@@ -121,8 +145,16 @@ function setBreadcrumb(crumbs) {
   nav.innerHTML = parts.join('');
 }
 
+let _revealPath = null;   // a file to select once its folder finishes loading
+
+function revealInFolder(path) {
+  _revealPath = path;
+  const parent = path.split('/').slice(0, -1).join('/') || '/';
+  openDir(parent);   // exits search (loadFiles clears it) and selects the file
+}
+
 async function loadFiles(path) {
-  currentPath = path; _filtered = null;
+  currentPath = path; _filtered = null; _searchResults = null;
   document.getElementById('file-search').value = '';
   clearSel(false);
   const container = document.getElementById('files-container');
@@ -135,6 +167,15 @@ async function loadFiles(path) {
   }
   // Hide the Windows-created "System Volume Information" folder (per-drive system metadata).
   const data = await r.json(); dirEntries = data.entries.filter(e => e.name !== 'System Volume Information'); renderFiles(dirEntries, path);
+  // If we navigated here to reveal a search hit, select it now.
+  if (_revealPath) {
+    const rp = _revealPath; _revealPath = null;
+    const i = dirEntries.findIndex(e => e.path === rp);
+    if (i >= 0) {
+      _sel = new Set([rp]); _lastClickIdx = i; updateSelBar(); renderFiles(dirEntries, path);
+      document.querySelector(`.file-row[data-idx="${i}"], .file-cell[data-idx="${i}"]`)?.scrollIntoView({ block: 'center' });
+    }
+  }
 }
 
 // ── Selection ─────────────────────────────────────────────────────────────────
@@ -173,6 +214,9 @@ function handleFileOpen(idx) {
   const entries = _filtered || dirEntries, entry = entries[idx];
   if (!entry) return;
   if (entry.is_dir) { openDir(entry.path, entry.name); return; }
+  // A search hit lives in another folder — jump to it there (where previews/actions
+  // have the right context), selecting the file on arrival.
+  if (_searchResults !== null) { revealInFolder(entry.path); return; }
   if (isImageFile(entry.name)) { const fi = dirEntries.findIndex(x => x.path === entry.path); openImageViewer(fi >= 0 ? fi : idx); return; }
   if (isPdfFile(entry.name))   { const fi = dirEntries.findIndex(x => x.path === entry.path); openPdfViewer(fi >= 0 ? fi : idx); return; }
   if (isDocxFile(entry.name))  { openDocxViewer(idx); return; }
@@ -623,8 +667,9 @@ async function uploadFiles(files) {
 
 // ── Render ────────────────────────────────────────────────────────────────────
 
-function renderFiles(entries, path) {
+function renderFiles(entries, path, searching = false) {
   const container = document.getElementById('files-container');
+  const subPath = e => { const p = e.path.split('/').slice(0, -1).join('/'); return p || '/'; };
   const upRow  = path !== '/' ? `<div class="file-row" onclick="navigateUp()" ondragover="onUpDragOver(event,this)" ondragleave="this.classList.remove('drop-into')" ondrop="onUpDrop(event)" title="Drop here to move up a folder"><div class="file-row-check"></div><div class="fi-wrap" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-row-name" style="color:var(--text-3);font-size:12px">..</div><div class="file-row-date"></div><div class="file-row-size"></div><div class="file-row-dl"></div></div>` : '';
   const upCell = path !== '/' ? `<div class="file-cell" onclick="navigateUp()" ondragover="onUpDragOver(event,this)" ondragleave="this.classList.remove('drop-into')" ondrop="onUpDrop(event)" title="Drop here to move up a folder"><div class="fi-wrap fi-wrap-lg" style="background:rgba(155,143,207,0.08);color:var(--text-3)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg></div><div class="file-cell-name">..</div></div>` : '';
 
@@ -644,7 +689,7 @@ function renderFiles(entries, path) {
       return `<div class="file-row${sel ? ' selected' : ''}" data-idx="${i}" draggable="true" ondragstart="onItemDragStart(event,${i})"${drop} onclick="handleFileClick(${i},event)" ondblclick="handleFileOpen(${i})" oncontextmenu="showCtxMenu(event,${i});return false">
         <div class="file-row-check">${sel ? '<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
         ${fileIconHtml(e.name, e.is_dir)}
-        <div class="file-row-name" title="${esc(e.name)}"${tc ? ` style="color:${tc}"` : ''}>${esc(e.name)}</div>
+        <div class="file-row-name" title="${esc(e.name)}"${tc ? ` style="color:${tc}"` : ''}>${esc(e.name)}${searching ? `<small style="display:block;color:var(--text-3);font-size:10px;font-weight:400;line-height:1.1">${esc(subPath(e))}</small>` : ''}</div>
         <div class="file-row-date">${fmtDate(e.modified)}</div>
         <div class="file-row-size">${e.is_dir ? '—' : fmt(e.size_bytes)}</div>
         <div class="file-row-dl">${!e.is_dir ? `<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();downloadFile('${esc(e.path)}','${esc(e.name)}')" title="Download"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg></button>` : ''}</div>
@@ -659,7 +704,7 @@ function renderFiles(entries, path) {
       return `<div class="file-cell${sel ? ' selected' : ''}" data-idx="${i}" draggable="true" ondragstart="onItemDragStart(event,${i})"${drop} onclick="handleFileClick(${i},event)" ondblclick="handleFileOpen(${i})" oncontextmenu="showCtxMenu(event,${i});return false" title="${esc(e.name)}"${isImg ? ` data-preview-src="${esc(thumbSrc)}"` : ''}>
         ${isImg ? `<div class="file-cell-thumb fi-wrap-lg"></div>` : fileIconHtml(e.name, e.is_dir, 19, 'fi-wrap-lg')}
         <div class="file-cell-name"${tc ? ` style="color:${tc}"` : ''}>${esc(e.name)}</div>
-        <div class="file-cell-size">${e.is_dir ? '' : fmt(e.size_bytes)}</div>
+        <div class="file-cell-size">${searching ? esc(subPath(e)) : (e.is_dir ? '' : fmt(e.size_bytes))}</div>
       </div>`;
     }).join('')}</div>`;
     container.querySelectorAll('[data-preview-src]').forEach(el => _thumbObserver.observe(el));
