@@ -39,10 +39,21 @@ async function doLogin() {
   if (!username || !password) { err.textContent = 'Enter username and password.'; err.style.display = 'block'; return; }
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Signing in…'; err.style.display = 'none';
   try {
-    const r = await fetch(API + '/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body:JSON.stringify({username, password})});
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail || 'Login failed');
-    authToken = data.token; setUser(username); showApp(); loadDrives();
+    let code = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const body = JSON.stringify(code == null ? {username, password} : {username, password, code});
+      const r = await fetch(API + '/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body});
+      const data = await r.json();
+      if (r.ok) { authToken = data.token; setUser(username); showApp(); loadDrives(); return; }
+      if (data.detail === '2fa_required' || (code != null && data.detail === 'Invalid 2FA code')) {
+        code = prompt(data.detail === 'Invalid 2FA code' ? 'That code was wrong — enter the current 6-digit code:' : 'Enter your 6-digit authentication code:');
+        if (code == null) break;          // cancelled
+        continue;                          // resubmit with the code
+      }
+      throw new Error(data.detail || 'Login failed');
+    }
+    err.textContent = 'Sign-in cancelled.'; err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Sign In';
   } catch (e) {
     err.textContent = e.message; err.style.display = 'block';
     btn.disabled = false; btn.textContent = 'Sign In';

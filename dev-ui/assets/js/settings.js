@@ -16,12 +16,134 @@ function closeSettings() { hide('settings-overlay'); }
 
 function setSettingsTab(tab) {
   _settingsTab = tab;
-  ['appearance','account','about','system'].forEach(t => {
+  ['appearance','account','devices','about','system'].forEach(t => {
     document.getElementById(`stab-${t}`)?.classList.toggle('hidden', t !== tab);
     document.getElementById(`snav-${t}`)?.classList.toggle('active', t === tab);
   });
   if (tab === 'about')   _loadAbout();
   if (tab === 'system')  _loadSystem();
+  if (tab === 'devices') _loadDevices();
+  if (tab === 'account') _loadTwoFA();
+}
+
+// ── Two-factor auth ─────────────────────────────────────────────────────────────
+
+async function _loadTwoFA() {
+  const box = document.getElementById('twofa-box');
+  if (!box) return;
+  const r = await api('/api/auth/2fa');
+  const on = r?.ok && (await r.json()).enabled;
+  box.innerHTML = on
+    ? `<div class="toggle-row"><div class="toggle-row-text" style="color:var(--green)">✓ Two-factor is on</div>
+         <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="disable2FA()">Turn off</button></div>`
+    : `<button class="btn btn-primary btn-sm" onclick="setup2FA()">Set up two-factor</button>`;
+}
+
+async function setup2FA() {
+  const pw = await askPassword('Set up two-factor', 'Enter your password to begin.');
+  if (pw == null) return;
+  const r = await api('/api/auth/2fa/setup', { method: 'POST', body: JSON.stringify({ password: pw }) });
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not start setup', 'error'); return; }
+  const d = await r.json();
+  const box = document.getElementById('twofa-box');
+  box.innerHTML = `
+    <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start">
+      <div style="width:160px;background:#fff;padding:8px;border-radius:8px">${d.qr_svg}</div>
+      <div style="flex:1;min-width:200px">
+        <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">Scan with your authenticator app, or enter this key manually:</div>
+        <div style="font-family:var(--mono);font-size:12px;word-break:break-all;margin-bottom:12px">${esc(d.secret)}</div>
+        <div class="field"><label>Enter the 6-digit code to confirm</label><input id="twofa-code" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code"></div>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="confirm2FA()">Confirm & enable</button>
+      </div>
+    </div>`;
+}
+
+async function confirm2FA() {
+  const code = document.getElementById('twofa-code').value.trim();
+  const r = await api('/api/auth/2fa/confirm', { method: 'POST', body: JSON.stringify({ code }) });
+  if (r?.ok) { toast('Two-factor enabled', 'success'); _loadTwoFA(); }
+  else { const e = await r.json().catch(() => ({})); toast(e.detail || 'Wrong code', 'error'); }
+}
+
+async function disable2FA() {
+  const pw = await askPassword('Turn off two-factor', 'Enter your password to disable 2FA.');
+  if (pw == null) return;
+  const r = await api('/api/auth/2fa/disable', { method: 'POST', body: JSON.stringify({ password: pw }) });
+  if (r?.ok) { toast('Two-factor disabled', 'success'); _loadTwoFA(); }
+  else { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not disable', 'error'); }
+}
+
+async function signOutOthers() {
+  if (!confirm('Sign out every other device? They will need to sign in again.')) return;
+  const r = await api('/api/auth/signout-others', { method: 'POST' });
+  if (r?.ok) { toast(`Ended ${(await r.json()).ended} other session(s)`, 'success'); _loadDevices(); }
+}
+
+// ── Devices tab (trusted-device allowlist) ──────────────────────────────────────
+
+async function _loadDevices() {
+  const sw = document.getElementById('devices-enforce-sw');
+  const list = document.getElementById('devices-list');
+  const r = await api('/api/devices');
+  if (!r?.ok) { if (list) list.innerHTML = '<div style="color:var(--text-3);font-size:12px">Could not load devices.</div>'; return; }
+  const d = await r.json();
+  sw?.classList.toggle('on', d.enforce);
+  if (!d.devices.length) { list.innerHTML = '<div style="color:var(--text-3);font-size:12px">No devices yet.</div>'; return; }
+  const ago = ts => { const s = Date.now()/1000 - ts; if (s < 60) return 'just now'; if (s < 3600) return Math.floor(s/60)+'m ago'; if (s < 86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; };
+  list.innerHTML = d.devices.map(dev => `
+    <div class="toggle-row" style="align-items:center">
+      <div class="toggle-row-text">${esc(dev.label || 'Device')}${dev.current ? ' <span style="color:var(--accent);font-size:10px;font-weight:600">· this device</span>' : ''}
+        <small>${esc(dev.last_ip || '—')} · last seen ${ago(dev.last_seen || 0)}</small>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-xs" onclick="renameDevice('${esc(dev.id)}','${esc(dev.label || '')}')">Rename</button>
+        ${dev.current && d.enforce ? '' : `<button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removeDevice('${esc(dev.id)}','${esc(dev.label || 'this device')}')">Remove</button>`}
+      </div>
+    </div>`).join('');
+  _loadSessions();
+  _loadAudit();
+}
+
+async function _loadSessions() {
+  const box = document.getElementById('sessions-list'); if (!box) return;
+  const r = await api('/api/sessions'); if (!r?.ok) { box.innerHTML = ''; return; }
+  const ago = ts => { const s = Date.now()/1000 - ts; if (s < 60) return 'just now'; if (s < 3600) return Math.floor(s/60)+'m ago'; if (s < 86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; };
+  box.innerHTML = (await r.json()).sessions.map(s =>
+    `<div style="font-size:12px;color:var(--text-3);padding:3px 0">${esc(s.ip || '—')} · started ${ago(s.created)}${s.current ? ' <span style="color:var(--accent);font-weight:600">· this session</span>' : ''}</div>`
+  ).join('') || '<div style="font-size:12px;color:var(--text-3)">—</div>';
+}
+
+async function _loadAudit() {
+  const box = document.getElementById('audit-list'); if (!box) return;
+  const r = await api('/api/audit'); if (!r?.ok) { box.innerHTML = ''; return; }
+  const when = ts => new Date(ts * 1000).toLocaleString();
+  box.innerHTML = (await r.json()).events.slice(0, 30).map(e =>
+    `<div style="padding:2px 0">${when(e.ts)} · <b>${esc(e.event)}</b>${e.user ? ' · ' + esc(e.user) : ''}${e.ip ? ' · ' + esc(e.ip) : ''}${e.detail ? ' · ' + esc(e.detail) : ''}</div>`
+  ).join('') || '<div>No activity yet.</div>';
+}
+
+async function toggleDevicesEnforce() {
+  const sw = document.getElementById('devices-enforce-sw');
+  const enabling = !sw.classList.contains('on');
+  const r = await api('/api/devices/enforce', { method: 'POST', body: JSON.stringify({ enabled: enabling }) });
+  if (!r) return;
+  if (r.ok) { sw.classList.toggle('on', enabling); toast(enabling ? 'Only trusted devices can sign in now' : 'Device restriction off', 'success'); _loadDevices(); }
+  else { const e = await r.json(); toast(e.detail || 'Could not change setting', 'error', 5000); }
+}
+
+async function renameDevice(id, current) {
+  const label = prompt('Name this device:', current);
+  if (label == null) return;
+  const r = await api(`/api/devices/${encodeURIComponent(id)}/rename`, { method: 'POST', body: JSON.stringify({ label: label.trim() }) });
+  if (r?.ok) { toast('Renamed', 'success', 1500); _loadDevices(); }
+}
+
+async function removeDevice(id, label) {
+  if (!confirm(`Remove "${label}"? It will need to sign in again, and won't be allowed to if the restriction is on.`)) return;
+  const r = await api(`/api/devices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!r) return;
+  if (r.ok) { toast('Device removed', 'success'); _loadDevices(); }
+  else { const e = await r.json(); toast(e.detail || 'Could not remove device', 'error', 5000); }
 }
 
 // ── System tab ─────────────────────────────────────────────────────────────────

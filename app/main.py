@@ -13,7 +13,8 @@ from pydantic import BaseModel
 from app.config import CORS_ORIGINS, COOKIE_SECURE, DEV_UI_PATH, SESSION_TTL_HOURS
 from app.deps import require_auth
 from app.routers import drives, files, ota
-from auth import sessions, store as auth_store
+from auth import sessions, store as auth_store, devices, twofa
+from app import audit, throttle
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,14 +47,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from urllib.parse import urlparse
+
+# Hosts allowed to make cookie-authenticated, state-changing requests (CSRF guard).
+_ALLOWED_ORIGIN_HOSTS = {urlparse(o).netloc for o in CORS_ORIGINS}
+
+
 @app.middleware("http")
 async def _security_and_cache(request: Request, call_next):
+    # CSRF: a cross-site page can't read our token, but it can ride the session cookie
+    # on a state-changing request. Reject those unless the Origin is us (or an allowed
+    # dev origin). Bearer-token callers carry no cookie and set Origin themselves, so
+    # they're unaffected; cookie-less requests (no session to abuse) pass through.
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.cookies.get("litelayer_session") \
+            and not (request.headers.get("authorization", "").startswith("Bearer ")):
+        origin = request.headers.get("origin") or request.headers.get("referer")
+        host = urlparse(origin).netloc if origin else ""
+        if host and host != request.url.netloc and host not in _ALLOWED_ORIGIN_HOSTS:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({"detail": "Cross-origin request blocked"}, status_code=403)
+
     resp = await call_next(request)
     # Defense in depth: Caddy sets these, but the Cloudflare Tunnel path proxies
     # straight to localhost:8000 and never sees Caddy — so set them here too.
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    # Pragmatic CSP: the UI relies on inline handlers/styles and a few CDN scripts
+    # (xterm, viewers) + Google Fonts, so 'unsafe-inline'/https: stay for now. Still
+    # blocks plugins, framing and <base> hijacking. Upgrade path: vendor the CDN
+    # assets and drop the inline-handler attributes, then tighten to 'self'.
+    resp.headers.setdefault("Content-Security-Policy",
+        "default-src 'self'; script-src 'self' 'unsafe-inline' https:; "
+        "style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:; "
+        "img-src 'self' data: blob: https:; connect-src 'self' https: wss:; "
+        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
     # Never cache the dev UI — otherwise the browser keeps stale JS after an update
     # (e.g. new index.html referencing a function the old cached JS lacks).
     p = request.url.path
@@ -71,16 +99,10 @@ app.include_router(ota.router)
 class LoginRequest(BaseModel):
     username: str
     password: str
+    code: Optional[str] = None   # TOTP 2FA code, when the account has 2FA on
 
 
-# Per-IP login throttle: brute force is the main risk on an internet-exposed NAS.
-# In-memory is fine — single process, and a restart clearing it is harmless.
-# ponytail: dict of recent failure timestamps; swap for redis only if multi-process.
 import time as _time
-
-_login_fails: dict[str, list[float]] = {}
-_LOGIN_WINDOW = 300   # seconds
-_LOGIN_MAX = 10       # failures per window before lockout
 
 
 def _client_ip(request: Request) -> str:
@@ -88,26 +110,74 @@ def _client_ip(request: Request) -> str:
     return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "?")
 
 
+def _is_https(request: Request) -> bool:
+    """True when the client reached us over TLS — directly or via Caddy/the tunnel."""
+    return request.headers.get("x-forwarded-proto", "").split(",")[0].strip() == "https" \
+        or request.url.scheme == "https"
+
+
+def _device_label(request: Request) -> str:
+    """A human label for a device, guessed from its user-agent (best-effort)."""
+    ua = request.headers.get("user-agent", "")
+    osys = next((n for k, n in (
+        ("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"),
+        ("Windows", "Windows"), ("Mac", "macOS"), ("Linux", "Linux")) if k in ua), "Device")
+    br = next((n for k, n in (
+        ("Edg", "Edge"), ("OPR", "Opera"), ("Firefox", "Firefox"),
+        ("Chrome", "Chrome"), ("Safari", "Safari")) if k in ua), "")
+    return f"{br} on {osys}".strip() if br else osys
+
+
 @app.post("/api/login")
 def login(req: LoginRequest, request: Request, response: Response):
     ip = _client_ip(request)
-    now = _time.time()
-    fails = [t for t in _login_fails.get(ip, []) if now - t < _LOGIN_WINDOW]
-    if len(fails) >= _LOGIN_MAX:
-        _login_fails[ip] = fails
-        raise HTTPException(429, "Too many failed logins. Wait a few minutes and try again.")
+    secure = COOKIE_SECURE or _is_https(request)
+
+    wait = throttle.retry_after(f"login:{ip}")
+    if wait:
+        raise HTTPException(429, f"Too many failed logins. Try again in {wait // 60 + 1} min.")
     if not auth_store.verify_password(req.username, req.password):
-        fails.append(now)
-        _login_fails[ip] = fails
+        throttle.record_failure(f"login:{ip}")
+        audit.log("login.fail", user=req.username, ip=ip, detail="bad password")
         raise HTTPException(401, "Invalid credentials")
-    _login_fails.pop(ip, None)   # clear on success
-    token = sessions.create_session(req.username)
+
+    # Second factor, if the account has it on. Done before the device gate so a
+    # missing code can't be used to probe device-trust state.
+    if twofa.is_enabled(req.username) and not twofa.verify(req.username, req.code or ""):
+        if not req.code:
+            raise HTTPException(401, "2fa_required")          # UI shows the code field
+        throttle.record_failure(f"login:{ip}")
+        audit.log("login.fail", user=req.username, ip=ip, detail="bad 2FA code")
+        raise HTTPException(401, "Invalid 2FA code")
+
+    # Trusted-device gate: even with the right password, an unrecognized device is
+    # refused when enforcement is on. After the password so it can't probe which
+    # devices exist.
+    device_id = request.cookies.get("ll_device")
+    if devices.enforce_enabled() and not devices.is_trusted(device_id):
+        audit.log("login.blocked", user=req.username, ip=ip, detail="untrusted device")
+        raise HTTPException(
+            403,
+            "This device isn't approved to sign in. Approve it from a trusted device, "
+            "or turn off the trusted-device restriction in Settings.",
+        )
+    if not device_id:
+        device_id = devices.new_id()
+        response.set_cookie(
+            key="ll_device", value=device_id, httponly=True, samesite="lax",
+            secure=secure, max_age=365 * 24 * 3600,
+        )
+    devices.remember(device_id, _device_label(request), ip)
+
+    throttle.clear(f"login:{ip}")
+    token = sessions.create_session(req.username, device=device_id, ip=ip)
+    audit.log("login.ok", user=req.username, ip=ip)
     response.set_cookie(
         key="litelayer_session",
         value=token,
         httponly=True,
         samesite="lax",
-        secure=COOKIE_SECURE,   # Caddy terminates TLS; set LITELAYER_COOKIE_SECURE=1 if serving HTTPS directly
+        secure=secure,   # auto-on over HTTPS/tunnel; LITELAYER_COOKIE_SECURE=1 forces it
         max_age=SESSION_TTL_HOURS * 3600,
     )
     return {"token": token, "username": req.username}
@@ -117,7 +187,10 @@ def login(req: LoginRequest, request: Request, response: Response):
 def logout(request: Request, response: Response):
     token = request.cookies.get("litelayer_session")
     if token:
+        user = sessions.validate_session(token)
         sessions.delete_session(token)
+        if user:
+            audit.log("logout", user=user, ip=_client_ip(request))
     response.delete_cookie("litelayer_session")
     return {"status": "ok"}
 
@@ -126,6 +199,111 @@ def logout(request: Request, response: Response):
 def me(username: str = Depends(require_auth)):
     """Quick auth check — 401 if not logged in, username otherwise."""
     return {"username": username}
+
+
+# ── Trusted devices ───────────────────────────────────────────────────────────
+# An allowlist of devices that may sign in. See auth/devices.py.
+
+@app.get("/api/devices")
+def list_devices(request: Request, _: str = Depends(require_auth)):
+    return devices.listing(request.cookies.get("ll_device"))
+
+
+class EnforceRequest(BaseModel):
+    enabled: bool
+
+
+@app.post("/api/devices/enforce")
+def set_devices_enforce(req: EnforceRequest, request: Request, username: str = Depends(require_auth)):
+    # Don't let someone lock themselves out: this device must be trusted before
+    # we start refusing every untrusted one.
+    if req.enabled and not devices.is_trusted(request.cookies.get("ll_device")):
+        raise HTTPException(400, "Sign in once on this device first so it's on the trusted list.")
+    devices.set_enforce(req.enabled)
+    audit.log("devices.enforce", user=username, ip=_client_ip(request),
+              detail="on" if req.enabled else "off")
+    return {"enforce": req.enabled}
+
+
+class DeviceLabelRequest(BaseModel):
+    label: str
+
+
+@app.post("/api/devices/{device_id}/rename")
+def rename_device(device_id: str, req: DeviceLabelRequest, _: str = Depends(require_auth)):
+    if not devices.rename(device_id, req.label.strip()):
+        raise HTTPException(404, "Device not found")
+    return {"status": "ok"}
+
+
+@app.delete("/api/devices/{device_id}")
+def remove_device(device_id: str, request: Request, username: str = Depends(require_auth)):
+    # Removing the device you're on while enforcement is on would lock you out.
+    if device_id == request.cookies.get("ll_device") and devices.enforce_enabled():
+        raise HTTPException(400, "Can't remove the device you're using while the restriction is on.")
+    devices.remove(device_id)
+    audit.log("devices.remove", user=username, ip=_client_ip(request), detail=device_id[:8])
+    return {"status": "ok"}
+
+
+# ── Sessions, 2FA, audit ──────────────────────────────────────────────────────
+
+@app.get("/api/sessions")
+def list_sessions(request: Request, username: str = Depends(require_auth)):
+    token = request.cookies.get("litelayer_session") or ""
+    return {"sessions": sessions.list_for_user(username, token)}
+
+
+@app.post("/api/auth/signout-others")
+def signout_others(request: Request, username: str = Depends(require_auth)):
+    token = request.cookies.get("litelayer_session") or ""
+    n = sessions.delete_others(username, token)
+    audit.log("session.signout_others", user=username, ip=_client_ip(request), detail=f"{n} ended")
+    return {"ended": n}
+
+
+@app.get("/api/auth/2fa")
+def twofa_status(username: str = Depends(require_auth)):
+    return {"enabled": twofa.is_enabled(username)}
+
+
+class PasswordOnly(BaseModel):
+    password: str
+
+
+@app.post("/api/auth/2fa/setup")
+def twofa_setup(req: PasswordOnly, username: str = Depends(require_auth)):
+    if not auth_store.verify_password(username, req.password):
+        raise HTTPException(401, "Password incorrect")
+    if twofa.is_enabled(username):
+        raise HTTPException(409, "2FA is already on")
+    return twofa.begin_setup(username)
+
+
+class CodeOnly(BaseModel):
+    code: str
+
+
+@app.post("/api/auth/2fa/confirm")
+def twofa_confirm(req: CodeOnly, request: Request, username: str = Depends(require_auth)):
+    if not twofa.confirm(username, req.code):
+        raise HTTPException(400, "That code didn't match — try the current one.")
+    audit.log("2fa.enabled", user=username, ip=_client_ip(request))
+    return {"enabled": True}
+
+
+@app.post("/api/auth/2fa/disable")
+def twofa_disable(req: PasswordOnly, request: Request, username: str = Depends(require_auth)):
+    if not auth_store.verify_password(username, req.password):
+        raise HTTPException(401, "Password incorrect")
+    twofa.disable(username)
+    audit.log("2fa.disabled", user=username, ip=_client_ip(request))
+    return {"enabled": False}
+
+
+@app.get("/api/audit")
+def get_audit(_: str = Depends(require_auth)):
+    return {"events": audit.recent(100)}
 
 
 # ── Cross-device UI settings (encrypted at rest) ──────────────────────────────
@@ -159,9 +337,10 @@ class UpdateCredentialsRequest(BaseModel):
 
 
 @app.post("/api/auth/update-credentials")
-def update_credentials(req: UpdateCredentialsRequest, username: str = Depends(require_auth)):
+def update_credentials(req: UpdateCredentialsRequest, request: Request, username: str = Depends(require_auth)):
     if not auth_store.verify_password(username, req.current_password):
         raise HTTPException(401, "Current password is incorrect")
+    audit.log("credentials.update", user=username, ip=_client_ip(request))
     new_pass = req.new_password or None
     if new_pass and len(new_pass) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
@@ -817,22 +996,49 @@ class TerminalToggleRequest(BaseModel):
 
 
 @app.post("/api/system/terminal/toggle")
-def terminal_toggle(req: TerminalToggleRequest, username: str = Depends(require_auth)):
+def terminal_toggle(req: TerminalToggleRequest, request: Request, username: str = Depends(require_auth)):
     # Re-enabling is the sensitive direction — gate it behind the password.
     if req.enabled and not auth_store.verify_password(username, req.password or ""):
         raise HTTPException(401, "Password required to re-enable the terminal")
     _persist.set_terminal_enabled(req.enabled)
+    audit.log("terminal.toggle", user=username, ip=_client_ip(request),
+              detail="on" if req.enabled else "off")
     return {"enabled": req.enabled}
 
 
-# A real PTY bridged over a websocket. Auth via the session token in the query
-# string (browsers can't set headers on a WebSocket). Linux-only — uses os/pty.
+# Short-lived, single-use tickets to open the root shell. Opening it requires a fresh
+# password (re-auth), so a hijacked session alone can't drop into a root shell.
+_terminal_tickets: dict[str, float] = {}
+
+
+@app.post("/api/system/terminal/ticket")
+def terminal_ticket(req: PasswordOnly, request: Request, username: str = Depends(require_auth)):
+    if not _persist.is_terminal_enabled():
+        raise HTTPException(403, "Terminal is disabled")
+    if not auth_store.verify_password(username, req.password):
+        raise HTTPException(401, "Password incorrect")
+    import secrets as _secrets
+    now = _time.time()
+    for t in [t for t, exp in _terminal_tickets.items() if exp <= now]:
+        del _terminal_tickets[t]
+    ticket = _secrets.token_hex(16)
+    _terminal_tickets[ticket] = now + 30        # 30s to open the socket
+    audit.log("terminal.open", user=username, ip=_client_ip(request))
+    return {"ticket": ticket}
+
+
+# A real PTY bridged over a websocket. Opening requires a one-time ticket (above) on
+# top of a valid session, so re-auth is enforced even though a WS can't carry headers.
+# Linux-only — uses os/pty.
 # ponytail: shell runs as whatever user runs LiteLayer; this is the same
-# privilege level the app already wields (remount, reset, boot-drive). Auth-gated.
+# privilege level the app already wields (remount, reset, boot-drive).
 @app.websocket("/api/system/terminal")
-async def terminal_ws(ws: WebSocket, token: str = Query(default="")):
+async def terminal_ws(ws: WebSocket, token: str = Query(default=""), ticket: str = Query(default="")):
     import asyncio
     if not sessions.validate_session(token):
+        await ws.close(code=4401)
+        return
+    if _terminal_tickets.pop(ticket, 0) < _time.time():   # missing/expired → reject
         await ws.close(code=4401)
         return
     if not _persist.is_terminal_enabled():

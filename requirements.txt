@@ -5,3 +5,5 @@ argon2-cffi>=23.1.0
 cryptography>=42.0.0
 pyudev>=0.24.3
 aiofiles>=23.2.1
+pyotp>=2.9.0
+qrcode>=7.4.2

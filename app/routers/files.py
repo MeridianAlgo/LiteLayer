@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from drives import registry
-from app.deps import require_auth
+from drives import registry, pinlock
+from app.deps import require_auth, current_token
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -38,8 +38,9 @@ class DirListing(BaseModel):
 def list_dir(
     drive: str = Query(..., description="Drive UUID"),
     path: str = Query(default="/", description="Path relative to drive root"),
-    _: str = Depends(require_auth),
+    tok: str = Depends(current_token),
 ):
+    pinlock.assert_access(drive, tok)
     d = registry.get(drive)
     if not d:
         raise HTTPException(404, "Drive not found")
@@ -82,8 +83,9 @@ def list_dir(
 def download_file(
     drive: str = Query(...),
     path: str = Query(...),
-    _: str = Depends(require_auth),
+    tok: str = Depends(current_token),
 ):
+    pinlock.assert_access(drive, tok)
     d = registry.get(drive)
     if not d:
         raise HTTPException(404, "Drive not found")
@@ -129,8 +131,9 @@ async def upload_file(
     drive: str = Query(...),
     path: str = Query(default="/"),
     file: UploadFile = File(...),
-    _: str = Depends(require_auth),
+    tok: str = Depends(current_token),
 ):
+    pinlock.assert_access(drive, tok)
     d = registry.get(drive)
     if not d:
         raise HTTPException(404, "Drive not found")
@@ -210,7 +213,8 @@ class MkdirRequest(BaseModel):
 
 
 @router.post("/mkdir")
-def mkdir(req: MkdirRequest, _: str = Depends(require_auth)):
+def mkdir(req: MkdirRequest, tok: str = Depends(current_token)):
+    pinlock.assert_access(req.drive, tok)
     d = registry.get(req.drive)
     if not d:
         raise HTTPException(404, "Drive not found")
@@ -241,10 +245,11 @@ class MoveRequest(BaseModel):
 
 
 @router.post("/move")
-def move_files(req: MoveRequest, _: str = Depends(require_auth)):
+def move_files(req: MoveRequest, tok: str = Depends(current_token)):
     """Move files/folders into a folder on the SAME drive (instant rename).
     Cross-drive transfers go through /transfer."""
     import shutil
+    pinlock.assert_access(req.drive, tok)
     d = registry.get(req.drive)
     if not d:
         raise HTTPException(404, "Drive not found")
@@ -283,7 +288,8 @@ class RenameRequest(BaseModel):
 
 
 @router.post("/rename")
-def rename(req: RenameRequest, _: str = Depends(require_auth)):
+def rename(req: RenameRequest, tok: str = Depends(current_token)):
+    pinlock.assert_access(req.drive, tok)
     d = registry.get(req.drive)
     if not d:
         raise HTTPException(404, "Drive not found")
@@ -395,7 +401,9 @@ class TransferRequest(BaseModel):
 
 
 @router.post("/transfer")
-def transfer(req: TransferRequest, _: str = Depends(require_auth)):
+def transfer(req: TransferRequest, tok: str = Depends(current_token)):
+    pinlock.assert_access(req.src_drive, tok)
+    pinlock.assert_access(req.dst_drive, tok)
     src = registry.get(req.src_drive)
     dst = registry.get(req.dst_drive)
     if not src or not dst:
@@ -441,8 +449,9 @@ def transfer_status(_: str = Depends(require_auth)):
 
 
 @router.delete("")
-def delete(req: DeleteRequest, _: str = Depends(require_auth)):
+def delete(req: DeleteRequest, tok: str = Depends(current_token)):
     import shutil
+    pinlock.assert_access(req.drive, tok)
     d = registry.get(req.drive)
     if not d:
         raise HTTPException(404, "Drive not found")

@@ -15,7 +15,8 @@ import threading
 from app.config import STATE_FILE
 
 _lock = threading.Lock()
-_DEFAULT = {"auto_mount": True, "ejected": [], "labels": {}, "terminal_enabled": True}
+_DEFAULT = {"auto_mount": True, "ejected": [], "labels": {}, "terminal_enabled": True,
+            "drive_pins": {}}
 
 
 def _load() -> dict:
@@ -85,6 +86,26 @@ def set_label(drive_id: str, label: str) -> None:
         else:
             d["labels"].pop(drive_id, None)
         _save(d)
+
+
+def get_drive_pins() -> dict:
+    """drive_id -> argon2 PIN hash. The hash is the only PIN material on disk."""
+    with _lock:
+        return dict(_load()["drive_pins"])
+
+
+def set_drive_pin(drive_id: str, pin_hash: str) -> None:
+    with _lock:
+        d = _load()
+        d["drive_pins"][drive_id] = pin_hash
+        _save(d)
+
+
+def clear_drive_pin(drive_id: str) -> None:
+    with _lock:
+        d = _load()
+        if d["drive_pins"].pop(drive_id, None) is not None:
+            _save(d)
 
 
 def mark_mounted(uuid: str) -> None:

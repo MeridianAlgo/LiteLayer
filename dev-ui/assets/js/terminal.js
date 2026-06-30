@@ -27,6 +27,17 @@ async function openTerminal() {
       toast('Terminal is disabled. Enable it in Settings → System.', 'info', 3500); return;
     }
   } catch {}
+  // Re-auth to open a root shell: a one-time ticket gated by the password, so a
+  // hijacked session alone can't drop into a shell.
+  const pw = await askPassword('Open terminal', `The terminal is a root shell. Enter ${currentUsername}'s password to open it.`);
+  if (pw == null) return;
+  let ticket;
+  try {
+    const tr = await api('/api/system/terminal/ticket', {method: 'POST', body: JSON.stringify({password: pw})});
+    if (!tr?.ok) { const d = await tr.json().catch(() => ({})); toast(d.detail || 'Could not open terminal', 'error', 4000); return; }
+    ticket = (await tr.json()).ticket;
+  } catch { toast('Could not open terminal', 'error'); return; }
+
   show('terminal-overlay'); document.body.style.overflow = 'hidden';
   const status = document.getElementById('term-status');
   status.textContent = 'Connecting…';
@@ -46,7 +57,7 @@ async function openTerminal() {
   // ws:// or wss:// to the same host. Token rides in the query — browsers can't
   // set headers on a WebSocket.
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const url = `${proto}://${location.host}/api/system/terminal?token=${encodeURIComponent(authToken || '')}`;
+  const url = `${proto}://${location.host}/api/system/terminal?token=${encodeURIComponent(authToken || '')}&ticket=${encodeURIComponent(ticket)}`;
   _termWs = new WebSocket(url);
   _termWs.binaryType = 'arraybuffer';
 

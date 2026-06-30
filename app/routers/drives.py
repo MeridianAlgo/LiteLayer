@@ -3,9 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 
-from drives import registry, persist
+from fastapi import Request
+
+from drives import registry, persist, pinlock
 from drives.mount import mount as do_mount, unmount as do_unmount, remount_rw, get_usage, ALWAYS_RO
-from app.deps import require_auth
+from app.deps import require_auth, current_token
+from app import audit
 
 router = APIRouter(prefix="/api/drives", tags=["drives"])
 
@@ -41,10 +44,13 @@ class DriveOut(BaseModel):
     state: str
     mount_point: Optional[str]
     rw_capable: bool  # False for always-ro filesystems
+    locked: bool      # a PIN is set on this drive
+    unlocked: bool    # this session has entered the PIN
 
 
-def _enrich(d) -> DriveOut:
+def _enrich(d, token: str) -> DriveOut:
     label = persist.get_labels().get(d.id, d.label)
+    locked = pinlock.is_locked(d.id)
     return DriveOut(
         id=d.id,
         device=d.device,
@@ -56,12 +62,58 @@ def _enrich(d) -> DriveOut:
         state=d.state,
         mount_point=d.mount_point,
         rw_capable=d.fstype.lower() not in ALWAYS_RO,
+        locked=locked,
+        unlocked=pinlock.is_unlocked(d.id, token),
     )
 
 
 @router.get("", response_model=list[DriveOut])
-def list_drives(_: str = Depends(require_auth)):
-    return [_enrich(d) for d in registry.get_all()]
+def list_drives(token: str = Depends(current_token)):
+    return [_enrich(d, token) for d in registry.get_all()]
+
+
+class PinRequest(BaseModel):
+    pin: str
+
+
+@router.post("/{drive_id}/lock")
+def lock_drive(drive_id: str, req: PinRequest, _: str = Depends(require_auth)):
+    """Set a PIN on a drive. From here its files are refused until /unlock."""
+    if not registry.get(drive_id):
+        raise HTTPException(404, "Drive not found")
+    if pinlock.is_locked(drive_id):
+        raise HTTPException(409, "Drive is already locked")
+    try:
+        pinlock.set_pin(drive_id, req.pin)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"locked": True}
+
+
+@router.post("/{drive_id}/unlock")
+def unlock_drive(drive_id: str, req: PinRequest, request: Request, token: str = Depends(current_token)):
+    """Grant THIS session access to a locked drive after a correct PIN."""
+    if not registry.get(drive_id):
+        raise HTTPException(404, "Drive not found")
+    result = pinlock.unlock(drive_id, req.pin, token)
+    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "?")
+    if result == "throttled":
+        audit.log("pin.throttled", ip=ip, detail=drive_id[:12])
+        raise HTTPException(429, "Too many wrong PINs. Wait a few minutes and try again.")
+    if result != "ok":
+        audit.log("pin.fail", ip=ip, detail=drive_id[:12])
+        raise HTTPException(403, "Wrong PIN")
+    return {"unlocked": True}
+
+
+@router.delete("/{drive_id}/lock")
+def remove_lock(drive_id: str, req: PinRequest, _: str = Depends(require_auth)):
+    """Remove a drive's PIN — requires the current PIN."""
+    if not registry.get(drive_id):
+        raise HTTPException(404, "Drive not found")
+    if not pinlock.remove_pin(drive_id, req.pin):
+        raise HTTPException(403, "Wrong PIN")
+    return {"locked": False}
 
 
 class RenameDriveRequest(BaseModel):

@@ -127,6 +127,7 @@ function showDriveProperties(id) {
     ['Free', d.free_bytes ? fmt(d.free_bytes) : '—'],
     ['Mount point', d.mount_point || 'Not mounted'],
     ['Access', d.state === 'mounted_rw' ? 'Read / write' : d.state === 'mounted_ro' ? 'Read-only' : 'Unmounted'],
+    ['Encryption', /luks|crypt/i.test(d.fstype || '') ? 'LUKS (encrypted at rest)' : 'None'],
     ['Drive lock', isDriveLockedConfig(id) ? 'On (PIN)' : 'Off'],
   ];
   document.getElementById('props-body').innerHTML = rows.map(([k, v]) =>
@@ -136,19 +137,15 @@ function showDriveProperties(id) {
 }
 
 // ── Per-drive PIN lock ──────────────────────────────────────────────────────────
-// ponytail: UI-only convenience lock. State lives in this browser's localStorage and
-// the PIN is a non-crypto hash (no secure context needed over plain-http LAN). The API
-// still serves a locked drive's files to an authenticated request — this gates the UI,
-// not the data. Upgrade path: a server-side per-drive PIN if it must be real security.
+// Real lock: the server holds an argon2 hash of the PIN and refuses a locked drive's
+// files (423) until this session unlocks it. The UI just reads the drive's reported
+// locked/unlocked flags and drives the prompts — no PIN material lives in the browser.
 
-const _unlockedDrives = new Set();   // drives unlocked for this page session
-
-function _driveLocks() { try { return JSON.parse(localStorage.getItem('ll-drive-locks') || '{}'); } catch { return {}; } }
-function _saveDriveLocks(o) { localStorage.setItem('ll-drive-locks', JSON.stringify(o)); }
-function _pinHash(pin) { let h = 5381; const s = 'll:' + pin; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(16); }
-
-function isDriveLockedConfig(id) { return !!_driveLocks()[id]; }      // a PIN is set
-function driveNeedsPin(id) { return isDriveLockedConfig(id) && !_unlockedDrives.has(id); }
+function isDriveLockedConfig(id) { return !!(_drives.find(d => d.id === id) || {}).locked; }
+function driveNeedsPin(id) {
+  const d = _drives.find(x => x.id === id) || {};
+  return !!d.locked && !d.unlocked;
+}
 
 async function lockDriveSetup(id) {
   const pin = await askPassword('Lock drive', 'Choose a 4–6 digit PIN. You\'ll need it to open this drive.');
@@ -157,25 +154,29 @@ async function lockDriveSetup(id) {
   const conf = await askPassword('Confirm PIN', 'Re-enter the PIN to confirm.');
   if (conf == null) return;
   if (conf !== pin) { toast('PINs do not match', 'error'); return; }
-  const locks = _driveLocks(); locks[id] = { h: _pinHash(pin) }; _saveDriveLocks(locks);
-  _unlockedDrives.delete(id);
-  toast('Drive locked', 'success'); loadDrives();
+  const r = await api(`/api/drives/${encodeURIComponent(id)}/lock`, { method: 'POST', body: JSON.stringify({ pin }) });
+  if (!r) return;
+  if (r.ok) { toast('Drive locked', 'success'); loadDrives(); }
+  else { const d = await r.json(); toast(d.detail || 'Could not lock drive', 'error'); }
 }
 
-// Returns true once the correct PIN is entered (and unlocks it for this session).
+// Returns true once the correct PIN is entered (and the server unlocks it for this session).
 async function unlockDrivePrompt(id) {
   if (!driveNeedsPin(id)) return true;
   const pin = await askPassword('Drive locked', 'Enter this drive\'s PIN to open it.');
   if (pin == null) return false;
-  if (_pinHash(pin) !== (_driveLocks()[id] || {}).h) { toast('Wrong PIN', 'error'); return false; }
-  _unlockedDrives.add(id); return true;
+  const r = await api(`/api/drives/${encodeURIComponent(id)}/unlock`, { method: 'POST', body: JSON.stringify({ pin }) });
+  if (!r) return false;
+  if (!r.ok) { const d = await r.json(); toast(d.detail || 'Wrong PIN', 'error'); return false; }
+  await loadDrives();   // refresh the unlocked flag
+  return true;
 }
 
 async function removeDriveLock(id) {
   const pin = await askPassword('Turn off drive lock', 'Enter the PIN to remove the lock on this drive.');
   if (pin == null) return;
-  if (_pinHash(pin) !== (_driveLocks()[id] || {}).h) { toast('Wrong PIN', 'error'); return; }
-  const locks = _driveLocks(); delete locks[id]; _saveDriveLocks(locks);
-  _unlockedDrives.delete(id);
-  toast('Drive lock removed', 'success'); loadDrives();
+  const r = await api(`/api/drives/${encodeURIComponent(id)}/lock`, { method: 'DELETE', body: JSON.stringify({ pin }) });
+  if (!r) return;
+  if (r.ok) { toast('Drive lock removed', 'success'); loadDrives(); }
+  else { const d = await r.json(); toast(d.detail || 'Wrong PIN', 'error'); }
 }

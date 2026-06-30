@@ -335,6 +335,9 @@
       <button class="snav-item" id="snav-account" onclick="setSettingsTab('account')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Account
       </button>
+      <button class="snav-item" id="snav-devices" onclick="setSettingsTab('devices')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Devices
+      </button>
       <button class="snav-item" id="snav-system" onclick="setSettingsTab('system')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System
       </button>
@@ -403,6 +406,41 @@
           <div style="margin-top:16px;display:flex;justify-content:flex-end">
             <button class="btn btn-primary" id="settings-save-btn" onclick="saveSettings()">Save Changes</button>
           </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Two-factor authentication</div>
+          <div style="font-size:12px;color:var(--text-3);margin:-4px 0 12px">A 6-digit code from an authenticator app (Google Authenticator, Authy, 1Password…) on top of your password at sign-in.</div>
+          <div id="twofa-box"><div class="cl-loading" style="padding:6px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>Checking…</div></div>
+        </div>
+      </div>
+
+      <!-- Devices tab -->
+      <div id="stab-devices" class="stab-content hidden">
+        <div class="stab-title">Trusted devices</div>
+        <div style="font-size:12px;color:var(--text-3);margin:-4px 0 16px;display:flex;align-items:center;gap:7px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Decide which devices may sign in. Each device is remembered when it logs in. Turn on the restriction below and only the devices listed here can get in — even with the correct password.
+        </div>
+        <div class="settings-section">
+          <div class="toggle-row">
+            <div class="toggle-row-text">Only trusted devices can sign in
+              <small>When on, sign-in is refused from any device not on the list. Add a new device by turning this off, signing in on it, then turning it back on.</small>
+            </div>
+            <div class="toggle-sw" id="devices-enforce-sw" onclick="toggleDevicesEnforce()"></div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Your devices</div>
+          <div id="devices-list"><div class="cl-loading" style="padding:10px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>Loading…</div></div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Active sign-ins</div>
+          <div id="sessions-list"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="signOutOthers()">Sign out everywhere else</button>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Recent security activity</div>
+          <div id="audit-list" style="font-family:var(--mono);font-size:11px;color:var(--text-3)"></div>
         </div>
       </div>
 

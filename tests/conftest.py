@@ -17,6 +17,18 @@ def tmp_config(tmp_path, monkeypatch):
     import importlib
     import app.config as cfg
     importlib.reload(cfg)
+    # Modules that captured these paths at import time — point them at this test's
+    # tmp dir so state never leaks between tests (devices enforce, drive PINs, etc.).
+    import auth.devices as devices
+    import drives.persist as persist
+    import app.throttle as throttle
+    import app.audit as audit
+    import auth.twofa as twofa
+    monkeypatch.setattr(devices, "DEVICES_FILE", tmp_path / "devices.json")
+    monkeypatch.setattr(persist, "STATE_FILE", tmp_path / "state.json")
+    monkeypatch.setattr(throttle, "THROTTLE_FILE", tmp_path / "throttle.json")
+    monkeypatch.setattr(audit, "AUDIT_FILE", tmp_path / "audit.log")
+    monkeypatch.setattr(twofa, "TWOFA_FILE", tmp_path / "twofa.json")
     return {"creds": creds, "mounts": mounts}
 
 
