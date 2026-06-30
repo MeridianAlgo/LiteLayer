@@ -112,6 +112,27 @@ body {
 }
 .field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
+/* ── Two-factor modal ── */
+.twofa-box { width: 380px; padding: 32px 32px 28px; text-align: center; }
+.twofa-icon {
+  width: 52px; height: 52px; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;
+  border-radius: 14px; color: var(--accent-light, #a78bfa);
+  background: var(--accent-glow); border: 1px solid var(--border-h);
+}
+.twofa-title { font-size: 17px; font-weight: 700; letter-spacing: -0.2px; }
+.twofa-sub { font-size: 13px; color: var(--text-2); margin: 6px 0 22px; }
+.twofa-code {
+  width: 100%; padding: 14px 0; text-align: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 500;
+  letter-spacing: 12px; text-indent: 12px; /* offset tracking so digits sit centered */
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.twofa-code::placeholder { color: var(--text-3); letter-spacing: 10px; }
+.twofa-code:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.twofa-actions { display: flex; gap: 8px; margin-top: 18px; }
+.twofa-actions .btn { flex: 1; }
+
 /* ── Buttons ── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -411,9 +432,14 @@ body {
 .about-info-value { font-size: 12px; font-family: var(--mono); }
 
 /* ── Settings: Appearance ── */
-.settings-section { margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--border); }
-.settings-section:last-child { border-bottom: none; padding-bottom: 0; }
-.settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
+/* Sections are self-contained cards: each setting reads as its own surface
+   instead of a flat run of divider lines. One selector lifts every tab. */
+.settings-section { margin-bottom: 14px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
+.settings-section:last-child { margin-bottom: 0; }
+.settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; padding-left: 9px; position: relative; }
+/* Accent tick — the one signature: a short bar in the brand purple that ties
+   every section heading back to the accent the whole UI is themed on. */
+.settings-section-title::before { content: ''; position: absolute; left: 0; top: 1px; bottom: 1px; width: 3px; border-radius: 2px; background: var(--accent); opacity: 0.85; }
 .theme-row { display: flex; gap: 10px; }
 .theme-card { flex: 1; border: 2px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color 0.15s; text-align: center; background: none; }
 .theme-card:hover { border-color: var(--border-h); }
