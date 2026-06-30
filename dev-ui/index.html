@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36'%3E%3Crect width='36' height='36' rx='10' fill='%237c3aed'/%3E%3Cpath d='M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z' fill='white' opacity='0.9'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/css/app.css">
 <!-- Restore saved theme immediately to prevent flash -->
 <script>(function(){var t=localStorage.getItem('ll-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
@@ -358,6 +358,9 @@
       <button class="snav-item" id="snav-system" onclick="setSettingsTab('system')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System
       </button>
+      <button class="snav-item" id="snav-shortcuts" onclick="setSettingsTab('shortcuts')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="6" y2="12"/><line x1="10" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="14" y2="12"/><line x1="18" y1="12" x2="18" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>Shortcuts
+      </button>
       <button class="snav-item" id="snav-about" onclick="setSettingsTab('about')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>About
       </button>
@@ -491,7 +494,7 @@
             <div class="toggle-sw" id="stats-pills-sw" onclick="toggleStatsPills()"></div>
           </div>
         </div>
-        <div class="settings-section">
+        <div class="settings-section danger">
           <div class="settings-section-title">Terminal</div>
           <div class="toggle-row">
             <div class="toggle-row-text">Enable Pi terminal
@@ -500,23 +503,7 @@
             <div class="toggle-sw" id="terminal-sw" onclick="toggleTerminal()"></div>
           </div>
         </div>
-        <div class="settings-section">
-          <div class="settings-section-title">Keyboard shortcuts</div>
-          <div class="kbd-list">
-            <div class="kbd-row"><span>Command palette</span><span><kbd>Ctrl</kbd><kbd>K</kbd></span></div>
-            <div class="kbd-row"><span>Select all</span><span><kbd>Ctrl</kbd><kbd>A</kbd></span></div>
-            <div class="kbd-row"><span>Delete selected</span><span><kbd>Del</kbd></span></div>
-            <div class="kbd-row"><span>Clear selection / close</span><span><kbd>Esc</kbd></span></div>
-            <div class="kbd-row"><span>Add to / range selection</span><span><kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click</span></div>
-            <div class="divider-label">Image viewer</div>
-            <div class="kbd-row"><span>Previous / next</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
-            <div class="kbd-row"><span>Zoom in / out</span><span><kbd>+</kbd><kbd>−</kbd></span></div>
-            <div class="kbd-row"><span>Fit / actual size</span><span><kbd>F</kbd><kbd>0</kbd></span></div>
-            <div class="divider-label">Text editor</div>
-            <div class="kbd-row"><span>Save</span><span><kbd>Ctrl</kbd><kbd>S</kbd></span></div>
-          </div>
-        </div>
-        <div class="settings-section">
+        <div class="settings-section danger">
           <div class="settings-section-title">Boot / system drive</div>
           <div class="toggle-row">
             <div class="toggle-row-text">Show boot drive
@@ -535,13 +522,42 @@
           <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">Install VPNs from the Pi's shell over SSH, then switch between the installed ones here.</div>
           <div id="vpn-list"><div class="cl-loading" style="padding:14px"><span class="spinner" style="width:16px;height:16px;border-width:2px"></span>Loading…</div></div>
         </div>
-        <div class="settings-section">
+        <div class="settings-section danger">
           <div class="settings-section-title">Reset</div>
           <div class="toggle-row">
             <div class="toggle-row-text">Reset &amp; reinstall LiteLayer
               <small>Re-runs the installer for a fresh latest copy, then reboots the Pi. Your drives and files are untouched.</small>
             </div>
             <button class="btn btn-danger btn-sm" onclick="resetPi()">Reset Pi</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shortcuts tab -->
+      <div id="stab-shortcuts" class="stab-content hidden">
+        <div class="stab-title">Keyboard shortcuts</div>
+        <div class="settings-section">
+          <div class="settings-section-title">Files &amp; selection</div>
+          <div class="kbd-list">
+            <div class="kbd-row"><span>Command palette</span><span><kbd>Ctrl</kbd><kbd>K</kbd></span></div>
+            <div class="kbd-row"><span>Select all</span><span><kbd>Ctrl</kbd><kbd>A</kbd></span></div>
+            <div class="kbd-row"><span>Delete selected</span><span><kbd>Del</kbd></span></div>
+            <div class="kbd-row"><span>Clear selection / close</span><span><kbd>Esc</kbd></span></div>
+            <div class="kbd-row"><span>Add to / range selection</span><span><kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click</span></div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Image viewer</div>
+          <div class="kbd-list">
+            <div class="kbd-row"><span>Previous / next</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
+            <div class="kbd-row"><span>Zoom in / out</span><span><kbd>+</kbd><kbd>−</kbd></span></div>
+            <div class="kbd-row"><span>Fit / actual size</span><span><kbd>F</kbd><kbd>0</kbd></span></div>
+          </div>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Text editor</div>
+          <div class="kbd-list">
+            <div class="kbd-row"><span>Save</span><span><kbd>Ctrl</kbd><kbd>S</kbd></span></div>
           </div>
         </div>
       </div>

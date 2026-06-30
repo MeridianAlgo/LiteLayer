@@ -29,7 +29,7 @@
   /* Text colors per file type (default = icon color) */
   --ft-folder: #7c3aed; --ft-image: #f97316; --ft-doc: #60a5fa; --ft-video: #3b82f6;
   --ft-audio: #ec4899; --ft-archive: #f59e0b; --ft-code: #10b981;
-  --mono:         'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --mono:         'IBM Plex Mono', 'SF Mono', ui-monospace, monospace;
   --radius:       14px;
   --radius-sm:    8px;
   --a5:  color-mix(in srgb, var(--accent)  5%, transparent);
@@ -123,7 +123,7 @@ body {
 .twofa-sub { font-size: 13px; color: var(--text-2); margin: 6px 0 22px; }
 .twofa-code {
   width: 100%; padding: 14px 0; text-align: center;
-  font-family: 'JetBrains Mono', monospace; font-size: 26px; font-weight: 500;
+  font-family: var(--mono); font-size: 26px; font-weight: 500;
   letter-spacing: 12px; text-indent: 12px; /* offset tracking so digits sit centered */
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
   color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s;
@@ -418,6 +418,7 @@ body {
 .snav-item:hover { background: var(--surface); color: var(--text-2); }
 .snav-item.active { background: var(--a10); color: var(--text); }
 .snav-item.active svg { color: var(--accent-light); }
+.snav-item:focus-visible, .settings-close-btn:focus-visible, .toggle-sw:focus-visible, .theme-card:focus-visible { outline: 2px solid var(--accent-light); outline-offset: 2px; }
 .settings-nav-spacer { flex: 1; }
 .settings-nav-footer { border-top: 1px solid var(--border); padding-top: 10px; padding-left: 6px; }
 .snav-version-chip { font-size: 10px; font-family: var(--mono); color: var(--text-3); }
@@ -436,10 +437,13 @@ body {
    instead of a flat run of divider lines. One selector lifts every tab. */
 .settings-section { margin-bottom: 14px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; }
 .settings-section:last-child { margin-bottom: 0; }
-.settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; padding-left: 9px; position: relative; }
-/* Accent tick — the one signature: a short bar in the brand purple that ties
-   every section heading back to the accent the whole UI is themed on. */
-.settings-section-title::before { content: ''; position: absolute; left: 0; top: 1px; bottom: 1px; width: 3px; border-radius: 2px; background: var(--accent); opacity: 0.85; }
+.settings-section-title { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.7px; margin-bottom: 12px; }
+/* Signature: risk is legible in the chrome. Most settings are preferences and
+   stay quiet; the few that expose a root shell, the live system drive, or wipe
+   the install carry an amber caution rail — it marks where to slow down. */
+.settings-section.danger { border-color: color-mix(in srgb, var(--yellow) 38%, var(--border)); background: color-mix(in srgb, var(--yellow) 6%, var(--surface)); }
+.settings-section.danger .settings-section-title { color: var(--yellow); padding-left: 19px; position: relative; }
+.settings-section.danger .settings-section-title::before { content: '\26A0\FE0E'; position: absolute; left: 0; top: -1px; font-size: 12px; line-height: 1; }
 .theme-row { display: flex; gap: 10px; }
 .theme-card { flex: 1; border: 2px solid var(--border); border-radius: 10px; padding: 10px; cursor: pointer; transition: border-color 0.15s; text-align: center; background: none; }
 .theme-card:hover { border-color: var(--border-h); }

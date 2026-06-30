@@ -16,7 +16,7 @@ function closeSettings() { hide('settings-overlay'); }
 
 function setSettingsTab(tab) {
   _settingsTab = tab;
-  ['appearance','account','devices','about','system'].forEach(t => {
+  ['appearance','account','devices','system','shortcuts','about'].forEach(t => {
     document.getElementById(`stab-${t}`)?.classList.toggle('hidden', t !== tab);
     document.getElementById(`snav-${t}`)?.classList.toggle('active', t === tab);
   });

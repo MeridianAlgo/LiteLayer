@@ -47,7 +47,7 @@ async function openTerminal() {
 
   const body = document.getElementById('term-body');
   body.innerHTML = '';
-  _term = new Terminal({fontFamily: "'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace", fontSize: 13, cursorBlink: true,
+  _term = new Terminal({fontFamily: "'IBM Plex Mono', 'Cascadia Code', Menlo, Consolas, monospace", fontSize: 13, cursorBlink: true,
                         theme: {background: '#0c0c12'}});
   _termFit = new FitAddon.FitAddon();
   _term.loadAddon(_termFit);
