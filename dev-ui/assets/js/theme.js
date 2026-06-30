@@ -160,6 +160,21 @@ function buildAccentGrid() {
     </label>`;
 }
 
+// ── Login animated background (on by default) ──────────────────────────────────
+
+function applyLoginAnim() {
+  const on = localStorage.getItem('ll-login-anim') !== '0';
+  document.getElementById('view-login')?.classList.toggle('no-anim', !on);
+  document.getElementById('login-anim-sw')?.classList.toggle('on', on);
+}
+
+function toggleLoginAnim() {
+  const on = localStorage.getItem('ll-login-anim') === '0';   // flip
+  localStorage.setItem('ll-login-anim', on ? '1' : '0');
+  applyLoginAnim();
+  toast(on ? 'Login animation on' : 'Login animation off', 'success', 2000);
+}
+
 // ── Individual color customisation ────────────────────────────────────────────
 
 function applyCustomColor(key, value) {
@@ -205,4 +220,5 @@ function _restoreCustomColors() {
   if (ac === 'custom') applyAccentColor(localStorage.getItem('ll-accent-hex') || '#7c3aed');
   else applyAccent(ac);
   _restoreCustomColors();
+  applyLoginAnim();
 })();

@@ -74,9 +74,23 @@ body {
 /* ── Login ── */
 #view-login {
   flex: 1; display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
   background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,0.18) 0%, transparent 70%), var(--bg);
 }
+/* Soft, slowly-drifting accent gradient behind the card. Inherits the user's
+   accent colors, so it recolors with their theme. Toggle via #view-login.no-anim. */
+.login-bg {
+  position: absolute; inset: -40%; pointer-events: none; z-index: 0;
+  background: linear-gradient(120deg, var(--accent), var(--accent2), var(--accent-light), var(--accent2), var(--accent));
+  background-size: 300% 300%;
+  filter: blur(90px); opacity: 0.30;
+  animation: loginDrift 22s ease-in-out infinite;
+}
+#view-login.no-anim .login-bg { display: none; }
+@keyframes loginDrift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+@media (prefers-reduced-motion: reduce) { .login-bg { animation: none; } }
 .login-card {
+  position: relative; z-index: 1;
   width: 100%; max-width: 380px; padding: 40px 36px 36px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
   backdrop-filter: blur(24px); box-shadow: 0 20px 60px rgba(0,0,0,0.3);
@@ -221,6 +235,8 @@ body {
 .sb-drive.active .sb-drive-name { color: var(--accent-light); }
 .sb-drive-dev { font-size: 10px; color: var(--text-3); font-family: var(--mono); margin-top: 1px; }
 .sb-fs-tag { font-size: 9px; font-weight: 700; font-family: var(--mono); text-transform: uppercase; padding: 2px 5px; border-radius: 4px; flex-shrink: 0; }
+.sb-lock { flex-shrink: 0; display: inline-flex; color: var(--accent-light); }
+.sb-lock svg { width: 11px; height: 11px; }
 .sb-rename-btn { flex-shrink: 0; padding: 3px 5px; opacity: 0; transition: opacity 0.12s; }
 .sb-drive:hover .sb-rename-btn { opacity: 0.6; }
 .sb-rename-btn:hover { opacity: 1 !important; }

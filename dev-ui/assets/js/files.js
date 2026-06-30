@@ -89,7 +89,8 @@ function filterFiles(q) { applyFilters(); }
 
 // ── File browser ──────────────────────────────────────────────────────────────
 
-function browseFiles(driveId, driveLabel) {
+async function browseFiles(driveId, driveLabel) {
+  if (driveNeedsPin(driveId) && !await unlockDrivePrompt(driveId)) return;  // locked → require PIN
   currentDriveId = driveId; currentDriveLabel = driveLabel; currentPath = '/';
   _filtered = null; _typeFilter = 'all'; _sortKey = 'name'; _sortAsc = true;
   document.getElementById('file-search').value = '';
@@ -132,7 +133,8 @@ async function loadFiles(path) {
     const d = await r.json(); toast(d.detail || 'Failed to load', 'error');
     container.innerHTML = `<div class="empty-state">${esc(d.detail || 'Error')}</div>`; return;
   }
-  const data = await r.json(); dirEntries = data.entries; renderFiles(dirEntries, path);
+  // Hide the Windows-created "System Volume Information" folder (per-drive system metadata).
+  const data = await r.json(); dirEntries = data.entries.filter(e => e.name !== 'System Volume Information'); renderFiles(dirEntries, path);
 }
 
 // ── Selection ─────────────────────────────────────────────────────────────────

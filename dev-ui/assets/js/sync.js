@@ -5,7 +5,7 @@
 
 const SYNC_KEYS = [
   'll-theme', 'll-accent', 'll-accent-hex', 'll-custom-colors',
-  'll-single-click', 'll-hide-stats', 'll-boot-drive',
+  'll-single-click', 'll-hide-stats', 'll-boot-drive', 'll-login-anim',
 ];
 
 let _applyingSync = false;   // true while pull writes localStorage — don't echo back
@@ -30,6 +30,7 @@ function _applySynced() {
   else applyAccent(ac);
   _restoreCustomColors();
   if (typeof applyStatsPillsPref === 'function') applyStatsPillsPref();
+  if (typeof applyLoginAnim === 'function') applyLoginAnim();
 }
 
 async function pullSettings() {

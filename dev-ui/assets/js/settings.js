@@ -3,6 +3,7 @@ let _settingsTab = 'appearance';
 function openSettings() {
   buildColorPickers();
   applyTheme(_currentTheme);
+  applyLoginAnim();   // reflect the saved state on the Appearance toggle
   document.getElementById('settings-username-display').textContent = currentUsername;
   ['settings-cur-pass','settings-new-user','settings-new-pass','settings-conf-pass'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('settings-error').style.display = 'none';

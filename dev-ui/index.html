@@ -16,6 +16,7 @@
 
 <!-- ── Login ── -->
 <div id="view-login" class="hidden">
+  <div class="login-bg"></div>
   <div class="login-card">
     <div class="login-logo">
       <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="10" fill="url(#lg1)"/><path d="M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z" fill="white" opacity="0.9"/><defs><linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs></svg>
@@ -376,6 +377,15 @@
           <div style="font-size:11px;color:var(--text-3);margin:-4px 0 12px">Set the accent under <b>Accent</b> below (primary, gradient, light).</div>
           <div id="color-pickers-grid"></div>
           <button class="btn btn-ghost btn-sm" style="margin-top:14px;width:100%" onclick="resetCustomColors()">Reset to theme defaults</button>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Login screen</div>
+          <div class="toggle-row">
+            <div class="toggle-row-text">Animated gradient background
+              <small>A soft, slowly-drifting gradient behind the sign-in card. It uses your accent color, so recoloring the accent recolors it too.</small>
+            </div>
+            <div class="toggle-sw" id="login-anim-sw" onclick="toggleLoginAnim()"></div>
+          </div>
         </div>
       </div>
 
