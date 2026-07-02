@@ -67,6 +67,11 @@ Unlock it (`cryptsetup open`) before LiteLayer mounts it. Automatic in-app LUKS
 provisioning is a future addition — it's deliberately manual for now because formatting
 is destructive.
 
+## Review log
+
+Findings from internal security reviews / mock-pentests — what was found, fixed, or
+accepted (with reasons) — are tracked in [security-findings.md](security-findings.md).
+
 ## Reporting
 
 Found something? Email meridianalgo@gmail.com.

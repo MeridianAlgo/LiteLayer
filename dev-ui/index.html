@@ -16,7 +16,7 @@
 
 <!-- ── Login ── -->
 <div id="view-login" class="hidden">
-  <div class="login-bg"></div>
+  <div class="login-bg" aria-hidden="true"><i class="lgb lgb-1"></i><i class="lgb lgb-2"></i><i class="lgb lgb-3"></i></div>
   <div class="login-card">
     <div class="login-logo">
       <svg width="36" height="36" viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="10" fill="url(#lg1)"/><path d="M10 24V16a2 2 0 012-2h3v10H10zm7 0V10h2a2 2 0 012 2v12h-4zm7 0v-6h-1v-2h1a2 2 0 012 2v6h-2z" fill="white" opacity="0.9"/><defs><linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse"><stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs></svg>
@@ -124,14 +124,12 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           </button>
         </div>
-        <label class="btn btn-ghost btn-sm" id="upload-btn" title="Upload files">
+        <button class="btn btn-ghost btn-sm" id="upload-btn" onclick="openUploadMenu(event)" title="Upload files or a whole folder">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg><span class="btn-lbl">Upload</span>
-          <input type="file" id="upload-input" multiple style="display:none" onchange="uploadFiles(this.files);this.value=''">
-        </label>
-        <label class="btn btn-ghost btn-sm" id="upload-folder-btn" title="Upload a whole folder (keeps its subfolders)">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg><span class="btn-lbl">Folder</span>
-          <input type="file" id="upload-folder-input" webkitdirectory multiple style="display:none" onchange="uploadFiles(this.files);this.value=''">
-        </label>
+          <svg class="up-chev" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <input type="file" id="upload-input" multiple style="display:none" onchange="uploadFiles(this.files);this.value=''">
+        <input type="file" id="upload-folder-input" webkitdirectory multiple style="display:none" onchange="uploadFiles(this.files);this.value=''">
       </div>
 
       <div id="sel-bar" class="sel-bar hidden">
@@ -405,9 +403,23 @@
           <div class="settings-section-title">Login screen</div>
           <div class="toggle-row">
             <div class="toggle-row-text">Animated gradient background
-              <small>A soft, slowly-drifting gradient behind the sign-in card. It uses your accent color, so recoloring the accent recolors it too.</small>
+              <small>Soft color glows drifting behind the sign-in card. They follow your accent color unless you pick your own below.</small>
             </div>
             <div class="toggle-sw" id="login-anim-sw" onclick="toggleLoginAnim()"></div>
+          </div>
+          <div id="login-grad-opts">
+            <div class="lg-colors-row">
+              <label class="lg-color"><input type="color" id="lg-c1" class="color-swatch-input" oninput="setLoginGrad('c1',this.value)"><span>Glow 1</span></label>
+              <label class="lg-color"><input type="color" id="lg-c2" class="color-swatch-input" oninput="setLoginGrad('c2',this.value)"><span>Glow 2</span></label>
+              <label class="lg-color"><input type="color" id="lg-c3" class="color-swatch-input" oninput="setLoginGrad('c3',this.value)"><span>Glow 3</span></label>
+            </div>
+            <div class="toggle-row" style="padding-bottom:2px">
+              <div class="toggle-row-text">Drift speed
+                <small>How fast the glows wander.</small>
+              </div>
+              <input type="range" id="lg-speed" min="0.5" max="2" step="0.25" value="1" oninput="setLoginGrad('speed',this.value)" style="width:150px;accent-color:var(--accent)">
+            </div>
+            <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" onclick="resetLoginGrad()">Match my accent color</button>
           </div>
         </div>
       </div>
@@ -474,6 +486,12 @@
               <small>Auto-mount drives (read-only) when you plug them in and after a reboot, so you never lose access. Ejecting a drive keeps it off until you mount it again.</small>
             </div>
             <div class="toggle-sw" id="auto-mount-sw" onclick="toggleAutoMount()"></div>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-row-text">Folder tree in sidebar
+              <small>Show each mounted drive's folders as an expandable tree under it, like Windows File Explorer. The boot drive is left out.</small>
+            </div>
+            <div class="toggle-sw" id="folder-tree-sw" onclick="toggleFolderTree()"></div>
           </div>
         </div>
         <div class="settings-section">

@@ -4,6 +4,7 @@ function openSettings() {
   buildColorPickers();
   applyTheme(_currentTheme);
   applyLoginAnim();   // reflect the saved state on the Appearance toggle
+  _reflectLoginGradUI();
   document.getElementById('settings-username-display').textContent = currentUsername;
   ['settings-cur-pass','settings-new-user','settings-new-pass','settings-conf-pass'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('settings-error').style.display = 'none';
@@ -150,6 +151,7 @@ async function removeDevice(id, label) {
 
 async function _loadSystem() {
   document.getElementById('boot-drive-sw')?.classList.toggle('on', localStorage.getItem('ll-boot-drive') === '1');
+  document.getElementById('folder-tree-sw')?.classList.toggle('on', localStorage.getItem('ll-folder-tree') !== '0');
   document.getElementById('single-click-sw')?.classList.toggle('on', localStorage.getItem('ll-single-click') === '1');
   document.getElementById('stats-pills-sw')?.classList.toggle('on', localStorage.getItem('ll-hide-stats') !== '1');
 
@@ -307,6 +309,15 @@ function toggleStatsPills() {
   localStorage.setItem('ll-hide-stats', show ? '0' : '1');
   applyStatsPillsPref();
   toast(show ? 'Resource pills shown' : 'Resource pills hidden', 'success', 2000);
+}
+
+function toggleFolderTree() {
+  const sw = document.getElementById('folder-tree-sw');
+  const on = !sw.classList.contains('on');
+  sw.classList.toggle('on', on);
+  localStorage.setItem('ll-folder-tree', on ? '1' : '0');
+  loadDrives();   // re-render the sidebar with/without trees
+  toast(on ? 'Folder tree shown' : 'Folder tree hidden', 'success', 2000);
 }
 
 function toggleSingleClick() {

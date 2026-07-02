@@ -175,6 +175,45 @@ function toggleLoginAnim() {
   toast(on ? 'Login animation on' : 'Login animation off', 'success', 2000);
 }
 
+// ── Login gradient customisation ────────────────────────────────────────────────
+// {c1,c2,c3,speed} in ll-login-grad. Unset keys fall back to the accent colors
+// via the CSS --lg* custom-property defaults, so "no config" always tracks accent.
+
+function _lgConf() { try { return JSON.parse(localStorage.getItem('ll-login-grad') || '{}'); } catch { return {}; } }
+
+function applyLoginGradient() {
+  const bg = document.querySelector('.login-bg'); if (!bg) return;
+  const c = _lgConf();
+  ['c1', 'c2', 'c3'].forEach((k, i) => {
+    if (c[k]) bg.style.setProperty(`--lg${i + 1}`, c[k]);
+    else bg.style.removeProperty(`--lg${i + 1}`);
+  });
+  bg.style.setProperty('--lg-speed', c.speed || 1);
+}
+
+function setLoginGrad(key, val) {
+  const c = _lgConf(); c[key] = val;
+  localStorage.setItem('ll-login-grad', JSON.stringify(c));
+  applyLoginGradient();
+}
+
+function resetLoginGrad() {
+  localStorage.removeItem('ll-login-grad');
+  applyLoginGradient(); _reflectLoginGradUI();
+  toast('Login gradient follows your accent again', 'success', 2000);
+}
+
+// Fill the Appearance controls with the effective values (custom or accent-derived).
+function _reflectLoginGradUI() {
+  const c = _lgConf(), cs = getComputedStyle(document.documentElement);
+  const def = k => (cs.getPropertyValue(k) || '').trim() || '#7c3aed';
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set('lg-c1', c.c1 || def('--accent'));
+  set('lg-c2', c.c2 || def('--accent2'));
+  set('lg-c3', c.c3 || def('--accent-light'));
+  set('lg-speed', c.speed || 1);
+}
+
 // ── Individual color customisation ────────────────────────────────────────────
 
 function applyCustomColor(key, value) {
@@ -221,4 +260,5 @@ function _restoreCustomColors() {
   else applyAccent(ac);
   _restoreCustomColors();
   applyLoginAnim();
+  applyLoginGradient();
 })();

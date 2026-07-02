@@ -44,7 +44,11 @@ async function doLogin() {
       const body = JSON.stringify(code == null ? {username, password} : {username, password, code});
       const r = await fetch(API + '/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body});
       const data = await r.json();
-      if (r.ok) { hide('twofa-modal'); authToken = data.token; setUser(username); showApp(); loadDrives(); return; }
+      // Same-origin (production): rely purely on the HttpOnly session cookie and
+      // never hold the token in JS, so an XSS has nothing to steal (F-02). Only the
+      // cross-origin dev UI (API set) needs the Bearer token — the cookie isn't sent
+      // cross-site.
+      if (r.ok) { hide('twofa-modal'); authToken = API ? data.token : null; setUser(username); showApp(); loadDrives(); return; }
       if (data.detail === '2fa_required' || (code != null && data.detail === 'Invalid 2FA code')) {
         attempt = 0;  // 2FA retries don't count against the password attempt budget
         code = await askTwoFactor(data.detail === 'Invalid 2FA code' ? 'That code was wrong — try the current one.' : '');

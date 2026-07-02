@@ -99,6 +99,26 @@ function openPdfViewer(dirIdx) {
 function closePdfViewer() {}  // kept for Esc handler compatibility
 function pvDownload() { if (_pvEntry) downloadFile(_pvEntry.path, _pvEntry.name); }
 
+// ── HTML sanitizer for rendered file content ──────────────────────────────────
+// A .md or .docx on a drive is attacker-controlled. marked/mammoth emit raw HTML,
+// so dropping it into innerHTML is stored XSS (e.g. <img onerror> exfiltrating the
+// session). Run everything through DOMPurify first; if it can't load, fail CLOSED
+// by escaping to plain text rather than rendering unsanitized markup.
+let _purifyReady = null;
+function _ensurePurify() {
+  if (window.DOMPurify) return Promise.resolve(true);
+  return (_purifyReady ??= new Promise(res => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js';
+    s.onload = () => res(true); s.onerror = () => res(false);
+    document.head.appendChild(s);
+  }));
+}
+async function _safeHtml(dirty) {
+  await _ensurePurify();
+  return window.DOMPurify ? DOMPurify.sanitize(dirty) : `<pre>${esc(dirty)}</pre>`;
+}
+
 // ── DOCX Viewer ───────────────────────────────────────────────────────────────
 
 const DOCX_EXTS = new Set(['docx','doc']);
@@ -125,7 +145,7 @@ async function openDocxViewer(dirIdx) {
     const r = await fetch(url, {headers: authToken ? {Authorization:`Bearer ${authToken}`} : {}, credentials:'include'});
     const ab = await r.arrayBuffer();
     const result = await mammoth.convertToHtml({arrayBuffer: ab});
-    body.innerHTML = `<div class="dv-paper">${result.value}</div>`;
+    body.innerHTML = `<div class="dv-paper">${await _safeHtml(result.value)}</div>`;
   } catch { toast('Could not load document', 'error'); closeDocxViewer(); }
 }
 
@@ -201,7 +221,7 @@ async function tvTogglePreview() {
       s.onload = res; s.onerror = rej; document.head.appendChild(s);
     }).catch(() => {});
   }
-  pv.innerHTML = window.marked ? marked.parse(ta.value) : `<pre>${esc(ta.value)}</pre>`;
+  pv.innerHTML = window.marked ? await _safeHtml(marked.parse(ta.value)) : `<pre>${esc(ta.value)}</pre>`;
   // Show exactly one pane — hide the editor, reveal the preview.
   ta.style.display = 'none'; pv.style.display = 'block';
 }

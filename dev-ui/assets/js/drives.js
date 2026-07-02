@@ -11,6 +11,13 @@ async function loadDrives() {
     return;
   }
   list.innerHTML = drives.map(d => sbDriveCard(d)).join('');
+  if (treeEnabled()) drives.filter(_treeEligible).forEach(d => _loadDriveTree(d.id));
+}
+
+// A drive gets a folder tree when it's mounted, isn't the boot drive, and
+// isn't PIN-locked (a locked drive shouldn't reveal its folder names).
+function _treeEligible(d) {
+  return d.state !== 'unmounted' && d.id !== 'system-root' && !(d.locked && !d.unlocked);
 }
 
 function sbDriveCard(d) {
@@ -37,7 +44,69 @@ function sbDriveCard(d) {
            ${d.id === 'system-root' ? '' : `<button class="btn btn-ghost btn-xs" onclick="unmountDrive('${esc(d.id)}')" title="Eject"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 9l6 6m0-6l-6 6"/><circle cx="12" cy="12" r="9"/></svg></button>`}`
         : `<button class="btn btn-primary btn-xs flex-1" onclick="mountDrive('${esc(d.id)}')"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Mount</button>`}
     </div>
+    ${treeEnabled() && _treeEligible(d) ? `<div class="sb-tree" id="sbtree-${esc(d.id)}"></div>` : ''}
   </div>`;
+}
+
+// ── Sidebar folder tree (Windows-Explorer style, lazy-loaded) ───────────────────
+// Only folders are shown; expanding a node fetches its children on demand via the
+// normal /api/files listing, so there's no extra backend.
+const _treeOpen = {};   // driveId → Set of expanded folder paths
+const _treeKids = {};   // driveId → { path: [subfolder entries] }
+
+function treeEnabled() { return localStorage.getItem('ll-folder-tree') !== '0'; }
+
+async function _treeFetch(driveId, path) {
+  const kids = (_treeKids[driveId] ??= {});
+  if (kids[path]) return kids[path];
+  const r = await api(`/api/files?drive=${encodeURIComponent(driveId)}&path=${encodeURIComponent(path)}`, {bg: true});
+  if (!r?.ok) return (kids[path] = []);
+  const data = await r.json();
+  return (kids[path] = data.entries
+    .filter(e => e.is_dir && e.name !== 'System Volume Information')
+    .sort((a, b) => a.name.localeCompare(b.name)));
+}
+
+async function _loadDriveTree(driveId) {
+  delete _treeKids[driveId];   // refetch on every drive refresh so the tree stays current
+  await _treeFetch(driveId, '/');
+  for (const p of _treeOpen[driveId] || []) await _treeFetch(driveId, p);
+  _renderTree(driveId);
+}
+
+function _renderTree(driveId) {
+  const box = document.getElementById(`sbtree-${driveId}`);
+  if (box) box.innerHTML = _treeLevel(driveId, '/', 0);
+}
+
+function _treeLevel(driveId, path, depth) {
+  const open = _treeOpen[driveId] || new Set();
+  return ((_treeKids[driveId] || {})[path] || []).map(k => {
+    const isOpen = open.has(k.path);
+    const active = currentDriveId === driveId && currentPath === k.path;
+    return `<div class="tree-row${active ? ' active' : ''}" style="padding-left:${4 + depth * 13}px" title="${esc(k.path)}"
+      onclick="treeGo(event,'${esc(driveId)}','${esc(k.path)}')">
+      <span class="tree-chev${isOpen ? ' open' : ''}" onclick="toggleTreeNode(event,'${esc(driveId)}','${esc(k.path)}')" title="Expand"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
+      <svg class="tree-folder" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+      <span class="tree-name">${esc(k.name)}</span>
+    </div>` + (isOpen ? _treeLevel(driveId, k.path, depth + 1) : '');
+  }).join('');
+}
+
+async function toggleTreeNode(e, driveId, path) {
+  e.stopPropagation();
+  const open = (_treeOpen[driveId] ??= new Set());
+  if (open.has(path)) open.delete(path);
+  else { open.add(path); await _treeFetch(driveId, path); }
+  _renderTree(driveId);
+}
+
+// Click a tree folder → open it in the file pane (switching drives if needed).
+async function treeGo(e, driveId, path) {
+  e.stopPropagation();
+  const d = _drives.find(x => x.id === driveId); if (!d) return;
+  await browseFiles(driveId, d.label, path);
+  _renderTree(driveId);   // move the active highlight
 }
 
 // ── Live CPU / temp / power pills ───────────────────────────────────────────────

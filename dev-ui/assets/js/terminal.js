@@ -95,8 +95,8 @@ async function _termReauth() {
     const r = await fetch(API + '/api/login', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify({username: currentUsername, password: pw})});
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Login failed');
-    authToken = d.token;
-    openTerminal();   // reconnect with the fresh token
+    authToken = API ? d.token : null;   // same-origin uses the refreshed cookie (F-02)
+    openTerminal();   // reconnect
   } catch (e) {
     toast('Reconnect failed: ' + e.message, 'error', 4000);
     document.getElementById('term-reconnect').style.display = '';

@@ -113,9 +113,9 @@ function applyFilters() { applyView(); }   // back-compat for other callers
 
 // ── File browser ──────────────────────────────────────────────────────────────
 
-async function browseFiles(driveId, driveLabel) {
+async function browseFiles(driveId, driveLabel, path = '/') {
   if (driveNeedsPin(driveId) && !await unlockDrivePrompt(driveId)) return;  // locked → require PIN
-  currentDriveId = driveId; currentDriveLabel = driveLabel; currentPath = '/';
+  currentDriveId = driveId; currentDriveLabel = driveLabel; currentPath = path;
   _filtered = null; _typeFilter = 'all'; _sortKey = 'name'; _sortAsc = true;
   document.getElementById('file-search').value = '';
   document.querySelectorAll('.type-pill').forEach(el => el.classList.toggle('active', el.dataset.type === 'all'));
@@ -123,8 +123,8 @@ async function browseFiles(driveId, driveLabel) {
   document.querySelectorAll('.sb-drive').forEach(el => el.classList.remove('active'));
   const card = document.getElementById(`sbcard-${driveId}`);
   if (card) card.classList.add('active');
-  loadFiles('/');
-  setBreadcrumb([{label: driveLabel, path: '/'}]);
+  loadFiles(path);
+  setBreadcrumb(_crumbsFor(path));
   document.querySelector('.app-body')?.classList.add('viewing-files');  // mobile: slide to Files screen
 }
 
@@ -167,6 +167,7 @@ async function loadFiles(path) {
   }
   // Hide the Windows-created "System Volume Information" folder (per-drive system metadata).
   const data = await r.json(); dirEntries = data.entries.filter(e => e.name !== 'System Volume Information'); renderFiles(dirEntries, path);
+  if (treeEnabled()) _renderTree(currentDriveId);   // keep the sidebar tree highlight in step
   // If we navigated here to reveal a search hit, select it now.
   if (_revealPath) {
     const rp = _revealPath; _revealPath = null;
@@ -591,6 +592,22 @@ async function newFolderFromSelection() {
 }
 
 // ── Upload ────────────────────────────────────────────────────────────────────
+
+// Upload button → small menu: multiple files, or a whole folder (keeps subdirs).
+// Reuses the ctx-menu element so outside-click / Esc close it for free.
+function openUploadMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('ctx-menu');
+  if (!menu.classList.contains('hidden')) { closeCtxMenu(); return; }
+  if (!currentDriveId) { toast('Select a drive first', 'info', 2000); return; }
+  menu.innerHTML = `
+    <div class="ctx-item" onclick="document.getElementById('upload-input').click()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>Upload files…</div>
+    <div class="ctx-item" onclick="document.getElementById('upload-folder-input').click()" title="Keeps the folder's subfolders"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>Upload a folder…</div>`;
+  menu.classList.remove('hidden');
+  const b = e.currentTarget.getBoundingClientRect();
+  menu.style.left = Math.max(8, Math.min(b.left, window.innerWidth - 190)) + 'px';
+  menu.style.top  = (b.bottom + 6) + 'px';
+}
 
 function handleDropUpload(e) {
   e.preventDefault();

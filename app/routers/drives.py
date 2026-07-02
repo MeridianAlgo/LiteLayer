@@ -9,6 +9,7 @@ from drives import registry, persist, pinlock
 from drives.mount import mount as do_mount, unmount as do_unmount, remount_rw, get_usage, ALWAYS_RO
 from app.deps import require_auth, current_token
 from app import audit
+from app.netutil import client_ip
 
 router = APIRouter(prefix="/api/drives", tags=["drives"])
 
@@ -96,7 +97,7 @@ def unlock_drive(drive_id: str, req: PinRequest, request: Request, token: str = 
     if not registry.get(drive_id):
         raise HTTPException(404, "Drive not found")
     result = pinlock.unlock(drive_id, req.pin, token)
-    ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else "?")
+    ip = client_ip(request)
     if result == "throttled":
         audit.log("pin.throttled", ip=ip, detail=drive_id[:12])
         raise HTTPException(429, "Too many wrong PINs. Wait a few minutes and try again.")

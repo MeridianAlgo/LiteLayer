@@ -61,6 +61,9 @@ async def _security_and_cache(request: Request, call_next):
     # they're unaffected; cookie-less requests (no session to abuse) pass through.
     if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.cookies.get("litelayer_session") \
             and not (request.headers.get("authorization", "").startswith("Bearer ")):
+        # When a browser sends Origin/Referer (always, on a cross-site fetch), reject a
+        # mismatch. A missing header is left to pass: non-browser cookie clients omit it,
+        # and SameSite=Lax already stops a cross-site page from having the cookie sent.
         origin = request.headers.get("origin") or request.headers.get("referer")
         host = urlparse(origin).netloc if origin else ""
         if host and host != request.url.netloc and host not in _ALLOWED_ORIGIN_HOSTS:
@@ -105,9 +108,7 @@ class LoginRequest(BaseModel):
 import time as _time
 
 
-def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("x-forwarded-for", "")
-    return fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "?")
+from app.netutil import client_ip as _client_ip   # single non-spoofable source of truth
 
 
 def _is_https(request: Request) -> bool:
@@ -1035,9 +1036,20 @@ def terminal_ticket(req: PasswordOnly, request: Request, username: str = Depends
 @app.websocket("/api/system/terminal")
 async def terminal_ws(ws: WebSocket, token: str = Query(default=""), ticket: str = Query(default="")):
     import asyncio
-    if not sessions.validate_session(token):
+    # Prefer the same-origin session cookie so the token never has to ride in the URL
+    # (URLs leak into logs/history). The query token stays as a fallback for a
+    # cross-origin API client that can't send the cookie.
+    sess = token or ws.cookies.get("litelayer_session", "")
+    if not sessions.validate_session(sess):
         await ws.close(code=4401)
         return
+    # A cookie session is device-bound, same as deps.require_auth — a cookie lifted
+    # to another device is refused. (The query-token path is an explicit API secret.)
+    if not token:
+        bound = sessions.session_device(sess)
+        if bound and bound != ws.cookies.get("ll_device"):
+            await ws.close(code=4401)
+            return
     if _terminal_tickets.pop(ticket, 0) < _time.time():   # missing/expired → reject
         await ws.close(code=4401)
         return
