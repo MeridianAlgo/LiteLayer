@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# Packages ONLY the standalone CLI client (cli/litelayer.py) as the `litelayer`
+# console script. The server (app/, drives/, auth/) is deployed via installer/,
+# not pip — so this project intentionally covers just the client.
+[project]
+name = "litelayer-cli"
+version = "3.0.0"
+description = "Command-line client for a LiteLayer NAS backend"
+requires-python = ">=3.10"
+dependencies = []          # pure stdlib — installs anywhere with no wheels to build
+
+[project.scripts]
+litelayer = "litelayer:main"
+
+[tool.setuptools]
+py-modules = ["litelayer"]
+
+[tool.setuptools.package-dir]
+"" = "cli"
