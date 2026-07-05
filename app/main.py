@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from app.config import CORS_ORIGINS, COOKIE_SECURE, DEV_UI_PATH, SESSION_TTL_HOURS
 from app.deps import require_auth
-from app.routers import drives, files, ota
+from app.routers import drives, files, ota, photos
 from auth import sessions, store as auth_store, devices, twofa
 from app import audit, throttle
 
@@ -26,6 +26,8 @@ logging.basicConfig(
 async def lifespan(_app: FastAPI):
     from drives import hotplug
     hotplug.start()
+    from app import photo_inbox
+    photo_inbox.start()   # sleeps until the Photo Inbox is configured/enabled
     yield
 
 
@@ -97,6 +99,7 @@ async def _security_and_cache(request: Request, call_next):
 app.include_router(drives.router)
 app.include_router(files.router)
 app.include_router(ota.router)
+app.include_router(photos.router)
 
 
 class LoginRequest(BaseModel):

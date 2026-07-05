@@ -550,6 +550,10 @@ function showEmptyCtxMenu(e) {
   const items = [
     `<div class="ctx-item" onclick="newFolder();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>New folder</div>`,
     `<div class="ctx-item" onclick="newFile();closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>New file</div>`,
+    `<div class="ctx-sep"></div>`,
+    `<div class="ctx-item" onclick="closeCtxMenu();document.getElementById('upload-input').click()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>Upload files…</div>`,
+    `<div class="ctx-item" onclick="closeCtxMenu();document.getElementById('upload-folder-input').click()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><path d="M12 17v-6m-3 3 3-3 3 3"/></svg>Upload a folder…</div>`,
+    `<div class="ctx-sep"></div>`,
     `<div class="ctx-item" onclick="loadFiles(currentPath);closeCtxMenu()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Refresh</div>`,
   ];
   const menu = document.getElementById('ctx-menu');
@@ -823,3 +827,41 @@ function showProperties(idx) {
   show('props-modal');
 }
 function closeProps() { hide('props-modal'); }
+
+// ── Mobile: long-press → context menu ─────────────────────────────────────────
+// Android fires a native `contextmenu` on long-press (already handled); iOS
+// Safari doesn't, so a touch timer covers it. On small screens the menu renders
+// as a bottom sheet (see app.css). Double-fire on Android is harmless —
+// showCtxMenu recloses the menu first.
+(function () {
+  const area = document.getElementById('files-area');
+  if (!area) return;
+  let timer = null, fired = false, sx = 0, sy = 0;
+
+  area.addEventListener('touchstart', e => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    sx = t.clientX; sy = t.clientY; fired = false;
+    const item = e.target.closest('.file-row[data-idx], .file-cell[data-idx]');
+    timer = setTimeout(() => {
+      fired = true;
+      if (navigator.vibrate) navigator.vibrate(12);
+      const fake = { clientX: sx, clientY: sy, target: e.target, preventDefault() {} };
+      if (item) showCtxMenu(fake, parseInt(item.dataset.idx));
+      else showEmptyCtxMenu(fake);
+    }, 480);
+  }, { passive: true });
+
+  area.addEventListener('touchmove', e => {
+    const t = e.touches[0];
+    if (Math.abs(t.clientX - sx) > 10 || Math.abs(t.clientY - sy) > 10) clearTimeout(timer);
+  }, { passive: true });
+
+  // If the menu opened, swallow the touch's synthetic click — otherwise the
+  // document-level click handler would close the sheet the instant it opens.
+  area.addEventListener('touchend', e => {
+    clearTimeout(timer);
+    if (fired) { e.preventDefault(); fired = false; }
+  }, { passive: false });
+  area.addEventListener('touchcancel', () => clearTimeout(timer), { passive: true });
+})();

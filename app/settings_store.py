@@ -46,6 +46,12 @@ def _key() -> bytes:
         return _mem_key
 
 
+def fernet() -> Fernet:
+    """The app-wide at-rest cipher — shared by other stores (e.g. the Photo
+    Inbox config, which holds an IMAP app-password)."""
+    return Fernet(_key())
+
+
 def load() -> dict:
     with _lock:
         try:

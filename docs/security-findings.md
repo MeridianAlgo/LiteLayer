@@ -10,6 +10,24 @@ why.
 
 ---
 
+## Feature note — 2026-07-05 (Photo Inbox threat surface)
+
+The email→Pi photo pipeline (`app/photo_inbox.py`) adds a new write path onto
+drives. Mitigations shipped with it: sender allowlist (empty list = self-only),
+attachment extension allowlist (images/video only — never executables or docs),
+filenames stripped to their basename before `_safe_path`/`_unique` write, IMAP
+app-password stored Fernet-encrypted (same key as `settings_store`), API masks
+the password and a blank update never wipes it (tested).
+
+**Accepted:** the `From:` header is spoofable (no DMARC verification client-side),
+so someone who *knows* an allowed sender's address and the Pi's inbox address
+could plant image files. Residual impact is writing images into the photo folder
+— no code execution, no path escape. Documented in `docs/photo-inbox.md`; the
+real gate is keeping the Pi's mailbox address private. Revisit only if the
+feature ever accepts non-image types.
+
+---
+
 ## Review 3 — 2026-07-02 (closing the token-exposure follow-ups)
 
 Fixed **F-02** and **F-03** (details updated in place under Review 1): the first-party
