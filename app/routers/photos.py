@@ -33,6 +33,7 @@ class ConfigRequest(BaseModel):
     imap_user: Optional[str] = None
     imap_password: Optional[str] = None   # blank/omitted = keep the saved one
     allowed_senders: Optional[list[str]] = None
+    require_verified: Optional[bool] = None
     poll_seconds: Optional[int] = None
     drive: Optional[str] = None
     path: Optional[str] = None
@@ -58,6 +59,47 @@ def put_config(req: ConfigRequest, request: Request, username: str = Depends(req
     photo_inbox.save_config(cfg)
     audit.log("photos.config", user=username, ip=client_ip(request))
     return _masked(cfg)
+
+
+# ── Registered phones ─────────────────────────────────────────────────────────
+# Each phone gets its own secret plus-address (user+code@host). Codes are
+# generated here — never client-supplied — so they can't be weak or reused.
+
+def _plus_address(user: str, code: str) -> str:
+    return f"{user.split('@')[0]}+{code}@{user.split('@')[1]}" if "@" in user else code
+
+
+class DeviceAddRequest(BaseModel):
+    name: str
+
+
+@router.post("/devices")
+def add_device(req: DeviceAddRequest, request: Request, username: str = Depends(require_auth)):
+    import secrets, time
+    cfg = photo_inbox.load_config()
+    devices = cfg.get("devices", [])
+    if len(devices) >= 20:
+        raise HTTPException(400, "Too many registered phones (max 20)")
+    name = req.name.strip()[:40] or "Phone"
+    # unambiguous lowercase alphabet — this gets typed into a phone once
+    code = "".join(secrets.choice("abcdefghjkmnpqrstuvwxyz23456789") for _ in range(8))
+    devices.append({"name": name, "code": code, "created": time.time(), "last_used": 0})
+    cfg["devices"] = devices
+    photo_inbox.save_config(cfg)
+    audit.log("photos.device_add", user=username, ip=client_ip(request), detail=name)
+    return {"name": name, "code": code, "address": _plus_address(cfg["imap_user"], code)}
+
+
+@router.delete("/devices/{code}")
+def remove_device(code: str, request: Request, username: str = Depends(require_auth)):
+    cfg = photo_inbox.load_config()
+    kept = [d for d in cfg.get("devices", []) if d["code"] != code]
+    if len(kept) == len(cfg.get("devices", [])):
+        raise HTTPException(404, "Phone not found")
+    cfg["devices"] = kept
+    photo_inbox.save_config(cfg)
+    audit.log("photos.device_remove", user=username, ip=client_ip(request))
+    return {"status": "ok"}
 
 
 class TestRequest(BaseModel):

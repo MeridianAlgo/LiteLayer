@@ -18,6 +18,7 @@ import email.header
 import imaplib
 import json
 import os
+import re
 import threading
 import time
 from email.utils import parseaddr
@@ -36,6 +37,11 @@ DEFAULTS = {
     "imap_user": "",
     "imap_password": "",       # an app password, never the account password
     "allowed_senders": [],     # empty = only mail you send yourself (to your own address)
+    # From: alone is spoofable, so two harder gates ride on top of the allowlist:
+    "require_verified": True,  # sender must pass the provider's DKIM/SPF check
+    "devices": [],             # registered phones: [{"name","code","created","last_used"}]
+                               # non-empty = mail must carry a phone's code (via the
+                               # user+code@ address or in the subject) or it's ignored
     "poll_seconds": 60,
     "drive": "",               # drive UUID (see /api/drives)
     "path": "/Photos",         # folder on that drive
@@ -46,7 +52,7 @@ DEFAULTS = {
 IMAGE_EXTS = {"jpg", "jpeg", "png", "gif", "webp", "heic", "heif", "bmp",
               "tiff", "avif", "dng", "mp4", "mov"}   # live photos ride along as video
 
-_status = {"last_check": 0.0, "last_error": None, "saved": 0, "recent": []}
+_status = {"last_check": 0.0, "last_error": None, "last_reject": None, "saved": 0, "recent": []}
 _wake = threading.Event()
 _started = False
 _cfg_lock = threading.Lock()
@@ -63,7 +69,7 @@ def load_config() -> dict:
             return dict(DEFAULTS)
 
 
-def save_config(cfg: dict) -> None:
+def save_config(cfg: dict, wake: bool = True) -> None:
     with _cfg_lock:
         data = settings_store.fernet().encrypt(json.dumps(cfg).encode())
         try:
@@ -71,7 +77,8 @@ def save_config(cfg: dict) -> None:
             CONFIG_FILE.write_bytes(data)
         except OSError:
             pass  # dev box without /etc/litelayer — feature just won't persist
-    _wake.set()   # apply new settings immediately
+    if wake:
+        _wake.set()   # apply new settings immediately
 
 
 def get_status() -> dict:
@@ -110,15 +117,46 @@ def _loop() -> None:
         _wake.clear()
 
 
+def sender_verified(msg: email.message.Message) -> bool:
+    """Did the receiving mail provider's own DKIM/SPF check pass? Gmail (and
+    every serious provider) stamps an Authentication-Results header on inbound
+    mail — we trust their crypto instead of redoing it. A spoofed From: fails
+    this because the forger can't sign for the real domain."""
+    for h in (msg.get_all("Authentication-Results", []) or []) \
+           + (msg.get_all("ARC-Authentication-Results", []) or []):
+        hl = str(h).lower()
+        if "dkim=pass" in hl or "spf=pass" in hl:
+            return True
+    return False
+
+
+def match_device(msg: email.message.Message, devices: list[dict]) -> "dict | None":
+    """Which registered phone sent this? Phones mail the plus-address
+    (user+code@host) that Settings hands out — the code also counts in the
+    subject line for providers without plus-addressing."""
+    codes = {d["code"]: d for d in devices}
+    rcpt = " ".join(str(msg.get(h, "")) for h in
+                    ("To", "Cc", "Delivered-To", "X-Original-To", "Envelope-To")).lower()
+    for m in re.finditer(r"\+([a-z0-9]{6,16})@", rcpt):
+        if m.group(1) in codes:
+            return codes[m.group(1)]
+    subject = _decode(msg.get("Subject", "")).lower()
+    for code, dev in codes.items():
+        if code in subject:
+            return dev
+    return None
+
+
 def poll_once(cfg: dict) -> int:
-    """One IMAP pass: save every image attachment from unseen, allowed mail.
-    Returns how many files were saved."""
+    """One IMAP pass: save every image attachment from unseen, allowed,
+    verified mail. Returns how many files were saved."""
     allowed = {s.strip().lower() for s in cfg["allowed_senders"] if s.strip()}
     if not allowed:
         allowed = {cfg["imap_user"].strip().lower()}
 
     M = imaplib.IMAP4_SSL(cfg["imap_host"], int(cfg["imap_port"]), timeout=30)
     saved = 0
+    devices_touched = False
     try:
         M.login(cfg["imap_user"], cfg["imap_password"])
         M.select("INBOX")
@@ -132,16 +170,32 @@ def poll_once(cfg: dict) -> int:
             msg = email.message_from_bytes(msgdata[0][1])
             sender = parseaddr(msg.get("From", ""))[1].lower()
             if sender not in allowed:
+                _status["last_reject"] = f"{sender or 'unknown sender'}: not on the allowed list"
                 continue
+            if cfg.get("require_verified", True) and not sender_verified(msg):
+                _status["last_reject"] = f"{sender}: failed the mail provider's DKIM/SPF check"
+                continue
+            device = None
+            if cfg.get("devices"):
+                device = match_device(msg, cfg["devices"])
+                if not device:
+                    _status["last_reject"] = f"{sender}: no registered phone code on the mail"
+                    continue
+                device["last_used"] = time.time()
+                devices_touched = True
             for name, blob in extract_images(msg):
                 try:
                     folder = _save(cfg, name, blob)
                     _status["saved"] += 1
                     saved += 1
-                    _status["recent"] = ([{"name": name, "folder": folder, "ts": time.time()}]
+                    _status["recent"] = ([{"name": name, "folder": folder,
+                                           "device": device["name"] if device else "",
+                                           "ts": time.time()}]
                                          + _status["recent"])[:20]
                 except Exception as exc:  # noqa: BLE001
                     _status["last_error"] = f"{name}: {exc}"
+        if devices_touched:
+            save_config(cfg, wake=False)   # persist last_used without re-waking the loop
     finally:
         try:
             M.logout()

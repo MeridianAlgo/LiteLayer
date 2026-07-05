@@ -445,8 +445,67 @@ async function _loadPhotos() {
     `<option value="">— pick a drive —</option>` + drives.map(d =>
       `<option value="${esc(d.id)}"${d.id === _piCfg.drive ? ' selected' : ''}>${esc(d.label)} (${esc(d.fstype)})</option>`).join('');
 
+  document.getElementById('pi-verified-sw').classList.toggle('on', _piCfg.require_verified !== false);
   renderPiCats();
+  renderPiDevices();
   _refreshPhotoStatus();
+}
+
+// ── Trusted phones (per-device secret plus-addresses) ──
+
+function _piPlusAddr(code) {
+  const u = _piCfg?.imap_user || '';
+  const at = u.indexOf('@');
+  return at > 0 ? `${u.slice(0, at)}+${code}${u.slice(at)}` : code;
+}
+
+function renderPiDevices() {
+  const box = document.getElementById('pi-devices');
+  const devs = _piCfg.devices || [];
+  if (!devs.length) {
+    box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">No phones registered — the allowed-senders list above is the only gate.</div>`;
+    return;
+  }
+  const ago = ts => ts ? fmtRelative(new Date(ts * 1000).toISOString()) : 'never used';
+  box.innerHTML = devs.map(d => `
+    <div class="vpn-row">
+      <div style="flex:1;min-width:0">
+        <div class="vpn-row-name">${esc(d.name)} <span style="font-size:10px;color:var(--text-3);font-weight:400">· ${ago(d.last_used)}</span></div>
+        <div style="font-size:11px;font-family:var(--mono);color:var(--accent-light);word-break:break-all">${esc(_piPlusAddr(d.code))}</div>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="navigator.clipboard.writeText('${esc(_piPlusAddr(d.code))}').then(()=>toast('Address copied — save it as a contact on that phone','success',3500))">Copy</button>
+      <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removePiDevice('${esc(d.code)}','${esc(d.name)}')">Remove</button>
+    </div>`).join('');
+}
+
+async function addPiDevice() {
+  if (!_piCfg?.imap_user) { toast('Set the mailbox address first', 'info', 3000); return; }
+  const name = prompt('Name this phone (e.g. "Ishaan’s iPhone"):', '');
+  if (name == null || !name.trim()) return;
+  const r = await api('/api/photos/devices', {method: 'POST', body: JSON.stringify({name: name.trim()})});
+  if (!r?.ok) { const e = await r?.json().catch(() => ({})); toast(e.detail || 'Could not register the phone', 'error', 4000); return; }
+  const d = await r.json();
+  await navigator.clipboard.writeText(d.address).catch(() => {});
+  toast(`${d.name} registered — its address is copied. Save it as a contact on that phone.`, 'success', 6000);
+  _loadPhotos();
+}
+
+async function removePiDevice(code, name) {
+  if (!confirm(`Remove "${name}"? Photos mailed from it will be ignored from now on.`)) return;
+  const r = await api(`/api/photos/devices/${encodeURIComponent(code)}`, {method: 'DELETE'});
+  if (r?.ok) { toast('Phone removed', 'success'); _loadPhotos(); }
+  else { toast('Could not remove the phone', 'error'); }
+}
+
+async function togglePiVerified() {
+  const sw = document.getElementById('pi-verified-sw');
+  const enabling = !sw.classList.contains('on');
+  if (!enabling && !confirm('Turn off sender verification? Faked "From" addresses will no longer be caught.')) return;
+  const r = await api('/api/photos/config', {method: 'PUT', body: JSON.stringify({require_verified: enabling})});
+  if (!r?.ok) { toast('Could not change setting', 'error'); return; }
+  _piCfg.require_verified = enabling;
+  sw.classList.toggle('on', enabling);
+  toast(enabling ? 'Sender verification on' : 'Sender verification off', enabling ? 'success' : 'info', 2500);
 }
 
 function renderPiCats() {
@@ -555,6 +614,7 @@ async function _refreshPhotoStatus() {
     const bits = [];
     if (s.last_check) bits.push(`last check ${fmtRelative(new Date(s.last_check * 1000).toISOString())}`);
     if (s.saved) bits.push(`${s.saved} photo${s.saved !== 1 ? 's' : ''} saved`);
+    if (s.last_reject) bits.push(`blocked: ${s.last_reject}`);
     if (s.last_error) bits.push(`⚠ ${s.last_error}`);
     line.textContent = bits.join(' · ');
     line.style.color = s.last_error ? 'var(--red)' : 'var(--text-3)';
@@ -579,7 +639,7 @@ async function _refreshPhotoStatus() {
   if (rec) {
     rec.innerHTML = (s.recent || []).map(x =>
       `<div class="pi-recent-row"><span class="pi-recent-name">${esc(x.name)}</span>
-        <span class="pi-recent-folder">${x.folder ? '→ ' + esc(x.folder) : ''}</span>
+        <span class="pi-recent-folder">${x.folder ? '→ ' + esc(x.folder) : ''}${x.device ? ` <span style="color:var(--text-3)">· from ${esc(x.device)}</span>` : ''}</span>
         <span class="pi-recent-ts">${fmtRelative(new Date(x.ts * 1000).toISOString())}</span></div>`
     ).join('') || 'Nothing yet — email a photo to your inbox address and it appears here.';
   }

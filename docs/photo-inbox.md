@@ -20,16 +20,26 @@ into folders by a small AI model running entirely on the Pi.
 
 Any IMAP provider works (iCloud, Outlook, Fastmail…) — just swap the server.
 
-## Security
+## Security — three gates, in order
 
-- Only mail from **allowed senders** is processed; everything else is ignored.
-  With the list empty, only mail from the Pi's own address counts.
-- Only image/video attachments are saved (jpg, png, heic, mov, …) — never
-  executables or documents.
-- The app password is stored Fernet-encrypted on the Pi, same as your synced
-  settings. Note the From header is not authenticated mail — anyone who knows
-  an allowed sender's address could spoof it. A dedicated, unguessable Gmail
-  address for the Pi is the real gate; don't reuse a public inbox.
+1. **Allowed senders** — mail from any other From address is ignored. With the
+   list empty, only mail from the Pi's own address counts.
+2. **Verified senders (on by default)** — a From address alone can be faked,
+   so LiteLayer also requires the mail to have passed your provider's own
+   DKIM/SPF authenticity check (the `Authentication-Results` verdict Gmail
+   stamps on every inbound message). A spoofer can't cryptographically sign
+   for a domain they don't control, so a faked From fails here.
+3. **Trusted phones (recommended)** — register each phone in Settings and it
+   gets its own secret address (`mypi+x7k2m9ab@gmail.com`). Save it as a
+   contact on that phone once; from then on, mail without a registered
+   phone's code is ignored entirely, every saved photo is attributed to the
+   phone it came from, and removing a phone cuts it off instantly. If your
+   provider doesn't do `+` addresses, the code also counts in the subject line.
+
+Plus: only image/video attachments are ever saved (jpg, png, heic, mov, …) —
+never executables or documents — filenames are stripped to their basename, and
+the app password is stored Fernet-encrypted on the Pi. Rejected mail shows up
+in the status line ("blocked: …") so a misconfigured gate is visible, not silent.
 
 ## AI sorting
 

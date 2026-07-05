@@ -584,9 +584,24 @@
           <div class="field"><label>Allowed senders</label><input id="pi-senders" type="text" placeholder="Leave blank = only mail from your own address" autocapitalize="off">
             <div style="font-size:10px;color:var(--text-3);margin-top:4px">Comma-separated. Photos from anyone else are ignored — this is what keeps strangers from writing to your drive.</div>
           </div>
+          <div class="toggle-row" style="padding-bottom:2px">
+            <div class="toggle-row-text">Require verified senders
+              <small>Only accept mail that passed your provider's DKIM/SPF authenticity check — a faked "From" address can't pass it. Leave on unless a trusted sender's mail keeps getting rejected.</small>
+            </div>
+            <div class="toggle-sw" id="pi-verified-sw" onclick="togglePiVerified()"></div>
+          </div>
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
             <button class="btn btn-ghost btn-sm" onclick="testPhotoEmail()">Test connection</button>
           </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Trusted phones</div>
+          <div style="font-size:11px;color:var(--text-3);margin:-4px 0 12px;line-height:1.6">
+            The strongest gate: register each phone once and it gets its <b>own secret address</b>. Save that address as a contact on that phone (call it "My Pi") and always email photos to it. Once at least one phone is registered, mail without a phone's code is <b>ignored</b> — a stranger would have to guess it. Remove a phone here to cut it off instantly. No "+" address support on your provider? Put the code in the subject line instead.
+          </div>
+          <div id="pi-devices"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addPiDevice()">+ Register a phone</button>
         </div>
 
         <div class="settings-section">

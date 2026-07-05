@@ -72,6 +72,43 @@ def test_api_masks_password_and_keeps_it_on_blank_update(authed):
     assert photo_inbox.load_config()["imap_user"] == "new@example.com"
 
 
+def test_sender_verified_reads_provider_verdict():
+    msg = _mail()
+    assert not photo_inbox.sender_verified(msg), "no auth header must fail"
+    msg["Authentication-Results"] = "mx.google.com; dkim=pass header.i=@example.com; spf=pass"
+    assert photo_inbox.sender_verified(msg)
+    bad = _mail()
+    bad["Authentication-Results"] = "mx.google.com; dkim=fail; spf=softfail"
+    assert not photo_inbox.sender_verified(bad)
+
+
+def test_device_code_matches_plus_address_and_subject():
+    devices = [{"name": "iPhone", "code": "x7k2m9ab", "created": 0, "last_used": 0}]
+    via_plus = _mail()
+    via_plus.replace_header("To", "pi+x7k2m9ab@example.com")
+    assert photo_inbox.match_device(via_plus, devices)["name"] == "iPhone"
+    via_subject = _mail()
+    via_subject.replace_header("Subject", "photos x7k2m9ab")
+    assert photo_inbox.match_device(via_subject, devices)["name"] == "iPhone"
+    no_code = _mail()
+    assert photo_inbox.match_device(no_code, devices) is None
+    wrong = _mail()
+    wrong.replace_header("To", "pi+zzzzzzzz@example.com")
+    assert photo_inbox.match_device(wrong, devices) is None
+
+
+def test_device_api_generates_and_revokes_codes(authed):
+    r = authed.post("/api/photos/devices", json={"name": "Test phone"})
+    assert r.status_code == 200
+    d = r.json()
+    assert len(d["code"]) == 8 and d["code"].isalnum()
+    assert photo_inbox.load_config()["devices"][0]["code"] == d["code"]
+    r = authed.delete(f"/api/photos/devices/{d['code']}")
+    assert r.status_code == 200
+    assert photo_inbox.load_config()["devices"] == []
+    assert authed.delete(f"/api/photos/devices/{d['code']}").status_code == 404
+
+
 def test_api_requires_auth():
     from fastapi.testclient import TestClient
     from app.main import app

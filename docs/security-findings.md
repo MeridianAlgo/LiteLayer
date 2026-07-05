@@ -19,12 +19,17 @@ filenames stripped to their basename before `_safe_path`/`_unique` write, IMAP
 app-password stored Fernet-encrypted (same key as `settings_store`), API masks
 the password and a blank update never wipes it (tested).
 
-**Accepted:** the `From:` header is spoofable (no DMARC verification client-side),
-so someone who *knows* an allowed sender's address and the Pi's inbox address
-could plant image files. Residual impact is writing images into the photo folder
-— no code execution, no path escape. Documented in `docs/photo-inbox.md`; the
-real gate is keeping the Pi's mailbox address private. Revisit only if the
-feature ever accepts non-image types.
+**Fixed (2026-07-05, same day):** the `From:`-spoofing gap is closed by two
+stacked gates — (1) `require_verified` (default on) rejects mail that didn't
+pass the provider's own DKIM/SPF check, read from the `Authentication-Results`
+header, so a forged From can't sign for the real domain; (2) optional
+per-phone registration: server-generated 8-char secret codes carried in the
+recipient plus-address (`user+code@host`) or subject — once any phone is
+registered, mail without a valid code is dropped and each phone is
+individually revocable. Both have runnable checks in `tests/test_photo_inbox.py`.
+Residual: a sender whose *mailbox itself* is compromised can still submit
+images (not spoofing — real account takeover); impact remains images-only,
+basename-stripped, path-safe writes.
 
 ---
 
