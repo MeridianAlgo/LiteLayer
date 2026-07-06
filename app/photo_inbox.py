@@ -153,21 +153,27 @@ def poll_once(cfg: dict) -> int:
         # a full-inbox CLIP scan; anything older stays UNSEEN and drains on the
         # following passes, 2 per poll.
         for num in data[0].split()[-2:]:
-            typ, msgdata = M.fetch(num, "(RFC822)")   # fetch marks it \Seen
+            # PEEK: don't mark it read yet — only after its photos are safely
+            # on disk (or it was rejected on purpose). A failed save keeps the
+            # mail unread so the next poll retries it; dedupe makes that safe.
+            typ, msgdata = M.fetch(num, "(BODY.PEEK[])")
             if typ != "OK" or not msgdata or msgdata[0] is None:
                 continue
             msg = email.message_from_bytes(msgdata[0][1])
             sender = parseaddr(msg.get("From", ""))[1].lower()
             if not sender_allowed(sender, allowed):
                 _status["last_reject"] = f"{sender or 'unknown sender'}: not on the allowed list"
+                M.store(num, "+FLAGS", "\\Seen")
                 continue
             if cfg.get("require_verified", True) and not sender_verified(msg):
                 _status["last_reject"] = f"{sender}: failed the mail provider's DKIM/SPF check"
+                M.store(num, "+FLAGS", "\\Seen")
                 continue
             # A non-empty subject names the destination folder (beats AI sorting).
             # Path(...).name + lstrip('.') keeps it a plain folder name.
             subject_folder = Path(_decode(msg.get("Subject", ""))
                                   .strip().replace("\\", "/")).name.lstrip(".")[:40]
+            failed = False
             for name, blob in extract_images(msg):
                 try:
                     folder = _save(cfg, name, blob, subject_folder)
@@ -179,6 +185,9 @@ def poll_once(cfg: dict) -> int:
                                          + _status["recent"])[:20]
                 except Exception as exc:  # noqa: BLE001
                     _status["last_error"] = f"{name}: {exc}"
+                    failed = True
+            if not failed:
+                M.store(num, "+FLAGS", "\\Seen")
     finally:
         try:
             M.logout()
@@ -227,7 +236,8 @@ def _save(cfg: dict, name: str, blob: bytes, subject_folder: str = "") -> "str |
 
     d = registry.get(cfg["drive"])
     if not d or not d.mount_point:
-        raise RuntimeError("Destination drive is not mounted")
+        raise RuntimeError("No destination drive picked — choose one under Save to"
+                           if not cfg["drive"] else "Destination drive is not mounted")
     _ensure_writable(d)
     root = Path(d.mount_point)
     base = _safe_path(root, cfg["path"])
