@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from app.config import CREDENTIALS_FILE
 from app.deps import require_auth
 
 router = APIRouter(prefix="/api/ota", tags=["ota"])
@@ -18,7 +19,22 @@ INSTALL_DIR  = Path("/opt/litelayer")
 UPDATE_LOG   = Path("/var/log/litelayer/update.log")
 RESULT_FILE  = Path("/var/log/litelayer/last_update.json")
 REPO_URL     = "https://github.com/MeridianAlgo/LiteLayer.git"
-BRANCH       = "main"
+# Update channel: stable tracks main, beta tracks the testing branch where
+# new/experimental features land first. ponytail: one plain-text file, no DB.
+CHANNELS     = {"stable": "main", "beta": "testing"}
+CHANNEL_FILE = CREDENTIALS_FILE.parent / "ota-channel"
+
+
+def _channel() -> str:
+    try:
+        c = CHANNEL_FILE.read_text().strip()
+        return c if c in CHANNELS else "stable"
+    except OSError:
+        return "stable"
+
+
+def _branch() -> str:
+    return CHANNELS[_channel()]
 # install.sh lives under installer/ — the old root path 404'd, which is why
 # "Full Reinstall" silently did nothing (curl 404 → empty pipe → bash exit 0).
 INSTALL_URL  = "https://raw.githubusercontent.com/MeridianAlgo/LiteLayer/main/installer/install.sh"
@@ -76,12 +92,12 @@ def _classify_update(cur_ver: Optional[str], latest_ver: Optional[str]) -> str:
 
 def _is_major_update(current_sha: Optional[str], latest_sha: Optional[str]) -> bool:
     """Major if the major/minor version bumped, or installer/deps changed."""
-    if _classify_update(_version_at("HEAD"), _version_at(f"origin/{BRANCH}")) == "major":
+    if _classify_update(_version_at("HEAD"), _version_at(f"origin/{_branch()}")) == "major":
         return True
     if not current_sha or not latest_sha:
         return False
     code, out = _run(
-        ["git", "-C", str(INSTALL_DIR), "diff", current_sha, f"origin/{BRANCH}", "--name-only"],
+        ["git", "-C", str(INSTALL_DIR), "diff", current_sha, f"origin/{_branch()}", "--name-only"],
         timeout=10,
     )
     if code != 0:
@@ -108,7 +124,7 @@ def _sha(ref: str) -> str | None:
 
 def _fetch() -> bool:
     code, _ = _run(
-        ["git", "-C", str(INSTALL_DIR), "fetch", "origin", BRANCH, "--quiet"],
+        ["git", "-C", str(INSTALL_DIR), "fetch", "origin", _branch(), "--quiet"],
         timeout=20,
     )
     return code == 0
@@ -117,11 +133,14 @@ def _fetch() -> bool:
 @router.get("/status")
 def ota_status(_: str = Depends(require_auth)):
     reachable = _fetch()
+    branch  = _branch()
     current = _sha("HEAD")
-    latest  = _sha(f"origin/{BRANCH}") if reachable else None
+    latest  = _sha(f"origin/{branch}") if reachable else None
     update_available = bool(current and latest and current != latest)
-    latest_ver = _version_at(f"origin/{BRANCH}") if reachable else None
+    latest_ver = _version_at(f"origin/{branch}") if reachable else None
     return {
+        "channel":          _channel(),
+        "branch":           branch,
         "current_version":  _current_version(),
         "latest_version":   latest_ver,
         "update_type":      _classify_update(_version_at("HEAD"), latest_ver) if update_available else "none",
@@ -131,7 +150,7 @@ def ota_status(_: str = Depends(require_auth)):
         "is_major":         _is_major_update(current, latest) if update_available else False,
         "update_running":   _update_running,
         "github_reachable": reachable,
-        "changelog_url":    f"{REPO_URL.removesuffix('.git')}/commits/{BRANCH}",
+        "changelog_url":    f"{REPO_URL.removesuffix('.git')}/commits/{branch}",
     }
 
 
@@ -171,6 +190,23 @@ def list_tags(_: str = Depends(require_auth)):
     return {"tags": tags}
 
 
+class ChannelRequest(BaseModel):
+    channel: str
+
+
+@router.post("/channel")
+def set_channel(body: ChannelRequest, _: str = Depends(require_auth)):
+    """Switch between stable (main) and beta (testing branch) updates."""
+    if body.channel not in CHANNELS:
+        raise HTTPException(400, "Unknown channel")
+    try:
+        CHANNEL_FILE.parent.mkdir(parents=True, exist_ok=True)
+        CHANNEL_FILE.write_text(body.channel)
+    except OSError:
+        raise HTTPException(500, "Could not persist channel setting")
+    return {"channel": body.channel, "branch": CHANNELS[body.channel]}
+
+
 class UpdateRequest(BaseModel):
     reinstall: bool = False
     sha: Optional[str] = None   # specific commit to install (None = latest)
@@ -190,12 +226,12 @@ def _do_update(sha: Optional[str] = None) -> None:
                 return r.returncode
 
             # fetch first so we can resolve any sha
-            if run(["git", "-C", str(INSTALL_DIR), "fetch", "origin", BRANCH]) != 0:
+            if run(["git", "-C", str(INSTALL_DIR), "fetch", "origin", _branch()]) != 0:
                 log.write("git fetch failed — aborting\n")
                 _write_result(False, "Could not reach GitHub (git fetch failed).", frm, frm)
                 return
 
-            target = sha if sha else f"origin/{BRANCH}"
+            target = sha if sha else f"origin/{_branch()}"
             log.write(f"--- resetting to {target} ---\n")
             if run(["git", "-C", str(INSTALL_DIR), "reset", "--hard", target]) != 0:
                 log.write(f"git reset --hard {target} failed — aborting\n")

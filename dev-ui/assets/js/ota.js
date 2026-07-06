@@ -102,6 +102,10 @@ async function openOtaModal() {
   // Installed version
   document.getElementById('ota-cur-ver').textContent = d?.current_version ? `v${d.current_version}` : '—';
 
+  // Update channel (stable = main, beta = testing branch)
+  const chSel = document.getElementById('ota-channel-sel');
+  if (chSel) chSel.value = d?.channel || 'stable';
+
   // Status row
   const statusEl = document.getElementById('ota-status-val');
   if (statusEl) {
@@ -145,7 +149,7 @@ async function openOtaModal() {
       rows.push(`<div class="ota-ver-item" data-sha="${d.latest_sha}"
         onclick="selectOtaVersion('${d.latest_sha}',this,'${esc(name)}')">
         <span class="ota-ver-sha">${esc(name)}</span>
-        <span class="ota-ver-msg" style="color:var(--text-3)">newest on main</span>
+        <span class="ota-ver-msg" style="color:var(--text-3)">newest on ${esc(d.branch || 'main')}</span>
         <span class="ota-cur-tag" style="background:var(--y20,rgba(245,158,11,.18));color:var(--yellow)">latest</span>
       </div>`);
     }
@@ -166,6 +170,18 @@ async function openOtaModal() {
 }
 
 function closeOtaModal() { hide('ota-modal'); }
+
+async function setOtaChannel(ch) {
+  try {
+    const r = await api('/api/ota/channel', {method:'POST', body: JSON.stringify({channel: ch})});
+    if (!r?.ok) { toast('Could not switch channel', 'error'); return; }
+    toast(ch === 'beta'
+      ? 'Beta channel — updates now come from the testing branch (experimental features)'
+      : 'Stable channel — updates come from main', 'success', 4000);
+    _otaData = null; _clLoaded = false;           // status + changelog are per-channel now
+    await openOtaModal();                          // re-render version list for the new branch
+  } catch { toast('Could not switch channel', 'error'); }
+}
 
 async function applyOtaUpdate() {
   if (!_otaSelectedSha) { toast('Pick a version to install first', 'info', 2500); return; }
@@ -241,7 +257,7 @@ async function loadChangelog() {
   if (_clLoaded && _clCache) { renderChangelog(_clCache); return; }
   box.innerHTML = `<div class="cl-loading"><span class="spinner" style="width:18px;height:18px;border-width:2px"></span>Loading changelog…</div>`;
   try {
-    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/commits?per_page=20&sha=main`);
+    const r = await fetch(`https://api.github.com/repos/${GH_REPO}/commits?per_page=20&sha=${_otaData?.branch || 'main'}`);
     if (!r.ok) throw new Error('GitHub API error');
     _clCache = await r.json(); _clLoaded = true;
     renderChangelog(_clCache);

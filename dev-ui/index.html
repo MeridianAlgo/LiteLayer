@@ -276,6 +276,11 @@
     <div class="modal-body">
       <div class="ota-ver-row"><span class="ota-ver-label">Installed</span><span class="ota-ver-val" id="ota-cur-ver">—</span></div>
       <div class="ota-ver-row"><span class="ota-ver-label">Status</span><span class="ota-ver-val" id="ota-status-val">Checking…</span></div>
+      <div class="ota-ver-row"><span class="ota-ver-label">Channel</span><span class="ota-ver-val">
+        <select id="ota-channel-sel" class="pi-select" style="width:auto" onchange="setOtaChannel(this.value)">
+          <option value="stable">Stable</option>
+          <option value="beta">Beta — testing branch</option>
+        </select></span></div>
       <div id="ota-ver-pick-wrap" style="display:none">
         <div class="settings-section-title" style="margin:12px 0 6px">Choose version to install</div>
         <div id="ota-ver-list" class="ota-ver-list"></div>

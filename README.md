@@ -342,6 +342,8 @@ sudo /opt/litelayer/installer/update.sh --check
 
 Auto-check runs daily at 03:00 via `litelayer-update.timer`.
 
+**Beta channel** — in the Software Update dialog you can switch the update channel from **Stable** (`main`) to **Beta** (`testing` branch) to try new and experimental features early (e.g. Photo Inbox). Switch back to Stable any time; the next update returns you to `main`.
+
 ---
 
 ## Networking
