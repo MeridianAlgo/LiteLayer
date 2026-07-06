@@ -47,8 +47,7 @@ def _key() -> bytes:
 
 
 def fernet() -> Fernet:
-    """The app-wide at-rest cipher — shared by other stores (e.g. the Photo
-    Inbox config, which holds an IMAP app-password)."""
+    """The app-wide at-rest cipher — shared by any store that encrypts at rest."""
     return Fernet(_key())
 
 

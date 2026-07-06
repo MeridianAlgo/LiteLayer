@@ -519,9 +519,29 @@ kbd { font-family: var(--mono); font-size: 11px; line-height: 1; color: var(--te
 .modal-hdr { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
 .modal-title { font-size: 15px; font-weight: 700; }
 .modal-body { padding: 18px 20px 20px; }
-.ota-ver-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
-.ota-ver-label { font-size: 11px; color: var(--text-3); font-weight: 500; }
-.ota-ver-val { font-size: 12px; font-family: var(--mono); font-weight: 600; }
+/* Version journey: installed ──→ target. The arrow only flows while installing. */
+.ota-hero { display: flex; align-items: center; gap: 12px; padding: 18px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
+.ota-hero-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; }
+.ota-hero-label { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-3); }
+.ota-hero-ver { font-family: var(--mono); font-size: 17px; font-weight: 600; color: var(--text); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.ota-hero-ver.target { color: var(--text-3); }
+.ota-hero.has-target .ota-hero-ver.target { color: var(--accent-light); }
+.ota-hero-arrow { flex: 0 1 72px; min-width: 36px; display: flex; align-items: center; color: var(--border-h); }
+.ota-hero.has-target .ota-hero-arrow { color: var(--accent-light); }
+.ota-arrow-line { flex: 1; height: 2px; background-image: repeating-linear-gradient(90deg, currentColor 0 6px, transparent 6px 12px); }
+.ota-hero.updating .ota-arrow-line { animation: otaFlow 0.7s linear infinite; }
+@keyframes otaFlow { to { background-position: 12px 0; } }
+@media (prefers-reduced-motion: reduce) { .ota-arrow-line { animation: none !important; } }
+.ota-hero-arrow svg { flex-shrink: 0; margin-left: -2px; }
+.ota-status-line { text-align: center; font-size: 11px; font-family: var(--mono); color: var(--text-3); margin: 10px 0 2px; }
+.ota-channel-row { display: flex; align-items: center; justify-content: space-between; margin: 10px 0 2px; }
+.ota-channel-lbl { font-size: 11px; color: var(--text-3); font-weight: 500; }
+.ota-seg { display: inline-flex; gap: 2px; padding: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
+.ota-seg-btn { border: 0; background: transparent; color: var(--text-3); font-family: inherit; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 6px; cursor: pointer; transition: background 0.12s, color 0.12s; }
+.ota-seg-btn:hover { color: var(--text-2); }
+.ota-seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ota-seg-btn.active { background: var(--accent); color: #fff; }
+.ota-major-warn { margin-top: 10px; padding: 8px 12px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; font-size: 12px; color: #f59e0b; }
 .ota-steps { display: flex; flex-direction: column; gap: 10px; margin: 16px 0 8px; }
 .ota-step { display: flex; align-items: center; gap: 12px; }
 .ota-step-icon { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; border: 2px solid var(--border); color: var(--text-3); transition: background 0.3s, border-color 0.3s, color 0.3s; }
@@ -533,12 +553,6 @@ kbd { font-family: var(--mono); font-size: 11px; line-height: 1; color: var(--te
 .ota-bar-track { height: 3px; background: var(--surface-h); border-radius: 99px; margin: 6px 0 14px; overflow: hidden; }
 .ota-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-light)); border-radius: 99px; transition: width 0.6s ease; }
 .ota-countdown { text-align: center; font-size: 12px; color: var(--text-2); padding: 6px 0 2px; font-family: var(--mono); }
-.ota-commits { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 10px 0 0; }
-.ota-commits-label { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
-.ota-commit-item { display: flex; align-items: baseline; gap: 8px; padding: 3px 0; }
-.ota-commit-sha { font-family: var(--mono); font-size: 10px; color: var(--accent-light); background: var(--a10); border: 1px solid var(--a20); border-radius: 4px; padding: 1px 5px; flex-shrink: 0; }
-.ota-commit-msg { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ota-commits-more { font-size: 11px; color: var(--text-3); margin-top: 4px; }
 .ota-log-summary { font-size: 11px; color: var(--text-3); cursor: pointer; padding: 6px 0 2px; user-select: none; }
 .ota-log-summary:hover { color: var(--text-2); }
 .ota-log-pre { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-family: var(--mono); font-size: 10px; color: var(--text-2); max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin-top: 6px; }
@@ -769,21 +783,6 @@ kbd { font-family: var(--mono); font-size: 11px; line-height: 1; color: var(--te
   .app-body.viewing-files .content-pane { animation: none; }
 }
 
-/* ── Photo Inbox (Settings tab) ── */
-.pi-select { width: 100%; padding: 10px 13px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 14px; font-family: inherit; outline: none; }
-.pi-select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-.pi-select option { background: var(--bg2); color: var(--text); }
-.pi-cat-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.pi-cat-row input { padding: 8px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); font-size: 13px; font-family: inherit; outline: none; min-width: 0; }
-.pi-cat-row input:focus { border-color: var(--accent); }
-.pi-ai-status { font-size: 12px; color: var(--text-2); padding: 8px 0 2px; }
-.pi-ai-status.ok { color: var(--green); }
-.pi-recent-row { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--border); }
-.pi-recent-row:last-child { border-bottom: none; }
-.pi-recent-name { font-size: 12px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pi-recent-folder { font-size: 11px; color: var(--accent-light); flex: 1; white-space: nowrap; }
-.pi-recent-ts { font-size: 10px; color: var(--text-3); font-family: var(--mono); flex-shrink: 0; }
-
 /* ── Mobile: context menu becomes a bottom sheet ── */
 @media (max-width: 700px) {
   .file-row, .file-cell { -webkit-touch-callout: none; }   /* no iOS link preview on long-press */
@@ -799,8 +798,6 @@ kbd { font-family: var(--mono); font-size: 11px; line-height: 1; color: var(--te
   .ctx-item { padding: 13px 12px; font-size: 15px; border-radius: 10px; }
   .ctx-item svg { width: 17px; height: 17px; }
   .ctx-sep { margin: 5px 8px; }
-  .pi-cat-row { flex-wrap: wrap; }
-  .pi-cat-row input { flex-basis: 100%; }
 }
 @keyframes sheetUp { from { transform: translateY(35%); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ctx-menu { animation: none; } }

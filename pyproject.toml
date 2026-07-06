@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 # not pip — so this project intentionally covers just the client.
 [project]
 name = "litelayer-cli"
-version = "3.0.0"
+version = "4.0.0"
 description = "Command-line client for a LiteLayer NAS backend"
 requires-python = ">=3.10"
 dependencies = []          # pure stdlib — installs anywhere with no wheels to build

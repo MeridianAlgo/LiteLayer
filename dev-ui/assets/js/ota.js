@@ -69,12 +69,22 @@ function selectOtaVersion(sha, el, name) {
   _otaSelectedSha = sha;
   document.querySelectorAll('.ota-ver-item').forEach(x => x.classList.remove('selected'));
   if (el) el.classList.add('selected');
+  _setOtaTarget(name || (sha || '').slice(0,7), 'Selected');
   const runBtn = document.getElementById('ota-modal-run-btn');
   if (runBtn) {
     // Install only becomes available once a version is chosen — including downgrades.
     runBtn.disabled = false;
     runBtn.textContent = `Install ${name || (sha || '').slice(0,7)}`;
   }
+}
+
+// The right-hand chip of the version-journey hero: what we'd move to.
+function _setOtaTarget(name, label) {
+  const ver = document.getElementById('ota-target-ver');
+  const lbl = document.getElementById('ota-target-label');
+  if (ver) ver.textContent = name || '—';
+  if (lbl) lbl.textContent = label || 'Available';
+  document.getElementById('ota-hero')?.classList.toggle('has-target', !!name);
 }
 
 async function openOtaModal() {
@@ -94,6 +104,8 @@ async function openOtaModal() {
   document.getElementById('ota-status-val').innerHTML = `<span style="color:var(--text-3)">Checking…</span>`;
   document.getElementById('ota-major-warn').style.display = 'none';
   document.getElementById('ota-ver-pick-wrap').style.display = 'none';
+  document.getElementById('ota-hero')?.classList.remove('updating');
+  _setOtaTarget(null);
   show('ota-modal');
 
   if (!_otaData) await checkOtaStatus();
@@ -102,9 +114,15 @@ async function openOtaModal() {
   // Installed version
   document.getElementById('ota-cur-ver').textContent = d?.current_version ? `v${d.current_version}` : '—';
 
+  // Newest version lands on the hero's right chip until the user picks one below.
+  if (d?.update_available) _setOtaTarget(d.latest_version ? `v${d.latest_version}` : (d.latest_sha || '').slice(0,7), 'Available');
+
   // Update channel (stable = main, beta = testing branch)
-  const chSel = document.getElementById('ota-channel-sel');
-  if (chSel) chSel.value = d?.channel || 'stable';
+  const ch = d?.channel || 'stable';
+  document.getElementById('ota-ch-stable')?.classList.toggle('active', ch !== 'beta');
+  document.getElementById('ota-ch-beta')?.classList.toggle('active', ch === 'beta');
+  document.getElementById('ota-ch-stable')?.setAttribute('aria-checked', ch !== 'beta');
+  document.getElementById('ota-ch-beta')?.setAttribute('aria-checked', ch === 'beta');
 
   // Status row
   const statusEl = document.getElementById('ota-status-val');
@@ -172,6 +190,7 @@ async function openOtaModal() {
 function closeOtaModal() { hide('ota-modal'); }
 
 async function setOtaChannel(ch) {
+  if ((_otaData?.channel || 'stable') === ch) return;   // already on this channel
   try {
     const r = await api('/api/ota/channel', {method:'POST', body: JSON.stringify({channel: ch})});
     if (!r?.ok) { toast('Could not switch channel', 'error'); return; }
@@ -187,6 +206,7 @@ async function applyOtaUpdate() {
   if (!_otaSelectedSha) { toast('Pick a version to install first', 'info', 2500); return; }
   const runBtn = document.getElementById('ota-modal-run-btn'), cancelBtn = document.getElementById('ota-cancel-btn');
   runBtn.disabled = true; runBtn.innerHTML = '<span class="spinner"></span>'; cancelBtn.style.display = 'none';
+  const hero = document.getElementById('ota-hero'); hero?.classList.add('updating');
   const steps = document.querySelectorAll('#ota-steps .ota-step');
   const logDetails = document.getElementById('ota-log-details');
   const logPre = document.getElementById('ota-log-pre');
@@ -221,7 +241,7 @@ async function applyOtaUpdate() {
     // Always install the exact version the user picked from the list.
     const r = await api('/api/ota/update', {method:'POST', body: JSON.stringify({sha: _otaSelectedSha})});
     if (!r?.ok) {
-      clearInterval(_logPoll);
+      clearInterval(_logPoll); hero?.classList.remove('updating');
       const j = await r?.json(); toast(j?.detail || 'Update failed', 'error', 5000);
       runBtn.disabled = false; runBtn.textContent = 'Retry'; cancelBtn.style.display = ''; return;
     }
@@ -241,7 +261,7 @@ async function applyOtaUpdate() {
       if (--sec < 0) { clearInterval(t); window.location.reload(); }
     }, 1000);
   } catch {
-    clearInterval(_logPoll);
+    clearInterval(_logPoll); hero?.classList.remove('updating');
     toast('Update request failed', 'error');
     runBtn.disabled = false; runBtn.textContent = 'Retry'; cancelBtn.style.display = '';
   }

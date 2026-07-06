@@ -30,11 +30,9 @@ def tmp_config(tmp_path, monkeypatch):
     monkeypatch.setattr(audit, "AUDIT_FILE", tmp_path / "audit.log")
     monkeypatch.setattr(twofa, "TWOFA_FILE", tmp_path / "twofa.json")
     import app.settings_store as settings_store
-    import app.photo_inbox as photo_inbox
     monkeypatch.setattr(settings_store, "_CONFIG_DIR", tmp_path)
     monkeypatch.setattr(settings_store, "_KEY_FILE", tmp_path / "settings.key")
     monkeypatch.setattr(settings_store, "_DATA_FILE", tmp_path / "settings.enc")
-    monkeypatch.setattr(photo_inbox, "CONFIG_FILE", tmp_path / "photo_inbox.enc")
     return {"creds": creds, "mounts": mounts}
 
 

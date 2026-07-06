@@ -12,6 +12,9 @@ why.
 
 ## Feature note — 2026-07-05 (Photo Inbox threat surface)
 
+*(2026-07-06: the whole Photo Inbox feature was removed from the codebase —
+this entry is kept for the record; none of the surface below exists anymore.)*
+
 The email→Pi photo pipeline (`app/photo_inbox.py`) adds a new write path onto
 drives. Mitigations shipped with it: sender allowlist (empty list = self-only),
 attachment extension allowlist (images/video only — never executables or docs),
