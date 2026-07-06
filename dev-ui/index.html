@@ -582,7 +582,7 @@
           <div class="field"><label>Email address</label><input id="pi-user" type="email" placeholder="my-pi@gmail.com" autocapitalize="off"></div>
           <div class="field"><label>App password</label><input id="pi-pass" type="password" placeholder="App password" autocomplete="off"></div>
           <div class="field"><label>Allowed senders</label><input id="pi-senders" type="text" placeholder="Leave blank = only mail from your own address" autocapitalize="off">
-            <div style="font-size:10px;color:var(--text-3);margin-top:4px">Comma-separated. Photos from anyone else are ignored — this is what keeps strangers from writing to your drive.</div>
+            <div style="font-size:10px;color:var(--text-3);margin-top:4px">Comma-separated. Photos from anyone else are ignored — this is what keeps strangers from writing to your drive. A whole domain works too ("@tmomail.net") — that's how <b>texted</b> photos arrive: text the photo to the Pi's email address and it comes in from yournumber@your-carrier's-gateway.</div>
           </div>
           <div class="toggle-row" style="padding-bottom:2px">
             <div class="toggle-row-text">Require verified senders
@@ -593,15 +593,6 @@
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
             <button class="btn btn-ghost btn-sm" onclick="testPhotoEmail()">Test connection</button>
           </div>
-        </div>
-
-        <div class="settings-section">
-          <div class="settings-section-title">Trusted phones</div>
-          <div style="font-size:11px;color:var(--text-3);margin:-4px 0 12px;line-height:1.6">
-            The strongest gate: register each phone once and it gets its <b>own secret address</b>. Save that address as a contact on that phone (call it "My Pi") and always email photos to it. Once at least one phone is registered, mail without a phone's code is <b>ignored</b> — a stranger would have to guess it. Remove a phone here to cut it off instantly. No "+" address support on your provider? Put the code in the subject line instead.
-          </div>
-          <div id="pi-devices"></div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addPiDevice()">+ Register a phone</button>
         </div>
 
         <div class="settings-section">

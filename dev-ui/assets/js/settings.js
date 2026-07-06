@@ -447,54 +447,7 @@ async function _loadPhotos() {
 
   document.getElementById('pi-verified-sw').classList.toggle('on', _piCfg.require_verified !== false);
   renderPiCats();
-  renderPiDevices();
   _refreshPhotoStatus();
-}
-
-// ── Trusted phones (per-device secret plus-addresses) ──
-
-function _piPlusAddr(code) {
-  const u = _piCfg?.imap_user || '';
-  const at = u.indexOf('@');
-  return at > 0 ? `${u.slice(0, at)}+${code}${u.slice(at)}` : code;
-}
-
-function renderPiDevices() {
-  const box = document.getElementById('pi-devices');
-  const devs = _piCfg.devices || [];
-  if (!devs.length) {
-    box.innerHTML = `<div style="font-size:12px;color:var(--text-3)">No phones registered — the allowed-senders list above is the only gate.</div>`;
-    return;
-  }
-  const ago = ts => ts ? fmtRelative(new Date(ts * 1000).toISOString()) : 'never used';
-  box.innerHTML = devs.map(d => `
-    <div class="vpn-row">
-      <div style="flex:1;min-width:0">
-        <div class="vpn-row-name">${esc(d.name)} <span style="font-size:10px;color:var(--text-3);font-weight:400">· ${ago(d.last_used)}</span></div>
-        <div style="font-size:11px;font-family:var(--mono);color:var(--accent-light);word-break:break-all">${esc(_piPlusAddr(d.code))}</div>
-      </div>
-      <button class="btn btn-ghost btn-xs" onclick="navigator.clipboard.writeText('${esc(_piPlusAddr(d.code))}').then(()=>toast('Address copied — save it as a contact on that phone','success',3500))">Copy</button>
-      <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removePiDevice('${esc(d.code)}','${esc(d.name)}')">Remove</button>
-    </div>`).join('');
-}
-
-async function addPiDevice() {
-  if (!_piCfg?.imap_user) { toast('Set the mailbox address first', 'info', 3000); return; }
-  const name = prompt('Name this phone (e.g. "Ishaan’s iPhone"):', '');
-  if (name == null || !name.trim()) return;
-  const r = await api('/api/photos/devices', {method: 'POST', body: JSON.stringify({name: name.trim()})});
-  if (!r?.ok) { const e = await r?.json().catch(() => ({})); toast(e.detail || 'Could not register the phone', 'error', 4000); return; }
-  const d = await r.json();
-  await navigator.clipboard.writeText(d.address).catch(() => {});
-  toast(`${d.name} registered — its address is copied. Save it as a contact on that phone.`, 'success', 6000);
-  _loadPhotos();
-}
-
-async function removePiDevice(code, name) {
-  if (!confirm(`Remove "${name}"? Photos mailed from it will be ignored from now on.`)) return;
-  const r = await api(`/api/photos/devices/${encodeURIComponent(code)}`, {method: 'DELETE'});
-  if (r?.ok) { toast('Phone removed', 'success'); _loadPhotos(); }
-  else { toast('Could not remove the phone', 'error'); }
 }
 
 async function togglePiVerified() {
@@ -580,12 +533,22 @@ async function testPhotoEmail() {
   const r = await api('/api/photos/test', {method: 'POST', body: JSON.stringify({
     imap_host: c.imap_host, imap_port: c.imap_port, imap_user: c.imap_user, imap_password: c.imap_password,
   })});
-  if (r?.ok) { const d = await r.json(); toast(`Signed in ✓ — ${d.unseen} unread message${d.unseen !== 1 ? 's' : ''} waiting`, 'success', 4000); }
+  if (r?.ok) {
+    const d = await r.json();
+    let m = `Signed in ✓ — ${d.unseen} unread message${d.unseen !== 1 ? 's' : ''} in the Inbox`;
+    if (d.spam_unseen) m += ` · ${d.spam_unseen} unread in Spam! Open the mailbox in a browser and hit "Not spam" — photos are only picked up from the Inbox`;
+    toast(m, d.spam_unseen && !d.unseen ? 'info' : 'success', d.spam_unseen ? 10000 : 4000);
+  }
   else { const e = await r?.json().catch(() => ({})); toast(e.detail || 'Sign-in failed', 'error', 6000); }
 }
 
 async function pollPhotosNow() {
-  await api('/api/photos/poll', {method: 'POST'});
+  const r = await api('/api/photos/poll', {method: 'POST'});
+  const d = r?.ok ? await r.json() : {};
+  if (d.status === 'off') {
+    toast('Photo Inbox is off or missing its mailbox/password — turn it on and save the settings first', 'error', 6000);
+    return;
+  }
   toast('Checking your mailbox…', 'info', 2500);
   setTimeout(_refreshPhotoStatus, 4000);
 }
@@ -639,7 +602,7 @@ async function _refreshPhotoStatus() {
   if (rec) {
     rec.innerHTML = (s.recent || []).map(x =>
       `<div class="pi-recent-row"><span class="pi-recent-name">${esc(x.name)}</span>
-        <span class="pi-recent-folder">${x.folder ? '→ ' + esc(x.folder) : ''}${x.device ? ` <span style="color:var(--text-3)">· from ${esc(x.device)}</span>` : ''}</span>
+        <span class="pi-recent-folder">${x.folder ? '→ ' + esc(x.folder) : ''}</span>
         <span class="pi-recent-ts">${fmtRelative(new Date(x.ts * 1000).toISOString())}</span></div>`
     ).join('') || 'Nothing yet — email a photo to your inbox address and it appears here.';
   }

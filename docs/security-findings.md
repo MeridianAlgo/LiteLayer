@@ -27,6 +27,8 @@ per-phone registration: server-generated 8-char secret codes carried in the
 recipient plus-address (`user+code@host`) or subject — once any phone is
 registered, mail without a valid code is dropped and each phone is
 individually revocable. Both have runnable checks in `tests/test_photo_inbox.py`.
+*(2026-07-06: gate (2), the per-phone plus-address registration, was removed by
+request — `require_verified` and the sender allowlist remain the two gates.)*
 Residual: a sender whose *mailbox itself* is compromised can still submit
 images (not spoofing — real account takeover); impact remains images-only,
 basename-stripped, path-safe writes.

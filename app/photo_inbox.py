@@ -15,10 +15,10 @@ next to the credentials file. ponytail: one thread, stdlib imaplib/email.
 """
 import email
 import email.header
+import hashlib
 import imaplib
 import json
 import os
-import re
 import threading
 import time
 from email.utils import parseaddr
@@ -39,9 +39,6 @@ DEFAULTS = {
     "allowed_senders": [],     # empty = only mail you send yourself (to your own address)
     # From: alone is spoofable, so two harder gates ride on top of the allowlist:
     "require_verified": True,  # sender must pass the provider's DKIM/SPF check
-    "devices": [],             # registered phones: [{"name","code","created","last_used"}]
-                               # non-empty = mail must carry a phone's code (via the
-                               # user+code@ address or in the subject) or it's ignored
     "poll_seconds": 60,
     "drive": "",               # drive UUID (see /api/drives)
     "path": "/Photos",         # folder on that drive
@@ -130,21 +127,11 @@ def sender_verified(msg: email.message.Message) -> bool:
     return False
 
 
-def match_device(msg: email.message.Message, devices: list[dict]) -> "dict | None":
-    """Which registered phone sent this? Phones mail the plus-address
-    (user+code@host) that Settings hands out — the code also counts in the
-    subject line for providers without plus-addressing."""
-    codes = {d["code"]: d for d in devices}
-    rcpt = " ".join(str(msg.get(h, "")) for h in
-                    ("To", "Cc", "Delivered-To", "X-Original-To", "Envelope-To")).lower()
-    for m in re.finditer(r"\+([a-z0-9]{6,16})@", rcpt):
-        if m.group(1) in codes:
-            return codes[m.group(1)]
-    subject = _decode(msg.get("Subject", "")).lower()
-    for code, dev in codes.items():
-        if code in subject:
-            return dev
-    return None
+def sender_allowed(sender: str, allowed: set) -> bool:
+    """Exact address, or a whole-domain entry starting with '@'
+    ('@tmomail.net') — that's how texted photos arrive: MMS sent to an email
+    address is delivered from number@the-carrier's-gateway-domain."""
+    return sender in allowed or any(sender.endswith(a) for a in allowed if a.startswith("@"))
 
 
 def poll_once(cfg: dict) -> int:
@@ -156,46 +143,42 @@ def poll_once(cfg: dict) -> int:
 
     M = imaplib.IMAP4_SSL(cfg["imap_host"], int(cfg["imap_port"]), timeout=30)
     saved = 0
-    devices_touched = False
     try:
         M.login(cfg["imap_user"], cfg["imap_password"])
         M.select("INBOX")
         typ, data = M.search(None, "UNSEEN")
         if typ != "OK":
             return 0
-        for num in data[0].split():
+        # Only the 2 newest unseen mails per pass, so one pass never turns into
+        # a full-inbox CLIP scan; anything older stays UNSEEN and drains on the
+        # following passes, 2 per poll.
+        for num in data[0].split()[-2:]:
             typ, msgdata = M.fetch(num, "(RFC822)")   # fetch marks it \Seen
             if typ != "OK" or not msgdata or msgdata[0] is None:
                 continue
             msg = email.message_from_bytes(msgdata[0][1])
             sender = parseaddr(msg.get("From", ""))[1].lower()
-            if sender not in allowed:
+            if not sender_allowed(sender, allowed):
                 _status["last_reject"] = f"{sender or 'unknown sender'}: not on the allowed list"
                 continue
             if cfg.get("require_verified", True) and not sender_verified(msg):
                 _status["last_reject"] = f"{sender}: failed the mail provider's DKIM/SPF check"
                 continue
-            device = None
-            if cfg.get("devices"):
-                device = match_device(msg, cfg["devices"])
-                if not device:
-                    _status["last_reject"] = f"{sender}: no registered phone code on the mail"
-                    continue
-                device["last_used"] = time.time()
-                devices_touched = True
+            # A non-empty subject names the destination folder (beats AI sorting).
+            # Path(...).name + lstrip('.') keeps it a plain folder name.
+            subject_folder = Path(_decode(msg.get("Subject", ""))
+                                  .strip().replace("\\", "/")).name.lstrip(".")[:40]
             for name, blob in extract_images(msg):
                 try:
-                    folder = _save(cfg, name, blob)
+                    folder = _save(cfg, name, blob, subject_folder)
+                    if folder is None:
+                        continue   # this exact image was already saved once
                     _status["saved"] += 1
                     saved += 1
-                    _status["recent"] = ([{"name": name, "folder": folder,
-                                           "device": device["name"] if device else "",
-                                           "ts": time.time()}]
+                    _status["recent"] = ([{"name": name, "folder": folder, "ts": time.time()}]
                                          + _status["recent"])[:20]
                 except Exception as exc:  # noqa: BLE001
                     _status["last_error"] = f"{name}: {exc}"
-        if devices_touched:
-            save_config(cfg, wake=False)   # persist last_used without re-waking the loop
     finally:
         try:
             M.logout()
@@ -233,9 +216,11 @@ def extract_images(msg: email.message.Message) -> list[tuple[str, bytes]]:
     return out
 
 
-def _save(cfg: dict, name: str, blob: bytes) -> str:
+def _save(cfg: dict, name: str, blob: bytes, subject_folder: str = "") -> "str | None":
     """Write one photo onto the configured drive; returns the folder it landed
-    in ('' = the inbox root). AI sorting picks the subfolder when enabled."""
+    in ('' = the inbox root), or None for a repeat of an already-saved image.
+    The subject-line folder beats AI sorting. This function only ever adds
+    files — nothing here (or anywhere in Photo Inbox) deletes a photo."""
     from drives import registry
     from app.routers.files import _safe_path, _unique, _ensure_writable
     from app import photo_ai
@@ -248,16 +233,30 @@ def _save(cfg: dict, name: str, blob: bytes) -> str:
     base = _safe_path(root, cfg["path"])
     base.mkdir(parents=True, exist_ok=True)
 
+    # Every photo gets an id — its content hash. A repeat send of the same
+    # image is skipped, never re-saved and never overwriting anything.
+    photo_id = hashlib.sha256(blob).hexdigest()
+    ids_file = base / ".ll-photo-ids.json"
+    try:
+        ids = json.loads(ids_file.read_text())
+    except Exception:  # noqa: BLE001  (first run, or someone edited it)
+        ids = {}
+    if photo_id in ids:
+        return None
+
     # Land the bytes first, classify after — CLIP wants a file on disk.
     tmp = base / f".ll-incoming-{os.getpid()}-{name}"
     tmp.write_bytes(blob)
-    folder = ""
+    folder = subject_folder
     try:
-        if cfg["ai_enabled"] and cfg["categories"] and photo_ai.is_ready():
+        if not folder and cfg["ai_enabled"] and cfg["categories"] and photo_ai.is_ready():
             folder = photo_ai.classify(tmp, cfg["categories"]) or "Unsorted"
     except Exception:  # noqa: BLE001 — a sort failure must never lose the photo
         folder = "Unsorted" if cfg["ai_enabled"] else ""
     dest_dir = base / folder if folder else base
     dest_dir.mkdir(exist_ok=True)
-    tmp.rename(_unique(dest_dir / name))
+    dest = _unique(dest_dir / name)
+    tmp.rename(dest)
+    ids[photo_id] = dest.name
+    ids_file.write_text(json.dumps(dict(list(ids.items())[-5000:])))  # ponytail: flat json, capped at 5000 ids
     return folder

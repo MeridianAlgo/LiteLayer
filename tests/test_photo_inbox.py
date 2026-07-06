@@ -82,31 +82,32 @@ def test_sender_verified_reads_provider_verdict():
     assert not photo_inbox.sender_verified(bad)
 
 
-def test_device_code_matches_plus_address_and_subject():
-    devices = [{"name": "iPhone", "code": "x7k2m9ab", "created": 0, "last_used": 0}]
-    via_plus = _mail()
-    via_plus.replace_header("To", "pi+x7k2m9ab@example.com")
-    assert photo_inbox.match_device(via_plus, devices)["name"] == "iPhone"
-    via_subject = _mail()
-    via_subject.replace_header("Subject", "photos x7k2m9ab")
-    assert photo_inbox.match_device(via_subject, devices)["name"] == "iPhone"
-    no_code = _mail()
-    assert photo_inbox.match_device(no_code, devices) is None
-    wrong = _mail()
-    wrong.replace_header("To", "pi+zzzzzzzz@example.com")
-    assert photo_inbox.match_device(wrong, devices) is None
+def test_sender_allowed_exact_and_domain():
+    allowed = {"me@example.com", "@tmomail.net"}
+    assert photo_inbox.sender_allowed("me@example.com", allowed)
+    assert photo_inbox.sender_allowed("15551234567@tmomail.net", allowed)  # texted photo
+    assert not photo_inbox.sender_allowed("stranger@example.com", allowed)
+    assert not photo_inbox.sender_allowed("evil@nottmomail.net.attacker.com", allowed)
 
 
-def test_device_api_generates_and_revokes_codes(authed):
-    r = authed.post("/api/photos/devices", json={"name": "Test phone"})
-    assert r.status_code == 200
-    d = r.json()
-    assert len(d["code"]) == 8 and d["code"].isalnum()
-    assert photo_inbox.load_config()["devices"][0]["code"] == d["code"]
-    r = authed.delete(f"/api/photos/devices/{d['code']}")
-    assert r.status_code == 200
-    assert photo_inbox.load_config()["devices"] == []
-    assert authed.delete(f"/api/photos/devices/{d['code']}").status_code == 404
+def test_save_dedupes_and_honors_subject_folder(tmp_path, monkeypatch):
+    from drives import registry
+    from app.routers import files
+
+    class FakeDrive:
+        mount_point = str(tmp_path)
+    monkeypatch.setattr(registry, "get", lambda _id: FakeDrive())
+    monkeypatch.setattr(files, "_ensure_writable", lambda d: None)
+    cfg = {**photo_inbox.DEFAULTS, "drive": "x", "path": "/Photos"}
+
+    assert photo_inbox._save(cfg, "a.jpg", b"img-bytes", "Trip") == "Trip"
+    assert (tmp_path / "Photos" / "Trip" / "a.jpg").is_file()
+    # Same bytes again (even under another name): skipped, nothing written.
+    assert photo_inbox._save(cfg, "b.jpg", b"img-bytes", "") is None
+    assert not (tmp_path / "Photos" / "b.jpg").exists()
+    # New bytes, no subject: lands in the inbox root.
+    assert photo_inbox._save(cfg, "c.jpg", b"other-bytes", "") == ""
+    assert (tmp_path / "Photos" / "c.jpg").is_file()
 
 
 def test_api_requires_auth():
