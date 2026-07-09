@@ -29,9 +29,9 @@ const _APP_CATALOG = [
     desc: 'A drop zone for files — anyone you share the link with can upload straight to your Pi.',
   },
   {
-    name: 'haste-server', title: 'Hastebin', icon: '✂️', category: 'Productivity',
-    repo: 'https://github.com/seejohnrun/haste-server', port: 7777, cmd: null,
-    desc: 'Your own pastebin — paste text or code, share the link.',
+    name: 'dumbwhois', title: 'DumbWhois', icon: '🔎', category: 'Utilities',
+    repo: 'https://github.com/DumbWareio/DumbWhois', port: 3040, cmd: null,
+    desc: 'Look up WHOIS, DNS and IP info for any domain from a clean little web page.',
   },
 ];
 
