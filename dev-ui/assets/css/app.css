@@ -846,14 +846,3 @@ a.prog-chip.global:hover { background: var(--a15); color: var(--accent-light); }
 }
 @keyframes sheetUp { from { transform: translateY(35%); opacity: 0.4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ctx-menu { animation: none; } }
-
-/* ── App Store ─────────────────────────────────────────────────────────── */
-.store-card { display: flex; align-items: center; gap: 13px; padding: 13px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; background: var(--surface); }
-.store-icon { font-size: 24px; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; flex-shrink: 0; }
-.store-body { flex: 1; min-width: 0; }
-.store-head { display: flex; align-items: center; gap: 8px; }
-.store-title { font-size: 13px; font-weight: 600; color: var(--text); }
-.store-cat { font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--accent-light); background: var(--a15); border: 1px solid var(--a30); border-radius: 99px; padding: 1px 7px; }
-.store-desc { font-size: 11.5px; color: var(--text-3); line-height: 1.5; margin-top: 3px; }
-.store-repo { font-size: 10.5px; font-family: var(--mono); color: var(--text-3); text-decoration: none; }
-.store-repo:hover { color: var(--accent-light); text-decoration: underline; }

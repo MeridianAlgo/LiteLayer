@@ -378,9 +378,6 @@
       <button class="snav-item" id="snav-programs" onclick="setSettingsTab('programs')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Programs
       </button>
-      <button class="snav-item" id="snav-appstore" onclick="setSettingsTab('appstore')">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>App Store
-      </button>
       <button class="snav-item" id="snav-shortcuts" onclick="setSettingsTab('shortcuts')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="6" y2="12"/><line x1="10" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="14" y2="12"/><line x1="18" y1="12" x2="18" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>Shortcuts
       </button>
@@ -609,18 +606,6 @@
         </div>
       </div>
 
-      <!-- App Store tab -->
-      <div id="stab-appstore" class="stab-content hidden">
-        <div class="stab-title">App Store</div>
-        <div style="font-size:12px;color:var(--text-3);margin:-4px 0 16px;display:flex;align-items:center;gap:7px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-          Hand-picked apps that install and run on your Pi with one click. Installed apps live under Programs — start/stop, logs, secrets, updates and share links all work the same. Want something that isn't here? Import any GitHub repo from the Programs tab.
-        </div>
-        <div class="settings-section">
-          <div id="appstore-list"><div class="cl-loading" style="padding:10px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>Loading…</div></div>
-        </div>
-      </div>
-
       <!-- Shortcuts tab -->
       <div id="stab-shortcuts" class="stab-content hidden">
         <div class="stab-title">Keyboard shortcuts</div>
@@ -752,7 +737,6 @@
 <script src="/assets/js/ota.js"></script>
 <script src="/assets/js/settings.js"></script>
 <script src="/assets/js/programs.js"></script>
-<script src="/assets/js/appstore.js"></script>
 <script src="/assets/js/cmd.js"></script>
 <script src="/assets/js/terminal.js"></script>
 <script src="/assets/js/app.js"></script>

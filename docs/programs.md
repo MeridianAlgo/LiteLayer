@@ -20,13 +20,6 @@ from **Settings → Programs**.
 | **Declared dependencies** | `requirements.txt` (Python — installed into a per-program `.venv`) or `package.json` (Node — `npm install --omit=dev`). Anything else must be preinstalled on the Pi. |
 | **Config via environment variables** | Never commit keys or tokens. Read them from environment variables (`os.environ`, `process.env`) and set them in LiteLayer's per-program Secrets store (below). |
 
-## App Store
-
-**Settings → App Store** is a hand-picked catalog of apps known to work with
-this pipeline — one click installs (clone → deps → systemd unit) with the right
-start command and port pre-filled. Installed apps appear under **Programs** and
-are managed exactly like an imported repo.
-
 ## Importing
 
 Paste a GitHub URL (`https://github.com/owner/repo` or just `owner/repo`) into
