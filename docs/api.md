@@ -124,6 +124,25 @@ Enable runs in the background (apt install can take a minute); poll
 `GET /api/system/cloudflare` for `url`, and `GET /api/system/vpn/status` for any
 `error`.
 
+## Programs
+
+Import runnable programs from GitHub; each runs continuously in the background
+under its own systemd unit. Full guide: [programs.md](programs.md).
+
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| GET | `/api/programs` | — | `{ "programs": [ { name, status, web_port, global_url, … } ] }` |
+| POST | `/api/programs` | `{ "repo_url", "name"?, "start_command"?, "web_port"?, "ota"? }` | Clone, install deps, start |
+| GET | `/api/programs/updates` | — | OTA check — `{ "updates": { name: { update_available, local, remote } } }` |
+| POST | `/api/programs/{name}/action` | `{ "action": "start" \| "stop" \| "restart" }` | Control the unit |
+| PUT | `/api/programs/{name}` | `{ "start_command"?, "web_port"?, "public"?, "ota"?, "clear_port"? }` | Edit + rewrite unit |
+| GET | `/api/programs/{name}/secrets` | — | `{ "env": "KEY=VALUE\n…" }` — the program's secrets |
+| PUT | `/api/programs/{name}/secrets` | `{ "env": "KEY=VALUE\n…" }` | Replace secrets (restarts a running program) |
+| POST | `/api/programs/{name}/update` | — | `git pull` + reinstall deps + restart |
+| DELETE | `/api/programs/{name}` | — | Stop, remove unit and files |
+| GET | `/api/programs/{name}/logs` | `?lines=80` | Journal tail |
+| any | `/apps/{name}/…` | — | Reverse proxy to the program's web UI (no auth when the program is public) |
+
 ---
 
 ## Error format

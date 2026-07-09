@@ -17,14 +17,15 @@ function closeSettings() { hide('settings-overlay'); }
 
 function setSettingsTab(tab) {
   _settingsTab = tab;
-  ['appearance','account','devices','system','shortcuts','about'].forEach(t => {
+  ['appearance','account','devices','system','programs','shortcuts','about'].forEach(t => {
     document.getElementById(`stab-${t}`)?.classList.toggle('hidden', t !== tab);
     document.getElementById(`snav-${t}`)?.classList.toggle('active', t === tab);
   });
-  if (tab === 'about')   _loadAbout();
-  if (tab === 'system')  _loadSystem();
-  if (tab === 'devices') _loadDevices();
-  if (tab === 'account') _loadTwoFA();
+  if (tab === 'about')    _loadAbout();
+  if (tab === 'system')   _loadSystem();
+  if (tab === 'devices')  _loadDevices();
+  if (tab === 'account')  _loadTwoFA();
+  if (tab === 'programs') _loadPrograms();
 }
 
 // ── Two-factor auth ─────────────────────────────────────────────────────────────

@@ -375,6 +375,9 @@
       <button class="snav-item" id="snav-system" onclick="setSettingsTab('system')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>System
       </button>
+      <button class="snav-item" id="snav-programs" onclick="setSettingsTab('programs')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Programs
+      </button>
       <button class="snav-item" id="snav-shortcuts" onclick="setSettingsTab('shortcuts')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="6" y2="12"/><line x1="10" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="14" y2="12"/><line x1="18" y1="12" x2="18" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>Shortcuts
       </button>
@@ -570,6 +573,39 @@
         </div>
       </div>
 
+      <!-- Programs tab -->
+      <div id="stab-programs" class="stab-content hidden">
+        <div class="stab-title">Programs</div>
+        <div style="font-size:12px;color:var(--text-3);margin:-4px 0 16px;display:flex;align-items:center;gap:7px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Import a program from GitHub and LiteLayer keeps it running in the background — through restarts and reboots. Programs with a web UI get a link on the LAN, and a public link through the Cloudflare tunnel so you can open them from anywhere in the world.
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Import from GitHub</div>
+          <div class="prog-import-row">
+            <input id="prog-repo-input" type="text" placeholder="https://github.com/owner/repo  or  owner/repo" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')importProgram()">
+            <button class="btn btn-primary btn-sm" id="prog-import-btn" onclick="importProgram()">Import</button>
+          </div>
+          <details class="prog-import-opts">
+            <summary>Options — name, start command, web port</summary>
+            <div class="field"><label>Name <span style="font-weight:400;color:var(--text-3)">(defaults to the repo name)</span></label><input id="prog-name-input" type="text" placeholder="my-app" autocapitalize="off" autocomplete="off"></div>
+            <div class="field"><label>Start command <span style="font-weight:400;color:var(--text-3)">(auto-detected from package.json / main.py if blank)</span></label><input id="prog-cmd-input" type="text" placeholder="python3 main.py" autocomplete="off" spellcheck="false"></div>
+            <div class="field"><label>Web port <span style="font-weight:400;color:var(--text-3)">(only if the program serves a web UI)</span></label><input id="prog-port-input" type="number" min="1024" max="65535" placeholder="3000" autocomplete="off"></div>
+            <div class="field"><label>Updates</label>
+              <select id="prog-ota-input" class="prog-select">
+                <option value="github" selected>LiteLayer checks GitHub — badge + one-click update</option>
+                <option value="self">Self-managed — the program runs its own updater</option>
+              </select>
+            </div>
+          </details>
+        </div>
+        <div class="settings-section">
+          <div class="settings-section-title">Installed programs</div>
+          <div id="programs-list"><div class="cl-loading" style="padding:10px"><span class="spinner" style="width:14px;height:14px;border-width:2px"></span>Loading…</div></div>
+          <div class="vpn-help-note">Every program must be a long-running process (a server or loop, not a one-shot script) so it can run continuously in the background. Full requirements and API: <a href="https://github.com/MeridianAlgo/LiteLayer/blob/main/docs/programs.md" target="_blank" rel="noopener" class="vpn-help-link" style="margin:0">docs/programs.md</a></div>
+        </div>
+      </div>
+
       <!-- Shortcuts tab -->
       <div id="stab-shortcuts" class="stab-content hidden">
         <div class="stab-title">Keyboard shortcuts</div>
@@ -700,6 +736,7 @@
 <script src="/assets/js/files.js"></script>
 <script src="/assets/js/ota.js"></script>
 <script src="/assets/js/settings.js"></script>
+<script src="/assets/js/programs.js"></script>
 <script src="/assets/js/cmd.js"></script>
 <script src="/assets/js/terminal.js"></script>
 <script src="/assets/js/app.js"></script>
