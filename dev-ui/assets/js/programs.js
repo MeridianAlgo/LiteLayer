@@ -65,10 +65,10 @@ function _progCard(p) {
     links += `<a class="prog-chip" href="${esc(lanUrl)}" target="_blank" rel="noopener" title="Open on your local network">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>LAN · :${p.web_port}</a>`;
     links += p.global_url
-      ? `<a class="prog-chip global" href="${esc(p.global_url)}" target="_blank" rel="noopener" title="Public link through the Cloudflare tunnel — works from anywhere">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Global</a>
+      ? `<a class="prog-chip global" href="${esc(p.global_url)}" target="_blank" rel="noopener" title="${p.global_via === 'tailscale' ? 'Link through Tailscale — works on any device signed in to your tailnet' : 'Public link through the Cloudflare tunnel — works from anywhere'}">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Global${p.global_via === 'tailscale' ? ' · Tailscale' : ''}</a>
          <button class="prog-chip toggle ${p.public ? '' : 'private'}" onclick="toggleProgramPublic('${esc(p.name)}',${p.public})" title="${p.public ? 'Anyone with the link can open it. Click to require a LiteLayer sign-in.' : 'Sign-in required. Click to make the link public.'}">${p.public ? 'Public' : 'Private'}</button>`
-      : `<span class="prog-chip dim" title="Turn on the Cloudflare tunnel in Settings → System to get a public link">Global link needs the Cloudflare tunnel</span>`;
+      : `<span class="prog-chip dim" title="Turn on the Cloudflare tunnel or Tailscale in Settings → System to get a global link">Global link needs the Cloudflare tunnel or Tailscale</span>`;
   }
   if (settled) {
     links += `<button class="prog-chip toggle ${p.ota === 'self' ? 'private' : ''}" onclick="toggleProgramOta('${esc(p.name)}','${esc(p.ota)}')"

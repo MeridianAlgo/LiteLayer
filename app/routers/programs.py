@@ -5,8 +5,9 @@ Each program is a git clone under /opt/litelayer/programs/<name> wrapped in its
 own systemd unit (litelayer-prog-<name>) with Restart=always, so it runs
 continuously in the background and survives reboots. A program that serves a
 web UI on a port gets two links: the LAN address, and — when the Cloudflare
-tunnel is up — a global path (/apps/<name>/) reverse-proxied through LiteLayer
-so it's reachable from anywhere in the world.
+tunnel or Tailscale is up — a global path (/apps/<name>/) reverse-proxied
+through LiteLayer so it's reachable away from home (Cloudflare: anyone with the
+link; Tailscale: any device on your tailnet, via Caddy on 443).
 
 ponytail: one JSON registry file, no DB; stdlib urllib reverse proxy, no new
 dependency. Upgrade path if a program needs WebSockets through the global
@@ -188,20 +189,32 @@ def _import_worker(name: str, repo_url: str, start_command: Optional[str],
         _imports.pop(name, None)
 
 
-def _global_base() -> Optional[str]:
-    """Public https origin when the Cloudflare tunnel is up, else None."""
+def _global_base() -> tuple[Optional[str], Optional[str]]:
+    """(public https origin, via) — Cloudflare tunnel first, else Tailscale.
+    Tailscale links go through Caddy on :443, so they work on any tailnet device."""
     try:
         from app.main import _cloudflare_domain   # lazy — avoids circular import
         dom = _cloudflare_domain()
+        if dom:
+            return (dom if dom.startswith("http") else f"https://{dom}"), "cloudflare"
     except Exception:
-        return None
-    if not dom:
-        return None
-    return dom if dom.startswith("http") else f"https://{dom}"
+        pass
+    code, out = _run(["tailscale", "status", "--json"], timeout=5)
+    if code == 0:
+        try:
+            st = json.loads(out)
+            if st.get("BackendState") == "Running":
+                host = (st.get("Self", {}).get("DNSName") or "").rstrip(".") \
+                    or next(iter(st.get("Self", {}).get("TailscaleIPs") or []), None)
+                if host:
+                    return f"https://{host}", "tailscale"
+        except ValueError:
+            pass
+    return None, None
 
 
 def _listing() -> list[dict]:
-    base = _global_base()
+    base, via = _global_base()
     out = []
     with _lock:
         d = _load()
@@ -226,6 +239,7 @@ def _listing() -> list[dict]:
             "error": prog.get("error"),
             "created": prog.get("created"),
             "global_url": f"{base}/apps/{name}/" if base and prog.get("web_port") else None,
+            "global_via": via if base and prog.get("web_port") else None,
         })
     return out
 

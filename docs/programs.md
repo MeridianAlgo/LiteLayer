@@ -16,9 +16,16 @@ from **Settings → Programs**.
 | **Long-running process** | The start command must keep running (a server, a worker loop, a bot). One-shot scripts exit immediately and systemd will restart them forever — that's a crash loop, not a program. |
 | **Status** | Every program always shows a live status in the UI (see the table below). There is no "unknown by design" state — if it can't be determined the card says so. |
 | **Runs in the background** | Each program gets its own systemd unit (`litelayer-prog-<name>`) with `Restart=always`, started on boot. No terminal session required. |
-| **Web UI — optional** | If the program serves a web page, give it a **web port** at import time. The card then shows a LAN link, and a **global link** when the Cloudflare tunnel is on. Programs without a web UI are fine — they just show status and logs. |
+| **Web UI — optional** | If the program serves a web page, give it a **web port** at import time. The card then shows a LAN link, and a **global link** when the Cloudflare tunnel or Tailscale is on. Programs without a web UI are fine — they just show status and logs. |
 | **Declared dependencies** | `requirements.txt` (Python — installed into a per-program `.venv`) or `package.json` (Node — `npm install --omit=dev`). Anything else must be preinstalled on the Pi. |
 | **Config via environment variables** | Never commit keys or tokens. Read them from environment variables (`os.environ`, `process.env`) and set them in LiteLayer's per-program Secrets store (below). |
+
+## App Store
+
+**Settings → App Store** is a hand-picked catalog of apps known to work with
+this pipeline — one click installs (clone → deps → systemd unit) with the right
+start command and port pre-filled. Installed apps appear under **Programs** and
+are managed exactly like an imported repo.
 
 ## Importing
 
@@ -54,10 +61,12 @@ A program that listens on its web port (the port is also passed to it as the
 `PORT` environment variable — honor it if you can) gets:
 
 - **LAN link** — `http://<pi-address>:<port>`, for devices on your network/VPN.
-- **Global link** — `https://<your-tunnel-domain>/apps/<name>/`, shown whenever
-  the Cloudflare tunnel (Settings → System) is connected. LiteLayer
-  reverse-proxies that path to the program, so the link works from anywhere in
-  the world with no extra ports or tunnels.
+- **Global link** — `https://<host>/apps/<name>/`, reverse-proxied through
+  LiteLayer. The host is the Cloudflare tunnel domain when the tunnel
+  (Settings → System) is connected, otherwise your Tailscale MagicDNS name or
+  Tailscale IP when Tailscale is running. A Cloudflare link works from anywhere
+  in the world; a Tailscale link works on any device signed in to your tailnet
+  (via Caddy on 443 — accept the local-cert warning on plain IPs).
 
 **Public vs private:** the global link is **public by default** — anyone with
 the URL can open the program (that's the point of sharing it). Flip the chip on
