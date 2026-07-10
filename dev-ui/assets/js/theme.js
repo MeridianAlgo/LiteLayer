@@ -82,6 +82,9 @@ function applyTheme(t) {
   _currentTheme = t;
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('ll-theme', t);
+  // Keep the browser/PWA chrome (status bar, task switcher) matching the theme.
+  document.querySelector('meta[name="theme-color"]')
+    ?.setAttribute('content', getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
   document.getElementById('theme-card-dark')?.classList.toggle('active', t === 'dark');
   document.getElementById('theme-card-light')?.classList.toggle('active', t === 'light');
 }

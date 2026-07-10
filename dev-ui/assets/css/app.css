@@ -64,8 +64,12 @@ body {
   color: var(--text);
   display: flex; flex-direction: column;
   overflow: hidden;
+  overscroll-behavior: none;   /* no rubber-band page pull in the installed app */
   transition: background 0.2s, color 0.2s;
 }
+/* App-like touch: no 300ms double-tap delay, no gray tap flash */
+button, a, input, select, textarea, summary { touch-action: manipulation; }
+button, a, summary { -webkit-tap-highlight-color: transparent; }
 
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -625,6 +629,10 @@ kbd { font-family: var(--mono); font-size: 11px; line-height: 1; color: var(--te
 .prog-import-opts { margin-top: 12px; }
 .prog-import-opts > summary { cursor: pointer; font-size: 12px; color: var(--text-2); user-select: none; margin-bottom: 10px; }
 .prog-import-opts > summary:hover { color: var(--text); }
+.prog-ai-row { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 9px 11px; border: 1px dashed var(--a30); border-radius: var(--radius-sm); background: var(--a10); }
+.prog-ai-row svg { flex-shrink: 0; color: var(--accent-light); }
+.prog-ai-row span { flex: 1; font-size: 11.5px; line-height: 1.5; color: var(--text-2); }
+.prog-ai-row .btn { flex-shrink: 0; color: var(--accent-light); }
 
 .prog-card { padding: 12px 13px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; background: var(--surface); }
 .prog-head { display: flex; align-items: center; gap: 9px; min-width: 0; }
@@ -743,8 +751,11 @@ a.prog-chip.global:hover { background: var(--a15); color: var(--accent-light); }
 }
 /* ── Mobile: two stacked screens (Drives ↔ Files) ── */
 @media (max-width: 700px) {
-  /* Topbar: icon-first, compact */
-  .topbar { padding: 0 12px; gap: 8px; }
+  /* iOS zooms the page when a focused input is under 16px — keep text inputs at 16 */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px; }
+
+  /* Topbar: icon-first, compact; grows into the notch/status-bar area when installed */
+  .topbar { padding: env(safe-area-inset-top) 12px 0; height: calc(50px + env(safe-area-inset-top)); gap: 8px; }
   .topbar-sep, .topbar-nas { display: none; }
   .topbar-right { gap: 4px; }
   .topbar-right .btn-lbl { display: none; }
@@ -807,15 +818,34 @@ a.prog-chip.global:hover { background: var(--a15); color: var(--accent-light); }
   .sel-bar-label { min-width: max-content; }
 
   /* Settings / overlays */
-  .settings-page { flex-direction: column; border-radius: 0; }
-  .settings-nav { width: 100%; flex-direction: row; flex-wrap: wrap; gap: 4px; padding: 10px; overflow-x: auto; }
+  .settings-page { flex-direction: column; border-radius: 0; padding-top: env(safe-area-inset-top); }
+  /* Nav becomes one swipeable pill row — no wrap, no scrollbar */
+  .settings-nav { width: 100%; flex-direction: row; flex-wrap: nowrap; gap: 4px; padding: 10px; overflow-x: auto; scrollbar-width: none; }
+  .settings-nav::-webkit-scrollbar { display: none; }
   .settings-nav-logo, .settings-nav-user, .settings-nav-spacer, .settings-nav-footer { display: none; }
-  .snav-item { width: auto; padding: 6px 10px; font-size: 12px; margin-bottom: 0; }
-  .stab-content { padding: 16px; }
+  .snav-item { width: auto; flex-shrink: 0; padding: 8px 12px; font-size: 13px; margin-bottom: 0; }
+  .stab-content { padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
   .cmd-box { width: calc(100vw - 24px); }
   .dv-paper { padding: 24px 18px; }
   .file-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 6px; }
-  .modal-box { width: calc(100vw - 24px); border-radius: 12px; }
+
+  /* Modals rise from the bottom edge, like native sheets */
+  .modal-backdrop { align-items: flex-end; }
+  .modal-box {
+    width: 100%; max-width: 100%; border-radius: 18px 18px 0 0;
+    border-left: none; border-right: none; border-bottom: none;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: sheetUp 0.22s cubic-bezier(0.3, 0.9, 0.3, 1);
+  }
+
+  /* Programs: thumb-sized controls */
+  .prog-import-row input, .prog-import-row .btn { min-height: 42px; }
+  .prog-actions { gap: 8px; }
+  .prog-actions .btn-xs { min-height: 38px; padding: 0 13px; font-size: 12.5px; }
+  .prog-chip { min-height: 30px; padding: 5px 11px; }
+  .prog-ai-row { flex-wrap: wrap; }
+  .prog-ai-row .btn { min-height: 38px; padding: 0 13px; }
+  .toggle-row .btn-sm { min-height: 38px; }
 }
 
 /* Very narrow: reclaim space for the pills */
@@ -826,6 +856,7 @@ a.prog-chip.global:hover { background: var(--a15); color: var(--accent-light); }
 
 @media (prefers-reduced-motion: reduce) {
   .app-body.viewing-files .content-pane { animation: none; }
+  .modal-box { animation: none; }
 }
 
 /* ── Mobile: context menu becomes a bottom sheet ── */

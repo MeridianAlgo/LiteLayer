@@ -3,6 +3,51 @@
 
 let _progPollTimer = null;
 
+// Hand this to any AI along with a project and the result imports cleanly.
+// Kept in sync with the copy in docs/programs.md.
+const _PROG_AI_PROMPT = `Convert this project into a self-hostable, always-running program that a home
+server (LiteLayer, a Raspberry Pi NAS) can import from GitHub and keep running
+24/7 as a background service. Apply ALL of the following:
+
+1. Long-running: the app must be a persistent process (a server or a worker
+   loop) that never exits on its own. No one-shot scripts — the supervisor
+   restarts exited processes forever, so a script that finishes becomes a
+   crash loop. Crashing on a fatal error is fine; it gets restarted.
+2. Start command: make it auto-detectable — a package.json "start" script, a
+   main.py / app.py / server.py entry file (Python), or index.js (Node). If
+   none of those fit, state the exact one-line start command in the README
+   (it runs from the repo root via bash).
+3. Dependencies: declare ALL of them in requirements.txt (Python — installed
+   into a private venv) or package.json (Node — npm install --omit=dev).
+   Nothing else gets installed for you.
+4. Config and secrets: read every key, token and setting from environment
+   variables (os.environ / process.env), with sensible defaults where
+   possible. Never commit secrets — the host injects them as env vars.
+5. If it serves a web page: listen on 0.0.0.0 at the port given by the PORT
+   environment variable (fall back to a fixed default and say what it is).
+   It is also reverse-proxied under the path /apps/<name>/, so use relative
+   URLs for every asset and link (no absolute /static/... paths), and stick
+   to plain HTTP — WebSockets and server-sent events don't pass the proxy.
+   A web page is optional; a headless worker is fine.
+6. Data: write any files or state to a path inside the app's own folder
+   (relative paths) or one taken from an env var — it runs from its cloned
+   repo directory.
+7. Finish by telling me: the GitHub repo to import, the start command (if
+   not auto-detectable), and the web port (if any).`;
+
+async function copyProgramPrompt() {
+  try {
+    await navigator.clipboard.writeText(_PROG_AI_PROMPT);
+  } catch {
+    // Clipboard API needs HTTPS/localhost — fall back for plain-HTTP LAN.
+    const ta = document.createElement('textarea');
+    ta.value = _PROG_AI_PROMPT; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } finally { ta.remove(); }
+  }
+  toast('Prompt copied — paste it into any AI along with your project', 'success', 3500);
+}
+
 const _PROG_STATUS = {
   active:        {label: 'Running',       cls: 'run'},
   inactive:      {label: 'Stopped',       cls: 'stop'},
