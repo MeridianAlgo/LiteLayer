@@ -138,6 +138,9 @@ def test_monitor_kiosk(authed, monkeypatch):
     # for the port to answer before opening the browser.
     assert "Wants=litelayer-prog-web.service" in unit
     assert "/dev/tcp/127.0.0.1/3000" in unit
+    # USB (DisplayLink) monitors: drivers loaded, DRM card picked at launch.
+    assert "modprobe udl" in unit
+    assert "WLR_DRM_DEVICES" in unit
 
     listed = authed.get("/api/programs").json()
     assert listed["monitor"] == {"connected": True, "program": "web"}

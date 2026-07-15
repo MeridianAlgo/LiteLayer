@@ -160,6 +160,14 @@ How it works and what to know:
   path, so absolute asset paths that break the global link are fine here.
 - Removing the program (or clearing its web port) turns the kiosk off;
   changing its port re-points the kiosk automatically.
+- **USB monitors (DisplayLink) work too** — not just HDMI. The kiosk loads
+  the kernel drivers itself (`udl` for the older DL-1x5 chips most portable
+  AOC/ASUS USB monitors use; `evdi` when DisplayLink's driver is present),
+  finds the USB display at launch, and drives it with software rendering. If
+  yours is a newer DisplayLink chip (DL-3xxx/5xxx/6xxx) install the driver
+  once — `sudo apt install displaylink-driver` or the
+  [displaylink-debian](https://github.com/AdnanHodzic/displaylink-debian)
+  installer — and the kiosk picks it up from then on.
 - **Monitor command (optional)** — some programs need a command run every
   time they go on the screen (warm a cache, regenerate the page, poke an
   API). Click **Monitor cmd** on the card and enter it: it runs from the

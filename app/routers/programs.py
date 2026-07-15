@@ -231,6 +231,11 @@ DRM_DIR = Path("/sys/class/drm")
 # WLR_LIBINPUT_NO_DEVICES: a kiosk Pi often has no keyboard/mouse — let cage
 # start anyway. --no-sandbox: chromium refuses to run as root without it; it
 # only ever renders localhost.
+# USB (DisplayLink) monitors: the modprobe lines load the kernel drivers (udl
+# for older DL-1x5 chips, evdi if DisplayLink's driver is installed), and the
+# ExecStart wrapper finds the connected connector's DRM card at launch time
+# (card numbering moves between boots) — pointing wlroots at it and switching
+# to software rendering (pixman) when the card is a GPU-less USB display.
 _KIOSK_TEMPLATE = """\
 [Unit]
 Description=LiteLayer monitor kiosk: {name}
@@ -242,8 +247,10 @@ Environment=WLR_LIBINPUT_NO_DEVICES=1
 WorkingDirectory={workdir}
 # The port wait below can take 180s — outlive systemd's default 90s start timeout.
 TimeoutStartSec=240
+ExecStartPre=-/sbin/modprobe udl
+ExecStartPre=-/sbin/modprobe evdi
 {pre_line}ExecStartPre=/bin/bash -c 'for i in $(seq 90); do (exec 3<>/dev/tcp/127.0.0.1/{port}) 2>/dev/null && exit 0; sleep 2; done; exit 0'
-ExecStart={cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/
+ExecStart=/bin/bash -c 'for s in /sys/class/drm/card*-*/status; do grep -q "^connected" "$s" || continue; c=$(basename $(dirname "$s") | cut -d- -f1); export WLR_DRM_DEVICES=/dev/dri/$c; d=$(basename $(readlink -f /sys/class/drm/$c/device/driver) 2>/dev/null); if [ "$d" = udl ] || [ "$d" = evdi ]; then export WLR_RENDERER=pixman; fi; break; done; exec {cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/'
 Restart=always
 RestartSec=3
 TTYPath=/dev/tty1
@@ -259,7 +266,17 @@ WantedBy=multi-user.target
 """
 
 
+_usb_display_probed = False
+
+
 def _monitor_connected() -> bool:
+    # USB (DisplayLink) monitors only get a DRM connector once their kernel
+    # driver is loaded — nudge it once so a freshly plugged one shows up.
+    global _usb_display_probed
+    if not _usb_display_probed:
+        _usb_display_probed = True
+        for mod in ("udl", "evdi"):
+            _run(["modprobe", mod], timeout=10)
     for p in DRM_DIR.glob("card*-*/status"):
         try:
             if p.read_text().strip() == "connected":
