@@ -231,11 +231,10 @@ DRM_DIR = Path("/sys/class/drm")
 # WLR_LIBINPUT_NO_DEVICES: a kiosk Pi often has no keyboard/mouse — let cage
 # start anyway. --no-sandbox: chromium refuses to run as root without it; it
 # only ever renders localhost.
-# USB (DisplayLink) monitors: the modprobe lines load the kernel drivers (udl
-# for older DL-1x5 chips, evdi if DisplayLink's driver is installed), and the
-# ExecStart wrapper finds the connected connector's DRM card at launch time
-# (card numbering moves between boots) — pointing wlroots at it and switching
-# to software rendering (pixman) when the card is a GPU-less USB display.
+# NO modprobe here: loading udl with a modern (DL-3xxx+) DisplayLink monitor
+# attached wedges the kernel — udl claims the device it can't drive and hangs
+# in USB forever (SIGKILL-immune). DisplayLinkManager loads evdi itself, and
+# old DL-1x5 panels autoload udl via the kernel's own modalias matching.
 _KIOSK_TEMPLATE = """\
 [Unit]
 Description=LiteLayer monitor kiosk: {name}
@@ -250,10 +249,8 @@ TimeoutStartSec=240
 # Give up on stuck processes fast at stop; a kernel-wedged one gets left behind
 # (systemd logs and ignores it) instead of blocking every restart for minutes.
 TimeoutStopSec=10
-ExecStartPre=-/sbin/modprobe udl
-ExecStartPre=-/sbin/modprobe evdi
 {pre_line}ExecStartPre=/bin/bash -c 'for i in $(seq 90); do (exec 3<>/dev/tcp/127.0.0.1/{port}) 2>/dev/null && exit 0; sleep 2; done; exit 0'
-ExecStart=/bin/bash -c 'for s in /sys/class/drm/card*-*/status; do grep -q "^connected" "$s" || continue; c=$(basename $(dirname "$s") | cut -d- -f1); export WLR_DRM_DEVICES=/dev/dri/$c; d=$(basename $(readlink -f /sys/class/drm/$c/device/driver) 2>/dev/null); if [ "$d" = udl ] || [ "$d" = evdi ]; then export WLR_RENDERER=pixman; fi; break; done; exec {cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/'
+ExecStart=/bin/bash {script}
 Restart=always
 RestartSec=3
 TTYPath=/dev/tty1
@@ -269,17 +266,7 @@ WantedBy=multi-user.target
 """
 
 
-_usb_display_probed = False
-
-
 def _monitor_connected() -> bool:
-    # USB (DisplayLink) monitors only get a DRM connector once their kernel
-    # driver is loaded — nudge it once so a freshly plugged one shows up.
-    global _usb_display_probed
-    if not _usb_display_probed:
-        _usb_display_probed = True
-        for mod in ("udl", "evdi"):
-            _run(["modprobe", mod], timeout=10)
     for p in DRM_DIR.glob("card*-*/status"):
         try:
             if p.read_text().strip() == "connected":
@@ -287,6 +274,45 @@ def _monitor_connected() -> bool:
         except OSError:
             pass
     return False
+
+
+def _connected_driver() -> Optional[str]:
+    """Kernel driver behind the connected display (vc4 = HDMI, evdi/udl =
+    USB DisplayLink) — decides which kiosk stack the launcher uses."""
+    for p in DRM_DIR.glob("card*-*/status"):
+        try:
+            if p.read_text().strip() != "connected":
+                continue
+            card = p.parent.name.split("-")[0]
+            return (DRM_DIR / card / "device" / "driver").resolve().name
+        except OSError:
+            continue
+    return None
+
+
+# The launcher re-picks the display every start (card numbers move between
+# boots): USB DisplayLink (evdi/udl) gets X11 + modesetting — the supported
+# stack for it; wlroots/cage cannot drive evdi. Everything else gets cage.
+_KIOSK_SCRIPT = """\
+#!/bin/bash
+# LiteLayer kiosk launcher — regenerated on every Show; do not edit.
+URL=http://127.0.0.1:{port}/
+FLAGS="--kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito"
+d=""; c=""
+for s in /sys/class/drm/card*-*/status; do
+  grep -q "^connected" "$s" || continue
+  c=$(basename "$(dirname "$s")" | cut -d- -f1)
+  d=$(basename "$(readlink -f /sys/class/drm/$c/device/driver)" 2>/dev/null)
+  break
+done
+if [ "$d" = evdi ] || [ "$d" = udl ]; then
+  exec xinit {browser} $FLAGS "$URL" -- :0 vt1 -nolisten tcp
+fi
+[ -n "$c" ] && export WLR_DRM_DEVICES=/dev/dri/$c
+exec {cage} -- {browser} $FLAGS "$URL"
+"""
+
+KIOSK_SCRIPT = CREDENTIALS_FILE.parent / "kiosk-launch.sh"
 
 
 def _monitor_program() -> Optional[str]:
@@ -298,10 +324,20 @@ def _monitor_program() -> Optional[str]:
 
 
 def _kiosk_show(name: str, prog: dict) -> None:
-    cage = shutil.which("cage")
     browser = shutil.which("chromium-browser") or shutil.which("chromium")
-    if not cage or not browser:
+    if not browser:
+        raise HTTPException(409, "Chromium missing — run: sudo apt install chromium-browser")
+    cage = shutil.which("cage")
+    if _connected_driver() in ("evdi", "udl"):
+        if not shutil.which("xinit"):
+            raise HTTPException(409, "A USB (DisplayLink) monitor needs the X kiosk — run: "
+                                     "sudo apt install --no-install-recommends xserver-xorg xinit")
+    elif not cage:
         raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage chromium-browser")
+    KIOSK_SCRIPT.write_text(_KIOSK_SCRIPT.format(
+        port=prog["web_port"], browser=browser, cage=cage or "cage"))
+    import os
+    os.chmod(KIOSK_SCRIPT, 0o755)
     # Optional per-program monitor command — fired on every kiosk start (each
     # show, each boot) as its OWN transient unit via systemd-run: it lives
     # outside the kiosk's cgroup, so no matter what it does (hang, crash,
@@ -314,8 +350,8 @@ def _kiosk_show(name: str, prog: dict) -> None:
                 f"/bin/bash -lc {shlex.quote(pre)}\n") if pre else ""
     unit_path = UNIT_DIR / f"{KIOSK_UNIT}.service"
     new_text = _KIOSK_TEMPLATE.format(
-        name=name, cage=cage, browser=browser, port=prog["web_port"],
-        workdir=prog["dir"], pre_line=pre_line)
+        name=name, port=prog["web_port"], workdir=prog["dir"],
+        pre_line=pre_line, script=KIOSK_SCRIPT)
     try:
         changed = unit_path.read_text() != new_text
     except OSError:

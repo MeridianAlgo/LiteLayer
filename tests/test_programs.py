@@ -17,6 +17,7 @@ def tmp_programs(tmp_path, monkeypatch):
     monkeypatch.setattr(programs, "UNIT_DIR", tmp_path)
     monkeypatch.setattr(programs, "ENV_DIR", tmp_path / "program-env")
     monkeypatch.setattr(programs, "MONITOR_FILE", tmp_path / "monitor-program")
+    monkeypatch.setattr(programs, "KIOSK_SCRIPT", tmp_path / "kiosk-launch.sh")
     # Never touch git/systemctl in tests; keep the import worker inert.
     monkeypatch.setattr(programs, "_run", lambda *a, **k: (0, ""))
     monkeypatch.setattr(programs, "_import_worker", lambda *a, **k: None)
@@ -133,14 +134,18 @@ def test_monitor_kiosk(authed, monkeypatch):
     monkeypatch.setattr(programs, "_monitor_connected", lambda: True)
     assert authed.post("/api/programs/web/monitor", json={"on": True}).status_code == 200
     unit = (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
-    assert "http://127.0.0.1:3000/" in unit
     # Boot-friendly: starts after (and pulls in) the program's unit, and waits
     # for the port to answer before opening the browser.
     assert "Wants=litelayer-prog-web.service" in unit
     assert "/dev/tcp/127.0.0.1/3000" in unit
-    # USB (DisplayLink) monitors: drivers loaded, DRM card picked at launch.
-    assert "modprobe udl" in unit
-    assert "WLR_DRM_DEVICES" in unit
+    # No modprobe in the unit — loading udl with a DL-3xxx monitor attached
+    # wedges the kernel.
+    assert "modprobe" not in unit
+    # The launcher script picks the stack per display: X11 for USB
+    # DisplayLink (evdi/udl), cage+wlroots for everything else.
+    script = programs.KIOSK_SCRIPT.read_text()
+    assert "http://127.0.0.1:3000/" in script
+    assert "xinit" in script and "WLR_DRM_DEVICES" in script
 
     listed = authed.get("/api/programs").json()
     assert listed["monitor"] == {"connected": True, "program": "web"}
