@@ -316,9 +316,27 @@ def _kiosk_show(name: str, prog: dict) -> None:
     code, out = _run(["systemctl", "enable", "--now", "--no-block", KIOSK_UNIT], timeout=30)
     if code != 0:
         raise HTTPException(500, f"Could not start the kiosk: {out[-300:]}")
+    # enable --now doesn't restart an already-active (or looping) kiosk — a
+    # restart makes the freshly written unit take effect immediately.
+    _run(["systemctl", "restart", "--no-block", KIOSK_UNIT], timeout=30)
     try:
         MONITOR_FILE.write_text(name)
     except OSError:
+        pass
+
+
+def refresh_kiosk() -> None:
+    """Called at LiteLayer startup: rewrite an armed kiosk's unit from the
+    current template, so kiosk fixes ship with OTA updates — no manual
+    off/on toggle needed."""
+    try:
+        name = _monitor_program()
+        if not name:
+            return
+        prog = _load().get(name)
+        if prog and prog.get("web_port"):
+            _kiosk_show(name, prog)
+    except Exception:   # noqa: BLE001 — never block app startup on the kiosk
         pass
 
 
