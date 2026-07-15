@@ -289,7 +289,9 @@ def _kiosk_show(name: str, prog: dict) -> None:
         name=name, cage=cage, browser=browser, port=prog["web_port"],
         workdir=prog["dir"], pre_line=pre_line))
     _run(["systemctl", "daemon-reload"], timeout=15)
-    code, out = _run(["systemctl", "enable", "--now", KIOSK_UNIT], timeout=30)
+    # --no-block: the kiosk's own start waits for the program's port (up to
+    # 3 min) — enqueue it and return; the screen comes up when it's ready.
+    code, out = _run(["systemctl", "enable", "--now", "--no-block", KIOSK_UNIT], timeout=30)
     if code != 0:
         raise HTTPException(500, f"Could not start the kiosk: {out[-300:]}")
     try:
