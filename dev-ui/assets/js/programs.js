@@ -147,6 +147,7 @@ function _progCard(p, mon) {
       <button class="btn btn-ghost btn-xs" onclick="toggleProgramSecrets('${esc(p.name)}')" title="KEY=VALUE environment variables, stored on the Pi and injected at start">Secrets</button>
       ${p.web_port ? `<button class="btn btn-ghost btn-xs" onclick="setProgramMonitorCommand('${esc(p.name)}','${_jsq(p.monitor_command)}')" title="Optional command run every time this program goes on the monitor — each Show and each reboot">Monitor cmd${p.monitor_command ? ' ·✓' : ''}</button>` : ''}
       ${!p.has_token ? `<button class="btn btn-ghost btn-xs" onclick="setProgramToken('${esc(p.name)}')" title="Repo gone private (or imported before tokens existed)? Add a GitHub access token — update checks and pulls will use it">Add token</button>` : ''}
+      <button class="btn btn-ghost btn-xs" onclick="setProgramPort('${esc(p.name)}',${p.web_port || 'null'})" title="The port the program's web UI listens on — the LAN link, global link and monitor kiosk all point here">Web port${p.web_port ? ` · ${p.web_port}` : ''}</button>
       <button class="btn btn-ghost btn-xs" onclick="toggleProgramLogs('${esc(p.name)}')">Logs</button>` : ''}
       <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removeProgram('${esc(p.name)}')">Remove</button>
     </div>`;
@@ -241,6 +242,18 @@ async function toggleProgramOta(name, current) {
   toast(next === 'self'
     ? `${name} now manages its own updates — LiteLayer will stop checking GitHub`
     : `LiteLayer now checks GitHub for ${name} updates`, 'success', 3000);
+  _loadPrograms();
+}
+
+async function setProgramPort(name, current) {
+  const v = prompt(`Web port for "${name}" — the port its web UI actually listens on (1024–65535, not 8000). Leave empty to remove the web links:`, current || '');
+  if (v == null) return;
+  const port = parseInt(v, 10);
+  if (v.trim() !== '' && !(port >= 1024 && port <= 65535)) { toast('Port must be 1024–65535', 'error'); return; }
+  const body = v.trim() === '' ? {clear_port: true} : {web_port: port};
+  const r = await api(`/api/programs/${encodeURIComponent(name)}`, {method: 'PUT', body: JSON.stringify(body)});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not save port', 'error', 5000); return; }
+  toast(v.trim() ? `Web port set to ${port} — links and the monitor kiosk now point there` : 'Web port removed', 'success', 3500);
   _loadPrograms();
 }
 

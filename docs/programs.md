@@ -207,8 +207,10 @@ Updates) or flip the `OTA · …` chip on its card any time:
 
 Each card offers: **Start / Stop / Restart**, **Update** (`git pull --ff-only`
 + dependency reinstall + restart), **Logs** (last lines from the unit's
-journal), and **Remove** (stops the unit, deletes the unit file and the cloned
-folder — the GitHub repository is untouched).
+journal), **Web port** (fix or set the port the web UI listens on — the LAN
+link, global link and monitor kiosk all re-point immediately), and **Remove**
+(stops the unit, deletes the unit file and the cloned folder — the GitHub
+repository is untouched).
 
 ## API
 
