@@ -238,7 +238,7 @@ DRM_DIR = Path("/sys/class/drm")
 _KIOSK_TEMPLATE = """\
 [Unit]
 Description=LiteLayer monitor kiosk: {name}
-After=multi-user.target litelayer-prog-{name}.service
+After=multi-user.target litelayer-prog-{name}.service displaylink-driver.service seatd.service
 Wants=litelayer-prog-{name}.service
 
 [Service]
@@ -299,8 +299,10 @@ def _connected_driver() -> Optional[str]:
 
 
 # The launcher re-picks the display every start (card numbers move between
-# boots): USB DisplayLink (evdi/udl) gets X11 + modesetting — the supported
-# stack for it; wlroots/cage cannot drive evdi. Everything else gets cage.
+# boots). USB DisplayLink (evdi): cage renders on the Pi's display GPU (vc4)
+# and scans out on the evdi card — WLR_DRM_DEVICES=<gpu>:<evdi>, resolved via
+# /dev/dri/by-path so a shifted card number can't break it, with seatd as the
+# session backend (proven working on the user's AOC E1659Fwu).
 _KIOSK_SCRIPT = """\
 #!/bin/bash
 # LiteLayer kiosk launcher — regenerated on every Show; do not edit.
@@ -313,15 +315,22 @@ for s in /sys/class/drm/card*-*/status; do
   d=$(basename "$(readlink -f /sys/class/drm/$c/device/driver)" 2>/dev/null)
   break
 done
-# evdi connectors say "unknown", never "connected" — an evdi card existing at
-# all means a DisplayLink USB display is attached.
+# evdi connectors often say "unknown", never "connected" — an evdi card
+# existing at all means a DisplayLink USB display is attached.
 if [ -z "$c" ]; then
   for dr in /sys/class/drm/card*/device/driver; do
     [ "$(basename "$(readlink -f "$dr")")" = evdi ] && d=evdi && break
   done
 fi
 if [ "$d" = evdi ] || [ "$d" = udl ]; then
-  exec xinit {browser} $FLAGS "$URL" -- :0 vt1 -nolisten tcp
+  dl=""; gpu=""
+  for l in /dev/dri/by-path/*evdi*-card; do [ -e "$l" ] && dl=$(readlink -f "$l") && break; done
+  for l in /dev/dri/by-path/*gpu*-card;  do [ -e "$l" ] && gpu=$(readlink -f "$l") && break; done
+  mkdir -p /run/user/0 && chmod 700 /run/user/0
+  export XDG_RUNTIME_DIR=/run/user/0 LIBSEAT_BACKEND=seatd
+  if [ -n "$gpu" ] && [ -n "$dl" ]; then export WLR_DRM_DEVICES="$gpu:$dl"
+  elif [ -n "$dl" ]; then export WLR_DRM_DEVICES="$dl"; fi
+  exec {cage} -- {browser} $FLAGS "$URL"
 fi
 [ -n "$c" ] && export WLR_DRM_DEVICES=/dev/dri/$c
 exec {cage} -- {browser} $FLAGS "$URL"
@@ -343,28 +352,13 @@ def _kiosk_show(name: str, prog: dict) -> None:
     if not browser:
         raise HTTPException(409, "Chromium missing — run: sudo apt install chromium-browser")
     cage = shutil.which("cage")
-    if _connected_driver() in ("evdi", "udl"):
-        if not shutil.which("xinit"):
-            raise HTTPException(409, "A USB (DisplayLink) monitor needs the X kiosk — run: "
-                                     "sudo apt install --no-install-recommends xserver-xorg xinit")
-        # Xorg ignores the GPU-less evdi device unless told to drive it with
-        # modesetting — and it must be primary, or X binds to the HDMI-less
-        # vc4 card and finds no screens.
-        xconf = Path("/etc/X11/xorg.conf.d/20-litelayer-displaylink.conf")
-        try:
-            xconf.parent.mkdir(parents=True, exist_ok=True)
-            xconf.write_text(
-                'Section "OutputClass"\n'
-                '    Identifier "LiteLayer DisplayLink"\n'
-                '    MatchDriver "evdi"\n'
-                '    Driver "modesetting"\n'
-                '    Option "AccelMethod" "none"\n'
-                '    Option "PrimaryGPU" "true"\n'
-                'EndSection\n')
-        except OSError:
-            pass
-    elif not cage:
+    if not cage:
         raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage chromium-browser")
+    if _connected_driver() in ("evdi", "udl"):
+        if not shutil.which("seatd"):
+            raise HTTPException(409, "A USB (DisplayLink) monitor needs seatd — run: "
+                                     "sudo apt install seatd")
+        _run(["systemctl", "enable", "--now", "seatd"], timeout=15)
     KIOSK_SCRIPT.write_text(_KIOSK_SCRIPT.format(
         port=prog["web_port"], browser=browser, cage=cage or "cage"))
     import os

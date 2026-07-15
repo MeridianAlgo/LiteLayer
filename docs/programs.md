@@ -161,14 +161,14 @@ How it works and what to know:
 - Removing the program (or clearing its web port) turns the kiosk off;
   changing its port re-points the kiosk automatically.
 - **USB monitors (DisplayLink) work too** — not just HDMI. The launcher
-  checks what kind of display is connected on every start: HDMI gets the
-  cage compositor; a USB DisplayLink display gets an **X11 kiosk** instead
-  (the supported stack for DisplayLink — Wayland compositors can't drive
-  it). Two one-time installs for the USB case: the DisplayLink driver
+  checks what kind of display is attached on every start. HDMI: cage drives
+  the connected card directly. USB DisplayLink: cage renders on the Pi's
+  GPU and scans out on the DisplayLink device (found via
+  `/dev/dri/by-path`, so USB plug order can't break it across reboots).
+  Two one-time installs for the USB case: the DisplayLink driver
   ([displaylink-debian](https://github.com/AdnanHodzic/displaylink-debian)
   for DL-3xxx and newer chips — USB 3.0 monitors) and
-  `sudo apt install --no-install-recommends xserver-xorg xinit` (the Show
-  button tells you if it's missing).
+  `sudo apt install seatd` (the Show button tells you if it's missing).
 - **Monitor command (optional)** — some programs need a command run every
   time they go on the screen (warm a cache, regenerate the page, poke an
   API). Click **Monitor cmd** on the card and enter it: it runs from the
