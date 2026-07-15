@@ -247,6 +247,9 @@ Environment=WLR_LIBINPUT_NO_DEVICES=1
 WorkingDirectory={workdir}
 # The port wait below can take 180s — outlive systemd's default 90s start timeout.
 TimeoutStartSec=240
+# Give up on stuck processes fast at stop; a kernel-wedged one gets left behind
+# (systemd logs and ignores it) instead of blocking every restart for minutes.
+TimeoutStopSec=10
 ExecStartPre=-/sbin/modprobe udl
 ExecStartPre=-/sbin/modprobe evdi
 {pre_line}ExecStartPre=/bin/bash -c 'for i in $(seq 90); do (exec 3<>/dev/tcp/127.0.0.1/{port}) 2>/dev/null && exit 0; sleep 2; done; exit 0'
