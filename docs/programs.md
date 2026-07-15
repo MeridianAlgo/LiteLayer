@@ -148,14 +148,14 @@ How it works and what to know:
   LiteLayer still detects the connector state and says so in the chip and toast.
 - One program on the monitor at a time — it's one HDMI port. Showing a new one
   replaces the old one.
-- The kiosk is its own systemd unit (`litelayer-kiosk`), so the display
-  **survives reboots** — the Pi boots straight back into the program's UI.
-  No keyboard or mouse required (but a plugged-in one works, e.g. for a
-  touchscreen dashboard).
-- **Hassle-free boot:** the kiosk starts *after* the program's own service,
-  pulls it in if it isn't running, and then waits (up to 3 minutes) for the
-  program's port to actually answer before opening the browser — so a slow
-  starter shows its page, not an error screen.
+- **Off by default after a reboot.** A freshly booted Pi never puts a program
+  on the screen on its own — click **Show on monitor** when you want it. (A
+  LiteLayer OTA update doesn't count as a reboot; a running kiosk stays up.)
+- No keyboard or mouse required (but a plugged-in one works, e.g. for a
+  touchscreen dashboard). Turning the kiosk on pulls the program's own
+  service up if it isn't running, then waits (up to 3 minutes) for its port
+  to actually answer before opening the browser — so a slow starter shows
+  its page, not an error screen.
 - It renders `http://127.0.0.1:<port>/` locally — no login page, no proxy
   path, so absolute asset paths that break the global link are fine here.
 - Removing the program (or clearing its web port) turns the kiosk off;
@@ -171,7 +171,7 @@ How it works and what to know:
 - **Monitor command (optional)** — some programs need a command run every
   time they go on the screen (warm a cache, regenerate the page, poke an
   API). Click **Monitor cmd** on the card and enter it: it runs from the
-  program's folder via bash on **every Show and every reboot**, fired as its
+  program's folder via bash on **every kiosk start**, fired as its
   own short-lived unit (`litelayer-kiosk-cmd`, capped at 2 minutes) fully
   detached from the kiosk — so a command that fails, hangs or even wedges in
   the kernel can never hold the screen black or block a kiosk restart. Its

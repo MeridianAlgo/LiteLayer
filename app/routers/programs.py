@@ -323,9 +323,12 @@ def _kiosk_show(name: str, prog: dict) -> None:
     unit_path.write_text(new_text)
     if changed:
         _run(["systemctl", "daemon-reload"], timeout=15)
+    # The monitor is off by default after a reboot: start, never enable (the
+    # disable also cleans the boot symlink older versions created).
+    _run(["systemctl", "disable", KIOSK_UNIT], timeout=15)
     # --no-block: the kiosk's own start waits for the program's port (up to
     # 3 min) — enqueue it and return; the screen comes up when it's ready.
-    code, out = _run(["systemctl", "enable", "--now", "--no-block", KIOSK_UNIT], timeout=30)
+    code, out = _run(["systemctl", "start", "--no-block", KIOSK_UNIT], timeout=30)
     if code != 0:
         raise HTTPException(500, f"Could not start the kiosk: {out[-300:]}")
     if changed:
@@ -340,16 +343,14 @@ def _kiosk_show(name: str, prog: dict) -> None:
 
 
 def refresh_kiosk() -> None:
-    """Called at LiteLayer startup: rewrite an armed kiosk's unit from the
-    current template, so kiosk fixes ship with OTA updates — no manual
-    off/on toggle needed."""
+    """Called at LiteLayer startup. The monitor is OFF by default after a
+    reboot — a freshly booted Pi never puts a program on the screen until
+    someone clicks Show on monitor. A mere LiteLayer restart (OTA update)
+    leaves a running kiosk alone; "recent boot" tells the two apart."""
     try:
-        name = _monitor_program()
-        if not name:
-            return
-        prog = _load().get(name)
-        if prog and prog.get("web_port"):
-            _kiosk_show(name, prog)
+        booted_recently = float(Path("/proc/uptime").read_text().split()[0]) < 300
+        if booted_recently and _monitor_program():
+            _kiosk_off()
     except Exception:   # noqa: BLE001 — never block app startup on the kiosk
         pass
 
