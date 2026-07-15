@@ -123,11 +123,14 @@ def test_monitor_kiosk(authed, monkeypatch):
     # No web UI → nothing to show.
     assert authed.post("/api/programs/headless/monitor", json={"on": True}).status_code == 409
 
+    # No monitor detected: still allowed — the kiosk arms and displays when
+    # one is plugged in; the response says it isn't connected yet.
     monkeypatch.setattr(programs, "_monitor_connected", lambda: False)
-    assert authed.post("/api/programs/web/monitor", json={"on": True}).status_code == 409
+    monkeypatch.setattr(programs.shutil, "which", lambda b: f"/usr/bin/{b}")
+    r = authed.post("/api/programs/web/monitor", json={"on": True})
+    assert r.status_code == 200 and r.json()["connected"] is False
 
     monkeypatch.setattr(programs, "_monitor_connected", lambda: True)
-    monkeypatch.setattr(programs.shutil, "which", lambda b: f"/usr/bin/{b}")
     assert authed.post("/api/programs/web/monitor", json={"on": True}).status_code == 200
     unit = (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
     assert "http://127.0.0.1:3000/" in unit

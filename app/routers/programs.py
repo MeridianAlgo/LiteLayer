@@ -502,10 +502,10 @@ def program_monitor(name: str, req: MonitorRequest, _: str = Depends(require_aut
         return {"status": "off"}
     if not prog.get("web_port"):
         raise HTTPException(409, "Set a web port first — the monitor shows the program's web UI.")
-    if not _monitor_connected():
-        raise HTTPException(409, "No monitor detected — plug one into the Pi's HDMI port.")
+    # No monitor right now is fine — the kiosk stays armed and displays the
+    # moment one is plugged in (detection can also miss some display setups).
     _kiosk_show(name, prog)
-    return {"status": "on", "program": name}
+    return {"status": "on", "program": name, "connected": _monitor_connected()}
 
 
 class EditProgramRequest(BaseModel):

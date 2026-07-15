@@ -142,8 +142,10 @@ How it works and what to know:
 
 - One-time setup on the Pi: `sudo apt install cage chromium-browser`. The chip
   tells you if the tools are missing.
-- LiteLayer detects the monitor automatically (via the kernel's display
-  connector state) — the chip only appears while one is connected.
+- The chip is there for **every program with a web port** — already-installed
+  ones included, monitor plugged in or not. With no monitor attached, turning
+  it on simply arms the kiosk: the program appears the moment you plug one in.
+  LiteLayer still detects the connector state and says so in the chip and toast.
 - One program on the monitor at a time — it's one HDMI port. Showing a new one
   replaces the old one.
 - The kiosk is its own systemd unit (`litelayer-kiosk`), so the display

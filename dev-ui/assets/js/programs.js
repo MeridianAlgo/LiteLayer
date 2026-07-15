@@ -116,11 +116,11 @@ function _progCard(p, mon) {
          <button class="prog-chip toggle ${p.public ? '' : 'private'}" onclick="toggleProgramPublic('${esc(p.name)}',${p.public})" title="${p.public ? 'Anyone with the link can open it. Click to require a LiteLayer sign-in.' : 'Sign-in required. Click to make the link public.'}">${p.public ? 'Public' : 'Private'}</button>`
       : `<span class="prog-chip dim" title="Turn on the Cloudflare tunnel or Tailscale in Settings → System to get a global link">Global link needs the Cloudflare tunnel or Tailscale</span>`;
   }
-  // Monitor chip: shown when an HDMI monitor is attached (or to turn off a
-  // program already on it after the monitor was unplugged).
-  if (settled && p.web_port && (mon?.connected || p.on_monitor)) {
+  // Monitor chip: always available for web-UI programs — with no monitor
+  // attached, turning it on arms the kiosk to display when one is plugged in.
+  if (settled && p.web_port) {
     links += `<button class="prog-chip toggle ${p.on_monitor ? '' : 'dim'}" onclick="toggleProgramMonitor('${esc(p.name)}',${p.on_monitor})"
-      title="${p.on_monitor ? 'Showing fullscreen on the monitor plugged into the Pi. Click to turn off.' : 'Show this program fullscreen on the monitor plugged into the Pi.'}">
+      title="${p.on_monitor ? 'Showing fullscreen on the Pi’s monitor. Click to turn off.' : mon?.connected ? 'Show this program fullscreen on the monitor plugged into the Pi.' : 'No monitor detected right now — turning this on shows the program the moment one is plugged into the Pi.'}">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>${p.on_monitor ? 'On monitor' : 'Show on monitor'}</button>`;
   }
   if (settled && p.has_token) {
@@ -265,7 +265,10 @@ async function setProgramMonitorCommand(name, current) {
 async function toggleProgramMonitor(name, on) {
   const r = await api(`/api/programs/${encodeURIComponent(name)}/monitor`, {method: 'POST', body: JSON.stringify({on: !on})});
   if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not change the monitor', 'error', 6000); return; }
-  toast(!on ? `${name} is now fullscreen on the Pi's monitor` : 'Monitor turned off', 'success', 3000);
+  const d = await r.json();
+  toast(on ? 'Monitor turned off'
+    : d.connected ? `${name} is now fullscreen on the Pi's monitor`
+    : `${name} will show fullscreen as soon as a monitor is plugged into the Pi`, 'success', 3500);
   _loadPrograms();
 }
 
