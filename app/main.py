@@ -26,8 +26,8 @@ logging.basicConfig(
 async def lifespan(_app: FastAPI):
     from drives import hotplug
     hotplug.start()
-    # Monitor is off by default after a reboot — clear an armed kiosk on boot
-    # (an OTA restart of LiteLayer leaves a running kiosk alone).
+    # An armed monitor kiosk keeps its unit file across LiteLayer OTA updates —
+    # refresh it from the current template so kiosk fixes apply on restart.
     from app.routers.programs import refresh_kiosk
     refresh_kiosk()
     yield

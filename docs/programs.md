@@ -148,14 +148,16 @@ How it works and what to know:
   LiteLayer still detects the connector state and says so in the chip and toast.
 - One program on the monitor at a time — it's one HDMI port. Showing a new one
   replaces the old one.
-- **Off by default after a reboot.** A freshly booted Pi never puts a program
-  on the screen on its own — click **Show on monitor** when you want it. (A
-  LiteLayer OTA update doesn't count as a reboot; a running kiosk stays up.)
+- **Always on.** Once shown, the display survives reboots — the Pi boots
+  straight back into the program's screen, no SSH session or manual command
+  involved. Click the chip again to turn it off.
 - No keyboard or mouse required (but a plugged-in one works, e.g. for a
   touchscreen dashboard). Turning the kiosk on pulls the program's own
   service up if it isn't running, then waits (up to 3 minutes) for its port
   to actually answer before opening the browser — so a slow starter shows
-  its page, not an error screen.
+  its page, not an error screen. When the program on screen is updated (OTA)
+  or restarted, the kiosk restarts with it — the browser never sits on a
+  dead page.
 - It renders `http://127.0.0.1:<port>/` locally — no login page, no proxy
   path, so absolute asset paths that break the global link are fine here.
 - Removing the program (or clearing its web port) turns the kiosk off;

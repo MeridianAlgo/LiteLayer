@@ -328,6 +328,10 @@ if [ "$d" = evdi ] || [ "$d" = udl ]; then
   for l in /dev/dri/by-path/*gpu*-card;  do [ -e "$l" ] && gpu=$(readlink -f "$l") && break; done
   mkdir -p /run/user/0 && chmod 700 /run/user/0
   export XDG_RUNTIME_DIR=/run/user/0 LIBSEAT_BACKEND=seatd
+  # seatd's socket goes stale when a previous compositor died uncleanly
+  # ("Could not poll connection: Broken pipe") — a fresh seatd right before
+  # cage is the proven fix.
+  systemctl restart seatd 2>/dev/null && sleep 1
   if [ -n "$gpu" ] && [ -n "$dl" ]; then export WLR_DRM_DEVICES="$gpu:$dl"
   elif [ -n "$dl" ]; then export WLR_DRM_DEVICES="$dl"; fi
   exec {cage} -- {browser} $FLAGS "$URL"
@@ -384,12 +388,10 @@ def _kiosk_show(name: str, prog: dict) -> None:
     unit_path.write_text(new_text)
     if changed:
         _run(["systemctl", "daemon-reload"], timeout=15)
-    # The monitor is off by default after a reboot: start, never enable (the
-    # disable also cleans the boot symlink older versions created).
-    _run(["systemctl", "disable", KIOSK_UNIT], timeout=15)
+    # Always on: enable so the screen comes back by itself after a reboot.
     # --no-block: the kiosk's own start waits for the program's port (up to
     # 3 min) — enqueue it and return; the screen comes up when it's ready.
-    code, out = _run(["systemctl", "start", "--no-block", KIOSK_UNIT], timeout=30)
+    code, out = _run(["systemctl", "enable", "--now", "--no-block", KIOSK_UNIT], timeout=30)
     if code != 0:
         raise HTTPException(500, f"Could not start the kiosk: {out[-300:]}")
     if changed:
@@ -404,16 +406,25 @@ def _kiosk_show(name: str, prog: dict) -> None:
 
 
 def refresh_kiosk() -> None:
-    """Called at LiteLayer startup. The monitor is OFF by default after a
-    reboot — a freshly booted Pi never puts a program on the screen until
-    someone clicks Show on monitor. A mere LiteLayer restart (OTA update)
-    leaves a running kiosk alone; "recent boot" tells the two apart."""
+    """Called at LiteLayer startup: rewrite an armed kiosk's unit/launcher
+    from the current templates so kiosk fixes ship with OTA updates (an
+    unchanged unit is left alone — no restart churn)."""
     try:
-        booted_recently = float(Path("/proc/uptime").read_text().split()[0]) < 300
-        if booted_recently and _monitor_program():
-            _kiosk_off()
+        name = _monitor_program()
+        if not name:
+            return
+        prog = _load().get(name)
+        if prog and prog.get("web_port"):
+            _kiosk_show(name, prog)
     except Exception:   # noqa: BLE001 — never block app startup on the kiosk
         pass
+
+
+def _kiosk_kick(name: str) -> None:
+    """Restart the kiosk when the program on the screen was restarted —
+    Chromium never recovers on its own from a page that died under it."""
+    if _monitor_program() == name:
+        _run(["systemctl", "restart", "--no-block", KIOSK_UNIT], timeout=30)
 
 
 def _kiosk_off() -> None:
@@ -604,6 +615,8 @@ def program_action(name: str, req: ActionRequest, _: str = Depends(require_auth)
     code, out = _run(["systemctl", *verb, _unit(name)], timeout=30)
     if code != 0:
         raise HTTPException(500, f"systemctl {req.action} failed: {out[-300:]}")
+    if req.action in ("start", "restart"):
+        _kiosk_kick(name)
     return {"status": _unit_state(name)}
 
 
@@ -690,6 +703,7 @@ def update_program(name: str, _: str = Depends(require_auth)):
         raise HTTPException(500, err)
     if prog.get("start_command"):
         _run(["systemctl", "restart", _unit(name)], timeout=30)
+        _kiosk_kick(name)
     return {"status": "updated", "detail": out[-200:]}
 
 
