@@ -209,7 +209,8 @@ After=multi-user.target
 
 [Service]
 Environment=WLR_LIBINPUT_NO_DEVICES=1
-ExecStart={cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/
+WorkingDirectory={workdir}
+{pre_line}ExecStart={cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/
 Restart=always
 RestartSec=3
 TTYPath=/dev/tty1
@@ -243,13 +244,19 @@ def _monitor_program() -> Optional[str]:
         return None
 
 
-def _kiosk_show(name: str, port: int) -> None:
+def _kiosk_show(name: str, prog: dict) -> None:
     cage = shutil.which("cage")
     browser = shutil.which("chromium-browser") or shutil.which("chromium")
     if not cage or not browser:
         raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage chromium-browser")
+    # Optional per-program monitor command — runs from the program's folder
+    # every time the kiosk starts (each show, each boot). The `-` prefix means
+    # a failing command never blocks the screen; failures land in the journal.
+    pre = prog.get("monitor_command")
+    pre_line = f"ExecStartPre=-/bin/bash -lc {shlex.quote(pre)}\n" if pre else ""
     (UNIT_DIR / f"{KIOSK_UNIT}.service").write_text(_KIOSK_TEMPLATE.format(
-        name=name, cage=cage, browser=browser, port=port))
+        name=name, cage=cage, browser=browser, port=prog["web_port"],
+        workdir=prog["dir"], pre_line=pre_line))
     _run(["systemctl", "daemon-reload"], timeout=15)
     code, out = _run(["systemctl", "enable", "--now", KIOSK_UNIT], timeout=30)
     if code != 0:
@@ -326,6 +333,7 @@ def _listing() -> list[dict]:
             "global_url": f"{base}/apps/{name}/" if base and prog.get("web_port") else None,
             "global_via": via if base and prog.get("web_port") else None,
             "on_monitor": name == mon,
+            "monitor_command": prog.get("monitor_command"),
         })
     return out
 
@@ -364,6 +372,7 @@ class AddProgramRequest(BaseModel):
     name: Optional[str] = None
     start_command: Optional[str] = None
     web_port: Optional[int] = None
+    monitor_command: Optional[str] = None   # runs each time the program goes on the monitor
     ota: str = "github"   # "github" = LiteLayer checks/pulls | "self" = app updates itself
 
 
@@ -400,6 +409,7 @@ def add_program(req: AddProgramRequest, _: str = Depends(require_auth)):
             "dir": str(PROGRAMS_DIR / name),
             "start_command": req.start_command,
             "web_port": port,
+            "monitor_command": (req.monitor_command or "").strip() or None,
             "public": True,
             "ota": req.ota,
             "status": "importing",
@@ -455,13 +465,14 @@ def program_monitor(name: str, req: MonitorRequest, _: str = Depends(require_aut
         raise HTTPException(409, "Set a web port first — the monitor shows the program's web UI.")
     if not _monitor_connected():
         raise HTTPException(409, "No monitor detected — plug one into the Pi's HDMI port.")
-    _kiosk_show(name, prog["web_port"])
+    _kiosk_show(name, prog)
     return {"status": "on", "program": name}
 
 
 class EditProgramRequest(BaseModel):
     start_command: Optional[str] = None
     web_port: Optional[int] = None
+    monitor_command: Optional[str] = None   # empty string clears it
     public: Optional[bool] = None
     ota: Optional[str] = None
     clear_port: bool = False
@@ -477,6 +488,8 @@ def edit_program(name: str, req: EditProgramRequest, _: str = Depends(require_au
             prog["start_command"] = req.start_command.strip() or None
             if prog["start_command"] and prog.get("status") == "needs_command":
                 prog["status"] = "ready"
+        if req.monitor_command is not None:
+            prog["monitor_command"] = req.monitor_command.strip() or None
         if req.clear_port:
             prog["web_port"] = None
         elif req.web_port is not None:
@@ -492,9 +505,9 @@ def edit_program(name: str, req: EditProgramRequest, _: str = Depends(require_au
         _write_unit(name, prog)
         if _unit_state(name) == "active":
             _run(["systemctl", "restart", _unit(name)], timeout=30)
-    # The kiosk unit hardcodes the port — keep it in step.
+    # The kiosk unit hardcodes the port and monitor command — keep it in step.
     if _monitor_program() == name:
-        _kiosk_show(name, prog["web_port"]) if prog.get("web_port") else _kiosk_off()
+        _kiosk_show(name, prog) if prog.get("web_port") else _kiosk_off()
     return {"status": "ok"}
 
 

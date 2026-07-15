@@ -136,6 +136,15 @@ def test_monitor_kiosk(authed, monkeypatch):
     assert listed["monitor"] == {"connected": True, "program": "web"}
     assert {p["name"]: p["on_monitor"] for p in listed["programs"]} == {"headless": False, "web": True}
 
+    # Monitor command: saved via edit, baked into the kiosk unit as ExecStartPre.
+    r = authed.put("/api/programs/web", json={"monitor_command": "./warmup.sh --once"})
+    assert r.status_code == 200
+    unit = (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
+    assert "ExecStartPre=-/bin/bash -lc './warmup.sh --once'" in unit
+    authed.put("/api/programs/web", json={"monitor_command": ""})   # empty clears
+    assert "ExecStartPre" not in (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
+    assert programs._load()["web"]["monitor_command"] is None
+
     # Removing the program on the monitor turns the kiosk off too.
     assert authed.delete("/api/programs/web").status_code == 200
     assert not (programs.UNIT_DIR / "litelayer-kiosk.service").exists()

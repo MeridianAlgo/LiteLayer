@@ -140,6 +140,7 @@ function _progCard(p, mon) {
           : canRun ? `<button class="btn btn-primary btn-xs" onclick="programAction('${esc(p.name)}','start')">Start</button>` : ''}
       ${p.status !== 'error' ? `${p.ota !== 'self' ? `<button class="btn btn-ghost btn-xs" id="prog-updbtn-${esc(p.name)}" onclick="updateProgram('${esc(p.name)}')" title="git pull the latest code, reinstall dependencies, restart">Update</button>` : ''}
       <button class="btn btn-ghost btn-xs" onclick="toggleProgramSecrets('${esc(p.name)}')" title="KEY=VALUE environment variables, stored on the Pi and injected at start">Secrets</button>
+      ${p.web_port ? `<button class="btn btn-ghost btn-xs" onclick="setProgramMonitorCommand('${esc(p.name)}','${_jsq(p.monitor_command)}')" title="Optional command run every time this program goes on the monitor — each Show and each reboot">Monitor cmd${p.monitor_command ? ' ·✓' : ''}</button>` : ''}
       <button class="btn btn-ghost btn-xs" onclick="toggleProgramLogs('${esc(p.name)}')">Logs</button>` : ''}
       <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removeProgram('${esc(p.name)}')">Remove</button>
     </div>`;
@@ -233,6 +234,15 @@ async function toggleProgramOta(name, current) {
   toast(next === 'self'
     ? `${name} now manages its own updates — LiteLayer will stop checking GitHub`
     : `LiteLayer now checks GitHub for ${name} updates`, 'success', 3000);
+  _loadPrograms();
+}
+
+async function setProgramMonitorCommand(name, current) {
+  const cmd = prompt(`Monitor command for "${name}" — runs from the program's folder every time it goes on the monitor (each Show and each reboot). Leave empty to remove:`, current || '');
+  if (cmd == null) return;
+  const r = await api(`/api/programs/${encodeURIComponent(name)}`, {method: 'PUT', body: JSON.stringify({monitor_command: cmd})});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not save monitor command', 'error', 5000); return; }
+  toast(cmd.trim() ? 'Monitor command saved — it runs on every Show and every boot' : 'Monitor command removed', 'success', 3000);
   _loadPrograms();
 }
 

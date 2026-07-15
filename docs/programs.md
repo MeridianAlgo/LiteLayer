@@ -133,6 +133,12 @@ How it works and what to know:
   path, so absolute asset paths that break the global link are fine here.
 - Removing the program (or clearing its web port) turns the kiosk off;
   changing its port re-points the kiosk automatically.
+- **Monitor command (optional)** — some programs need a command run every
+  time they go on the screen (warm a cache, regenerate the page, poke an
+  API). Click **Monitor cmd** on the card and enter it: it runs from the
+  program's folder via bash on **every Show and every reboot**, right before
+  the browser opens. A failing monitor command is logged
+  (`journalctl -u litelayer-kiosk`) but never blocks the screen.
 
 ## Secrets (repository secrets)
 
@@ -184,11 +190,11 @@ All endpoints require authentication except the `/apps/` proxy for public progra
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/programs` | GET | List programs with status and links, plus monitor state |
-| `/api/programs` | POST | Import — `{repo_url, name?, start_command?, web_port?, ota?}` |
+| `/api/programs` | POST | Import — `{repo_url, name?, start_command?, web_port?, monitor_command?, ota?}` |
 | `/api/programs/updates` | GET | OTA check — local vs GitHub HEAD per program |
 | `/api/programs/{name}/action` | POST | `{action: "start" \| "stop" \| "restart"}` |
 | `/api/programs/{name}/monitor` | POST | `{on: true \| false}` — show on / clear the attached HDMI monitor |
-| `/api/programs/{name}` | PUT | Edit — `{start_command?, web_port?, public?, ota?, clear_port?}` |
+| `/api/programs/{name}` | PUT | Edit — `{start_command?, web_port?, monitor_command?, public?, ota?, clear_port?}` |
 | `/api/programs/{name}/secrets` | GET / PUT | Read / replace the program's `KEY=VALUE` secrets |
 | `/api/programs/{name}/update` | POST | Pull latest code, reinstall deps, restart |
 | `/api/programs/{name}` | DELETE | Stop and remove the program |
