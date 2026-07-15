@@ -91,6 +91,11 @@ How the token is protected:
   the chip to replace the token (e.g. after rotating it on GitHub) or remove it.
 - Deleted with the program.
 
+**Already-imported programs** can get a token too — did a repo go private
+after you imported it, or was it imported before tokens existed? Click
+**Add token** on its card (or `PUT /api/programs/{name}` with `{token}`) and
+update checks and pulls start authenticating immediately; no re-import needed.
+
 ## Statuses
 
 | Status | Meaning |

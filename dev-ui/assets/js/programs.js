@@ -146,6 +146,7 @@ function _progCard(p, mon) {
       ${p.status !== 'error' ? `${p.ota !== 'self' ? `<button class="btn btn-ghost btn-xs" id="prog-updbtn-${esc(p.name)}" onclick="updateProgram('${esc(p.name)}')" title="git pull the latest code, reinstall dependencies, restart">Update</button>` : ''}
       <button class="btn btn-ghost btn-xs" onclick="toggleProgramSecrets('${esc(p.name)}')" title="KEY=VALUE environment variables, stored on the Pi and injected at start">Secrets</button>
       ${p.web_port ? `<button class="btn btn-ghost btn-xs" onclick="setProgramMonitorCommand('${esc(p.name)}','${_jsq(p.monitor_command)}')" title="Optional command run every time this program goes on the monitor — each Show and each reboot">Monitor cmd${p.monitor_command ? ' ·✓' : ''}</button>` : ''}
+      ${!p.has_token ? `<button class="btn btn-ghost btn-xs" onclick="setProgramToken('${esc(p.name)}')" title="Repo gone private (or imported before tokens existed)? Add a GitHub access token — update checks and pulls will use it">Add token</button>` : ''}
       <button class="btn btn-ghost btn-xs" onclick="toggleProgramLogs('${esc(p.name)}')">Logs</button>` : ''}
       <button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="removeProgram('${esc(p.name)}')">Remove</button>
     </div>`;
