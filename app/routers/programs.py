@@ -307,7 +307,10 @@ _KIOSK_SCRIPT = """\
 #!/bin/bash
 # LiteLayer kiosk launcher — regenerated on every Show; do not edit.
 URL=http://127.0.0.1:{port}/
-FLAGS="--kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito"
+# Own profile dir on tmpfs: a previous chromium killed hard (or a stray one
+# from a manual session) can never hold the profile lock and leave cage
+# showing just a cursor.
+FLAGS="--kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito --user-data-dir=/run/litelayer-kiosk"
 d=""; c=""
 for s in /sys/class/drm/card*-*/status; do
   grep -q "^connected" "$s" || continue
