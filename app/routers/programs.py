@@ -302,26 +302,37 @@ def _kiosk_show(name: str, prog: dict) -> None:
     browser = shutil.which("chromium-browser") or shutil.which("chromium")
     if not cage or not browser:
         raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage chromium-browser")
-    # Optional per-program monitor command — runs from the program's folder
-    # every time the kiosk starts (each show, each boot). The `-` prefix means
-    # a failing command never blocks the screen, and `timeout 120` means a
-    # hanging one can't either (it would stall start-pre until systemd kills
-    # the whole unit — a black screen forever). A command that must keep
-    # running belongs in the background: append ` &` to it.
+    # Optional per-program monitor command — fired on every kiosk start (each
+    # show, each boot) as its OWN transient unit via systemd-run: it lives
+    # outside the kiosk's cgroup, so no matter what it does (hang, crash,
+    # wedge in the kernel — ddcutil on a dead i2c bus can) the kiosk never
+    # waits on it, at start OR at stop. Capped at 2 minutes.
     pre = prog.get("monitor_command")
-    pre_line = f"ExecStartPre=-/usr/bin/timeout 120 /bin/bash -lc {shlex.quote(pre)}\n" if pre else ""
-    (UNIT_DIR / f"{KIOSK_UNIT}.service").write_text(_KIOSK_TEMPLATE.format(
+    pre_line = (f"ExecStartPre=-/usr/bin/systemd-run --collect --no-block "
+                f"--unit=litelayer-kiosk-cmd -p RuntimeMaxSec=120 "
+                f"-p WorkingDirectory={prog['dir']} "
+                f"/bin/bash -lc {shlex.quote(pre)}\n") if pre else ""
+    unit_path = UNIT_DIR / f"{KIOSK_UNIT}.service"
+    new_text = _KIOSK_TEMPLATE.format(
         name=name, cage=cage, browser=browser, port=prog["web_port"],
-        workdir=prog["dir"], pre_line=pre_line))
-    _run(["systemctl", "daemon-reload"], timeout=15)
+        workdir=prog["dir"], pre_line=pre_line)
+    try:
+        changed = unit_path.read_text() != new_text
+    except OSError:
+        changed = True
+    unit_path.write_text(new_text)
+    if changed:
+        _run(["systemctl", "daemon-reload"], timeout=15)
     # --no-block: the kiosk's own start waits for the program's port (up to
     # 3 min) — enqueue it and return; the screen comes up when it's ready.
     code, out = _run(["systemctl", "enable", "--now", "--no-block", KIOSK_UNIT], timeout=30)
     if code != 0:
         raise HTTPException(500, f"Could not start the kiosk: {out[-300:]}")
-    # enable --now doesn't restart an already-active (or looping) kiosk — a
-    # restart makes the freshly written unit take effect immediately.
-    _run(["systemctl", "restart", "--no-block", KIOSK_UNIT], timeout=30)
+    if changed:
+        # enable --now doesn't restart an already-active kiosk — restart so
+        # the rewritten unit takes effect. Unchanged unit → leave it alone
+        # (a restart storm on every startup/edit helps nobody).
+        _run(["systemctl", "restart", "--no-block", KIOSK_UNIT], timeout=30)
     try:
         MONITOR_FILE.write_text(name)
     except OSError:

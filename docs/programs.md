@@ -171,12 +171,11 @@ How it works and what to know:
 - **Monitor command (optional)** — some programs need a command run every
   time they go on the screen (warm a cache, regenerate the page, poke an
   API). Click **Monitor cmd** on the card and enter it: it runs from the
-  program's folder via bash on **every Show and every reboot**, right before
-  the browser opens. A failing monitor command is logged
-  (`journalctl -u litelayer-kiosk`) but never blocks the screen, and it's
-  capped at **2 minutes** — a command that never exits would otherwise hold
-  the screen black forever. If yours is meant to keep running (a driver
-  helper, a daemon), put it in the background by ending it with ` &`.
+  program's folder via bash on **every Show and every reboot**, fired as its
+  own short-lived unit (`litelayer-kiosk-cmd`, capped at 2 minutes) fully
+  detached from the kiosk — so a command that fails, hangs or even wedges in
+  the kernel can never hold the screen black or block a kiosk restart. Its
+  output lands in `journalctl -u litelayer-kiosk-cmd`.
 
 ## Secrets (repository secrets)
 
