@@ -287,6 +287,14 @@ def _connected_driver() -> Optional[str]:
             return (DRM_DIR / card / "device" / "driver").resolve().name
         except OSError:
             continue
+    # evdi connectors report "unknown", never "connected" — the presence of
+    # an evdi card at all means DisplayLinkManager has a USB display attached.
+    for p in DRM_DIR.glob("card*/device/driver"):
+        try:
+            if p.resolve().name == "evdi":
+                return "evdi"
+        except OSError:
+            continue
     return None
 
 
@@ -305,6 +313,13 @@ for s in /sys/class/drm/card*-*/status; do
   d=$(basename "$(readlink -f /sys/class/drm/$c/device/driver)" 2>/dev/null)
   break
 done
+# evdi connectors say "unknown", never "connected" — an evdi card existing at
+# all means a DisplayLink USB display is attached.
+if [ -z "$c" ]; then
+  for dr in /sys/class/drm/card*/device/driver; do
+    [ "$(basename "$(readlink -f "$dr")")" = evdi ] && d=evdi && break
+  done
+fi
 if [ "$d" = evdi ] || [ "$d" = udl ]; then
   exec xinit {browser} $FLAGS "$URL" -- :0 vt1 -nolisten tcp
 fi
@@ -332,6 +347,22 @@ def _kiosk_show(name: str, prog: dict) -> None:
         if not shutil.which("xinit"):
             raise HTTPException(409, "A USB (DisplayLink) monitor needs the X kiosk — run: "
                                      "sudo apt install --no-install-recommends xserver-xorg xinit")
+        # Xorg ignores the GPU-less evdi device unless told to drive it with
+        # modesetting — and it must be primary, or X binds to the HDMI-less
+        # vc4 card and finds no screens.
+        xconf = Path("/etc/X11/xorg.conf.d/20-litelayer-displaylink.conf")
+        try:
+            xconf.parent.mkdir(parents=True, exist_ok=True)
+            xconf.write_text(
+                'Section "OutputClass"\n'
+                '    Identifier "LiteLayer DisplayLink"\n'
+                '    MatchDriver "evdi"\n'
+                '    Driver "modesetting"\n'
+                '    Option "AccelMethod" "none"\n'
+                '    Option "PrimaryGPU" "true"\n'
+                'EndSection\n')
+        except OSError:
+            pass
     elif not cage:
         raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage chromium-browser")
     KIOSK_SCRIPT.write_text(_KIOSK_SCRIPT.format(
