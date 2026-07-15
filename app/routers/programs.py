@@ -240,6 +240,8 @@ Wants=litelayer-prog-{name}.service
 [Service]
 Environment=WLR_LIBINPUT_NO_DEVICES=1
 WorkingDirectory={workdir}
+# The port wait below can take 180s — outlive systemd's default 90s start timeout.
+TimeoutStartSec=240
 {pre_line}ExecStartPre=/bin/bash -c 'for i in $(seq 90); do (exec 3<>/dev/tcp/127.0.0.1/{port}) 2>/dev/null && exit 0; sleep 2; done; exit 0'
 ExecStart={cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/
 Restart=always
