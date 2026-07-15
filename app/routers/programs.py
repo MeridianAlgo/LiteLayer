@@ -253,10 +253,6 @@ TimeoutStopSec=10
 ExecStart=/bin/bash {script}
 Restart=always
 RestartSec=3
-TTYPath=/dev/tty1
-StandardInput=tty
-PAMName=login
-UtmpIdentifier=tty1
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=litelayer-kiosk
@@ -311,6 +307,12 @@ URL=http://127.0.0.1:{port}/
 # from a manual session) can never hold the profile lock and leave cage
 # showing just a cursor.
 FLAGS="--kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito --user-data-dir=/run/litelayer-kiosk"
+# seatd session for every display kind — a root service has no logind seat,
+# and seatd's socket goes stale after an unclean compositor exit ("Broken
+# pipe"), so restart it fresh right before cage. Proven recipe.
+mkdir -p /run/user/0 && chmod 700 /run/user/0
+export XDG_RUNTIME_DIR=/run/user/0 LIBSEAT_BACKEND=seatd
+systemctl restart seatd 2>/dev/null && sleep 1
 d=""; c=""
 for s in /sys/class/drm/card*-*/status; do
   grep -q "^connected" "$s" || continue
@@ -329,12 +331,6 @@ if [ "$d" = evdi ] || [ "$d" = udl ]; then
   dl=""; gpu=""
   for l in /dev/dri/by-path/*evdi*-card; do [ -e "$l" ] && dl=$(readlink -f "$l") && break; done
   for l in /dev/dri/by-path/*gpu*-card;  do [ -e "$l" ] && gpu=$(readlink -f "$l") && break; done
-  mkdir -p /run/user/0 && chmod 700 /run/user/0
-  export XDG_RUNTIME_DIR=/run/user/0 LIBSEAT_BACKEND=seatd
-  # seatd's socket goes stale when a previous compositor died uncleanly
-  # ("Could not poll connection: Broken pipe") — a fresh seatd right before
-  # cage is the proven fix.
-  systemctl restart seatd 2>/dev/null && sleep 1
   if [ -n "$gpu" ] && [ -n "$dl" ]; then export WLR_DRM_DEVICES="$gpu:$dl"
   elif [ -n "$dl" ]; then export WLR_DRM_DEVICES="$dl"; fi
   exec {cage} -- {browser} $FLAGS "$URL"
@@ -359,13 +355,9 @@ def _kiosk_show(name: str, prog: dict) -> None:
     if not browser:
         raise HTTPException(409, "Chromium missing — run: sudo apt install chromium-browser")
     cage = shutil.which("cage")
-    if not cage:
-        raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage chromium-browser")
-    if _connected_driver() in ("evdi", "udl"):
-        if not shutil.which("seatd"):
-            raise HTTPException(409, "A USB (DisplayLink) monitor needs seatd — run: "
-                                     "sudo apt install seatd")
-        _run(["systemctl", "enable", "--now", "seatd"], timeout=15)
+    if not cage or not shutil.which("seatd"):
+        raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage seatd chromium-browser")
+    _run(["systemctl", "enable", "--now", "seatd"], timeout=15)
     KIOSK_SCRIPT.write_text(_KIOSK_SCRIPT.format(
         port=prog["web_port"], browser=browser, cage=cage or "cage"))
     import os

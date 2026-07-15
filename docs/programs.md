@@ -167,10 +167,11 @@ How it works and what to know:
   the connected card directly. USB DisplayLink: cage renders on the Pi's
   GPU and scans out on the DisplayLink device (found via
   `/dev/dri/by-path`, so USB plug order can't break it across reboots).
-  Two one-time installs for the USB case: the DisplayLink driver
+  One-time installs: `sudo apt install cage seatd chromium-browser`, plus —
+  USB monitors only — the DisplayLink driver
   ([displaylink-debian](https://github.com/AdnanHodzic/displaylink-debian)
-  for DL-3xxx and newer chips — USB 3.0 monitors) and
-  `sudo apt install seatd` (the Show button tells you if it's missing).
+  for DL-3xxx and newer chips, i.e. USB 3.0 monitors). The Show button tells
+  you exactly what's missing.
 - **Monitor command (optional)** — some programs need a command run every
   time they go on the screen (warm a cache, regenerate the page, poke an
   API). Click **Monitor cmd** on the card and enter it: it runs from the
