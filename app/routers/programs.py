@@ -295,10 +295,10 @@ def _connected_driver() -> Optional[str]:
 
 
 # The launcher re-picks the display every start (card numbers move between
-# boots). USB DisplayLink (evdi): cage renders on the Pi's display GPU (vc4)
-# and scans out on the evdi card — WLR_DRM_DEVICES=<gpu>:<evdi>, resolved via
-# /dev/dri/by-path so a shifted card number can't break it, with seatd as the
-# session backend (proven working on the user's AOC E1659Fwu).
+# boots) and works on any board: HDMI/DP → cage on the connected card; USB
+# DisplayLink (evdi/udl) → cage renders on whatever real GPU has connectors
+# (vc4, i915, amdgpu, …) and scans out on the USB card, seatd as the session
+# backend. Proven end-to-end on a Pi 4 + AOC E1659Fwu.
 _KIOSK_SCRIPT = """\
 #!/bin/bash
 # LiteLayer kiosk launcher — regenerated on every Show; do not edit.
@@ -328,11 +328,30 @@ if [ -z "$c" ]; then
   done
 fi
 if [ "$d" = evdi ] || [ "$d" = udl ]; then
-  dl=""; gpu=""
-  for l in /dev/dri/by-path/*evdi*-card; do [ -e "$l" ] && dl=$(readlink -f "$l") && break; done
-  for l in /dev/dri/by-path/*gpu*-card;  do [ -e "$l" ] && gpu=$(readlink -f "$l") && break; done
+  # Scanout device: the USB display's card — by-path when available (evdi on
+  # any board, usb for old udl monitors), else the connector we detected.
+  dl=""
+  for l in /dev/dri/by-path/*evdi*-card /dev/dri/by-path/*usb*-card; do
+    [ -e "$l" ] && dl=$(readlink -f "$l") && break
+  done
+  if [ -z "$dl" ] && [ -n "$c" ]; then dl=/dev/dri/$c; fi
+  # Render device: first card that has connectors and isn't a USB display —
+  # vc4 on a Pi, i915/amdgpu/nouveau on PCs. Render-only nodes (v3d) have no
+  # connectors and are skipped.
+  gpu=""
+  for cardpath in /dev/dri/card*; do
+    n=$(basename "$cardpath")
+    if [ "$cardpath" = "$dl" ]; then continue; fi
+    drv=$(basename "$(readlink -f /sys/class/drm/$n/device/driver)" 2>/dev/null)
+    case "$drv" in evdi|udl) continue;; esac
+    ls /sys/class/drm/"$n"-* >/dev/null 2>&1 || continue
+    gpu=$cardpath; break
+  done
   if [ -n "$gpu" ] && [ -n "$dl" ]; then export WLR_DRM_DEVICES="$gpu:$dl"
-  elif [ -n "$dl" ]; then export WLR_DRM_DEVICES="$dl"; fi
+  elif [ -n "$dl" ]; then
+    # No render GPU found — drive the USB display alone with software rendering.
+    export WLR_DRM_DEVICES="$dl" WLR_RENDERER=pixman
+  fi
   exec {cage} -- {browser} $FLAGS "$URL"
 fi
 [ -n "$c" ] && export WLR_DRM_DEVICES=/dev/dri/$c
