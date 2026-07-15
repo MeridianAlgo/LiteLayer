@@ -165,7 +165,10 @@ How it works and what to know:
   API). Click **Monitor cmd** on the card and enter it: it runs from the
   program's folder via bash on **every Show and every reboot**, right before
   the browser opens. A failing monitor command is logged
-  (`journalctl -u litelayer-kiosk`) but never blocks the screen.
+  (`journalctl -u litelayer-kiosk`) but never blocks the screen, and it's
+  capped at **2 minutes** — a command that never exits would otherwise hold
+  the screen black forever. If yours is meant to keep running (a driver
+  helper, a daemon), put it in the background by ending it with ` &`.
 
 ## Secrets (repository secrets)
 

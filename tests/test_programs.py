@@ -147,7 +147,7 @@ def test_monitor_kiosk(authed, monkeypatch):
     r = authed.put("/api/programs/web", json={"monitor_command": "./warmup.sh --once"})
     assert r.status_code == 200
     unit = (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
-    assert "ExecStartPre=-/bin/bash -lc './warmup.sh --once'" in unit
+    assert "ExecStartPre=-/usr/bin/timeout 120 /bin/bash -lc './warmup.sh --once'" in unit
     authed.put("/api/programs/web", json={"monitor_command": ""})   # empty clears
     assert "warmup.sh" not in (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
     assert programs._load()["web"]["monitor_command"] is None

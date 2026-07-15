@@ -284,9 +284,12 @@ def _kiosk_show(name: str, prog: dict) -> None:
         raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage chromium-browser")
     # Optional per-program monitor command — runs from the program's folder
     # every time the kiosk starts (each show, each boot). The `-` prefix means
-    # a failing command never blocks the screen; failures land in the journal.
+    # a failing command never blocks the screen, and `timeout 120` means a
+    # hanging one can't either (it would stall start-pre until systemd kills
+    # the whole unit — a black screen forever). A command that must keep
+    # running belongs in the background: append ` &` to it.
     pre = prog.get("monitor_command")
-    pre_line = f"ExecStartPre=-/bin/bash -lc {shlex.quote(pre)}\n" if pre else ""
+    pre_line = f"ExecStartPre=-/usr/bin/timeout 120 /bin/bash -lc {shlex.quote(pre)}\n" if pre else ""
     (UNIT_DIR / f"{KIOSK_UNIT}.service").write_text(_KIOSK_TEMPLATE.format(
         name=name, cage=cage, browser=browser, port=prog["web_port"],
         workdir=prog["dir"], pre_line=pre_line))
