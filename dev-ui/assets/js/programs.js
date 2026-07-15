@@ -64,7 +64,8 @@ async function _loadPrograms() {
   if (!box) return;
   const r = await api('/api/programs', {bg: true});
   if (!r?.ok) { box.innerHTML = '<div style="font-size:12px;color:var(--text-3)">Could not load programs.</div>'; return; }
-  const progs = (await r.json()).programs;
+  const data = await r.json();
+  const progs = data.programs;
   if (!progs.length) {
     box.innerHTML = `<div class="prog-empty">
       <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
@@ -73,7 +74,7 @@ async function _loadPrograms() {
     </div>`;
     return;
   }
-  box.innerHTML = progs.map(_progCard).join('');
+  box.innerHTML = progs.map(p => _progCard(p, data.monitor)).join('');
   // Keep polling while anything is importing/starting so status flips live.
   clearTimeout(_progPollTimer);
   if (progs.some(p => p.status === 'importing' || p.status === 'activating')) {
@@ -99,7 +100,7 @@ async function _checkProgUpdates() {
 // start command like "python -c 'x'" needs its own quoting.
 const _jsq = s => esc(String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 
-function _progCard(p) {
+function _progCard(p, mon) {
   const st = _PROG_STATUS[p.status] || _PROG_STATUS.unknown;
   const repoPath = p.repo_url.replace('https://github.com/', '');
   const lanUrl = p.web_port ? `http://${window.location.hostname}:${p.web_port}` : null;
@@ -114,6 +115,13 @@ function _progCard(p) {
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>Global${p.global_via === 'tailscale' ? ' · Tailscale' : ''}</a>
          <button class="prog-chip toggle ${p.public ? '' : 'private'}" onclick="toggleProgramPublic('${esc(p.name)}',${p.public})" title="${p.public ? 'Anyone with the link can open it. Click to require a LiteLayer sign-in.' : 'Sign-in required. Click to make the link public.'}">${p.public ? 'Public' : 'Private'}</button>`
       : `<span class="prog-chip dim" title="Turn on the Cloudflare tunnel or Tailscale in Settings → System to get a global link">Global link needs the Cloudflare tunnel or Tailscale</span>`;
+  }
+  // Monitor chip: shown when an HDMI monitor is attached (or to turn off a
+  // program already on it after the monitor was unplugged).
+  if (settled && p.web_port && (mon?.connected || p.on_monitor)) {
+    links += `<button class="prog-chip toggle ${p.on_monitor ? '' : 'dim'}" onclick="toggleProgramMonitor('${esc(p.name)}',${p.on_monitor})"
+      title="${p.on_monitor ? 'Showing fullscreen on the monitor plugged into the Pi. Click to turn off.' : 'Show this program fullscreen on the monitor plugged into the Pi.'}">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>${p.on_monitor ? 'On monitor' : 'Show on monitor'}</button>`;
   }
   if (settled) {
     links += `<button class="prog-chip toggle ${p.ota === 'self' ? 'private' : ''}" onclick="toggleProgramOta('${esc(p.name)}','${esc(p.ota)}')"
@@ -225,6 +233,13 @@ async function toggleProgramOta(name, current) {
   toast(next === 'self'
     ? `${name} now manages its own updates — LiteLayer will stop checking GitHub`
     : `LiteLayer now checks GitHub for ${name} updates`, 'success', 3000);
+  _loadPrograms();
+}
+
+async function toggleProgramMonitor(name, on) {
+  const r = await api(`/api/programs/${encodeURIComponent(name)}/monitor`, {method: 'POST', body: JSON.stringify({on: !on})});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not change the monitor', 'error', 6000); return; }
+  toast(!on ? `${name} is now fullscreen on the Pi's monitor` : 'Monitor turned off', 'success', 3000);
   _loadPrograms();
 }
 

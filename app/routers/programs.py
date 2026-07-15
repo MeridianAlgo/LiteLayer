@@ -189,6 +189,90 @@ def _import_worker(name: str, repo_url: str, start_command: Optional[str],
         _imports.pop(name, None)
 
 
+# ── Monitor (HDMI kiosk) ──────────────────────────────────────────────────────
+# Plug a monitor into the Pi and put any web-UI program on it fullscreen:
+# cage (Wayland kiosk compositor) + Chromium --kiosk in one systemd unit on
+# tty1. Needs `sudo apt install cage chromium-browser` once.
+# ponytail: one program on the monitor at a time — it's one HDMI port.
+
+MONITOR_FILE = CREDENTIALS_FILE.parent / "monitor-program"
+KIOSK_UNIT = "litelayer-kiosk"
+DRM_DIR = Path("/sys/class/drm")
+
+# WLR_LIBINPUT_NO_DEVICES: a kiosk Pi often has no keyboard/mouse — let cage
+# start anyway. --no-sandbox: chromium refuses to run as root without it; it
+# only ever renders localhost.
+_KIOSK_TEMPLATE = """\
+[Unit]
+Description=LiteLayer monitor kiosk: {name}
+After=multi-user.target
+
+[Service]
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+ExecStart={cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/
+Restart=always
+RestartSec=3
+TTYPath=/dev/tty1
+StandardInput=tty
+PAMName=login
+UtmpIdentifier=tty1
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=litelayer-kiosk
+
+[Install]
+WantedBy=multi-user.target
+"""
+
+
+def _monitor_connected() -> bool:
+    for p in DRM_DIR.glob("card*-*/status"):
+        try:
+            if p.read_text().strip() == "connected":
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def _monitor_program() -> Optional[str]:
+    try:
+        name = MONITOR_FILE.read_text().strip()
+        return name if name in _load() else None
+    except OSError:
+        return None
+
+
+def _kiosk_show(name: str, port: int) -> None:
+    cage = shutil.which("cage")
+    browser = shutil.which("chromium-browser") or shutil.which("chromium")
+    if not cage or not browser:
+        raise HTTPException(409, "Kiosk tools missing — run: sudo apt install cage chromium-browser")
+    (UNIT_DIR / f"{KIOSK_UNIT}.service").write_text(_KIOSK_TEMPLATE.format(
+        name=name, cage=cage, browser=browser, port=port))
+    _run(["systemctl", "daemon-reload"], timeout=15)
+    code, out = _run(["systemctl", "enable", "--now", KIOSK_UNIT], timeout=30)
+    if code != 0:
+        raise HTTPException(500, f"Could not start the kiosk: {out[-300:]}")
+    try:
+        MONITOR_FILE.write_text(name)
+    except OSError:
+        pass
+
+
+def _kiosk_off() -> None:
+    _run(["systemctl", "disable", "--now", KIOSK_UNIT], timeout=30)
+    try:
+        (UNIT_DIR / f"{KIOSK_UNIT}.service").unlink()
+    except OSError:
+        pass
+    _run(["systemctl", "daemon-reload"], timeout=15)
+    try:
+        MONITOR_FILE.unlink()
+    except OSError:
+        pass
+
+
 def _global_base() -> tuple[Optional[str], Optional[str]]:
     """(public https origin, via) — Cloudflare tunnel first, else Tailscale.
     Tailscale links go through Caddy on :443, so they work on any tailnet device."""
@@ -215,6 +299,7 @@ def _global_base() -> tuple[Optional[str], Optional[str]]:
 
 def _listing() -> list[dict]:
     base, via = _global_base()
+    mon = _monitor_program()
     out = []
     with _lock:
         d = _load()
@@ -240,13 +325,15 @@ def _listing() -> list[dict]:
             "created": prog.get("created"),
             "global_url": f"{base}/apps/{name}/" if base and prog.get("web_port") else None,
             "global_via": via if base and prog.get("web_port") else None,
+            "on_monitor": name == mon,
         })
     return out
 
 
 @router.get("")
 def list_programs(_: str = Depends(require_auth)):
-    return {"programs": _listing()}
+    return {"programs": _listing(),
+            "monitor": {"connected": _monitor_connected(), "program": _monitor_program()}}
 
 
 @router.get("/updates")
@@ -353,6 +440,25 @@ def program_action(name: str, req: ActionRequest, _: str = Depends(require_auth)
     return {"status": _unit_state(name)}
 
 
+class MonitorRequest(BaseModel):
+    on: bool
+
+
+@router.post("/{name}/monitor")
+def program_monitor(name: str, req: MonitorRequest, _: str = Depends(require_auth)):
+    """Show the program's web UI fullscreen on the Pi's attached monitor."""
+    prog = _get(name)
+    if not req.on:
+        _kiosk_off()
+        return {"status": "off"}
+    if not prog.get("web_port"):
+        raise HTTPException(409, "Set a web port first — the monitor shows the program's web UI.")
+    if not _monitor_connected():
+        raise HTTPException(409, "No monitor detected — plug one into the Pi's HDMI port.")
+    _kiosk_show(name, prog["web_port"])
+    return {"status": "on", "program": name}
+
+
 class EditProgramRequest(BaseModel):
     start_command: Optional[str] = None
     web_port: Optional[int] = None
@@ -386,6 +492,9 @@ def edit_program(name: str, req: EditProgramRequest, _: str = Depends(require_au
         _write_unit(name, prog)
         if _unit_state(name) == "active":
             _run(["systemctl", "restart", _unit(name)], timeout=30)
+    # The kiosk unit hardcodes the port — keep it in step.
+    if _monitor_program() == name:
+        _kiosk_show(name, prog["web_port"]) if prog.get("web_port") else _kiosk_off()
     return {"status": "ok"}
 
 
@@ -410,6 +519,8 @@ def update_program(name: str, _: str = Depends(require_auth)):
 @router.delete("/{name}")
 def remove_program(name: str, _: str = Depends(require_auth)):
     prog = _get(name)
+    if _monitor_program() == name:
+        _kiosk_off()
     _run(["systemctl", "disable", "--now", _unit(name)], timeout=30)
     try:
         (UNIT_DIR / f"{_unit(name)}.service").unlink()

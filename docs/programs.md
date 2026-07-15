@@ -110,6 +110,30 @@ Global-link limitations (the LAN link has none of these):
   use relative paths or make the base path configurable.
 - WebSockets and server-sent events are not proxied. Plain HTTP only.
 
+## Show on a monitor (HDMI kiosk)
+
+Plug a monitor into the Pi's HDMI port and any program with a web port gets a
+**Show on monitor** chip on its card — click it and the program's web UI opens
+fullscreen on that screen (a kiosk: no browser bars, no desktop). Click
+**On monitor** to turn it off.
+
+How it works and what to know:
+
+- One-time setup on the Pi: `sudo apt install cage chromium-browser`. The chip
+  tells you if the tools are missing.
+- LiteLayer detects the monitor automatically (via the kernel's display
+  connector state) — the chip only appears while one is connected.
+- One program on the monitor at a time — it's one HDMI port. Showing a new one
+  replaces the old one.
+- The kiosk is its own systemd unit (`litelayer-kiosk`), so the display
+  **survives reboots** — the Pi boots straight back into the program's UI.
+  No keyboard or mouse required (but a plugged-in one works, e.g. for a
+  touchscreen dashboard).
+- It renders `http://127.0.0.1:<port>/` locally — no login page, no proxy
+  path, so absolute asset paths that break the global link are fine here.
+- Removing the program (or clearing its web port) turns the kiosk off;
+  changing its port re-points the kiosk automatically.
+
 ## Secrets (repository secrets)
 
 GitHub repository secrets live in GitHub Actions and **never leave GitHub** —
@@ -159,10 +183,11 @@ All endpoints require authentication except the `/apps/` proxy for public progra
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/programs` | GET | List programs with status and links |
+| `/api/programs` | GET | List programs with status and links, plus monitor state |
 | `/api/programs` | POST | Import — `{repo_url, name?, start_command?, web_port?, ota?}` |
 | `/api/programs/updates` | GET | OTA check — local vs GitHub HEAD per program |
 | `/api/programs/{name}/action` | POST | `{action: "start" \| "stop" \| "restart"}` |
+| `/api/programs/{name}/monitor` | POST | `{on: true \| false}` — show on / clear the attached HDMI monitor |
 | `/api/programs/{name}` | PUT | Edit — `{start_command?, web_port?, public?, ota?, clear_port?}` |
 | `/api/programs/{name}/secrets` | GET / PUT | Read / replace the program's `KEY=VALUE` secrets |
 | `/api/programs/{name}/update` | POST | Pull latest code, reinstall deps, restart |

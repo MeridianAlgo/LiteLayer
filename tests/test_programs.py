@@ -16,6 +16,7 @@ def tmp_programs(tmp_path, monkeypatch):
     monkeypatch.setattr(programs, "PROGRAMS_DIR", tmp_path / "programs")
     monkeypatch.setattr(programs, "UNIT_DIR", tmp_path)
     monkeypatch.setattr(programs, "ENV_DIR", tmp_path / "program-env")
+    monkeypatch.setattr(programs, "MONITOR_FILE", tmp_path / "monitor-program")
     # Never touch git/systemctl in tests; keep the import worker inert.
     monkeypatch.setattr(programs, "_run", lambda *a, **k: (0, ""))
     monkeypatch.setattr(programs, "_import_worker", lambda *a, **k: None)
@@ -112,6 +113,33 @@ def test_ota_modes_and_update_check(authed, monkeypatch):
     r = authed.put("/api/programs/selfmanaged", json={"ota": "github"})
     assert r.status_code == 200
     assert programs._load()["selfmanaged"]["ota"] == "github"
+
+
+def test_monitor_kiosk(authed, monkeypatch):
+    authed.post("/api/programs", json={"repo_url": "o/web", "web_port": 3000})
+    authed.post("/api/programs", json={"repo_url": "o/headless"})
+    programs._imports.clear()
+
+    # No web UI → nothing to show.
+    assert authed.post("/api/programs/headless/monitor", json={"on": True}).status_code == 409
+
+    monkeypatch.setattr(programs, "_monitor_connected", lambda: False)
+    assert authed.post("/api/programs/web/monitor", json={"on": True}).status_code == 409
+
+    monkeypatch.setattr(programs, "_monitor_connected", lambda: True)
+    monkeypatch.setattr(programs.shutil, "which", lambda b: f"/usr/bin/{b}")
+    assert authed.post("/api/programs/web/monitor", json={"on": True}).status_code == 200
+    unit = (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
+    assert "http://127.0.0.1:3000/" in unit
+
+    listed = authed.get("/api/programs").json()
+    assert listed["monitor"] == {"connected": True, "program": "web"}
+    assert {p["name"]: p["on_monitor"] for p in listed["programs"]} == {"headless": False, "web": True}
+
+    # Removing the program on the monitor turns the kiosk off too.
+    assert authed.delete("/api/programs/web").status_code == 200
+    assert not (programs.UNIT_DIR / "litelayer-kiosk.service").exists()
+    assert authed.get("/api/programs").json()["monitor"]["program"] is None
 
 
 def test_proxy_unknown_and_private(authed, client):
