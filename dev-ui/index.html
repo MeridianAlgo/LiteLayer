@@ -594,10 +594,11 @@
             <button class="btn btn-primary btn-sm" id="prog-import-btn" onclick="importProgram()">Import</button>
           </div>
           <details class="prog-import-opts">
-            <summary>Options — name, start command, web port</summary>
+            <summary>Options — name, start command, web port, private repos</summary>
             <div class="field"><label>Name <span style="font-weight:400;color:var(--text-3)">(defaults to the repo name)</span></label><input id="prog-name-input" type="text" placeholder="my-app" autocapitalize="off" autocomplete="off"></div>
             <div class="field"><label>Start command <span style="font-weight:400;color:var(--text-3)">(auto-detected from package.json / main.py if blank)</span></label><input id="prog-cmd-input" type="text" placeholder="python3 main.py" autocomplete="off" spellcheck="false"></div>
             <div class="field"><label>Web port <span style="font-weight:400;color:var(--text-3)">(only if the program serves a web UI)</span></label><input id="prog-port-input" type="number" min="1024" max="65535" placeholder="3000" autocomplete="off"></div>
+            <div class="field"><label>Access token <span style="font-weight:400;color:var(--text-3)">(only for private repos — a GitHub token with read access to the repo)</span></label><input id="prog-token-input" type="password" placeholder="github_pat_… or ghp_…" autocomplete="off" spellcheck="false"></div>
             <div class="field"><label>Updates</label>
               <select id="prog-ota-input" class="prog-select">
                 <option value="github" selected>LiteLayer checks GitHub — badge + one-click update</option>

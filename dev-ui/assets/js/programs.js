@@ -123,6 +123,11 @@ function _progCard(p, mon) {
       title="${p.on_monitor ? 'Showing fullscreen on the monitor plugged into the Pi. Click to turn off.' : 'Show this program fullscreen on the monitor plugged into the Pi.'}">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>${p.on_monitor ? 'On monitor' : 'Show on monitor'}</button>`;
   }
+  if (settled && p.has_token) {
+    links += `<button class="prog-chip toggle private" onclick="setProgramToken('${esc(p.name)}')"
+      title="Cloned with a GitHub access token — update checks and pulls use it too. Click to replace or remove the token.">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>Private repo</button>`;
+  }
   if (settled) {
     links += `<button class="prog-chip toggle ${p.ota === 'self' ? 'private' : ''}" onclick="toggleProgramOta('${esc(p.name)}','${esc(p.ota)}')"
       title="${p.ota === 'self' ? 'This program runs its own updater — LiteLayer stays out of the way. Click to let LiteLayer check GitHub instead.' : 'LiteLayer checks GitHub for new commits and flags them here. Click if the program manages its own updates.'}">
@@ -175,14 +180,15 @@ async function importProgram() {
   const name = document.getElementById('prog-name-input').value.trim() || null;
   const cmd  = document.getElementById('prog-cmd-input').value.trim() || null;
   const port = parseInt(document.getElementById('prog-port-input').value, 10) || null;
+  const token = document.getElementById('prog-token-input').value.trim() || null;
   const ota  = document.getElementById('prog-ota-input').value;
   const btn  = document.getElementById('prog-import-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
   try {
     const r = await api('/api/programs', {method: 'POST',
-      body: JSON.stringify({repo_url: repo, name, start_command: cmd, web_port: port, ota})});
+      body: JSON.stringify({repo_url: repo, name, start_command: cmd, web_port: port, token, ota})});
     if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Import failed', 'error', 5000); return; }
-    ['prog-repo-input','prog-name-input','prog-cmd-input','prog-port-input'].forEach(id => document.getElementById(id).value = '');
+    ['prog-repo-input','prog-name-input','prog-cmd-input','prog-port-input','prog-token-input'].forEach(id => document.getElementById(id).value = '');
     toast(`Importing ${(await r.json()).name} — cloning from GitHub…`, 'info', 3500);
     _loadPrograms();
   } finally { btn.disabled = false; btn.textContent = 'Import'; }
@@ -234,6 +240,15 @@ async function toggleProgramOta(name, current) {
   toast(next === 'self'
     ? `${name} now manages its own updates — LiteLayer will stop checking GitHub`
     : `LiteLayer now checks GitHub for ${name} updates`, 'success', 3000);
+  _loadPrograms();
+}
+
+async function setProgramToken(name) {
+  const t = prompt(`GitHub access token for "${name}" — used for update checks and pulls. Leave empty to remove it:`);
+  if (t == null) return;
+  const r = await api(`/api/programs/${encodeURIComponent(name)}`, {method: 'PUT', body: JSON.stringify({token: t})});
+  if (!r?.ok) { const e = await r.json().catch(() => ({})); toast(e.detail || 'Could not save token', 'error', 5000); return; }
+  toast(t.trim() ? 'Token saved — it stays on the Pi and is never shown again' : 'Token removed', 'success', 3500);
   _loadPrograms();
 }
 

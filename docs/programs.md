@@ -75,6 +75,22 @@ If nothing is detected the program lands in **Needs command** — click
 *Set start command* on its card. The command runs from the program's folder via
 `bash -lc`, so anything you could type in a shell works.
 
+### Private repositories
+
+Private GitHub repos work too — open **Options** on the import form and paste a
+GitHub **access token** with read access to the repo (a fine-grained
+`github_pat_…` scoped to just that repository is best; classic `ghp_…` works).
+The clone, the periodic update checks and every **Update** pull all use it.
+
+How the token is protected:
+
+- Stored only in LiteLayer's root-only registry (`0600`) on the Pi — never in
+  the cloned repo's `.git/config`, never in the repo URL, and never visible in
+  the process list (it's passed to git as environment config, base64-encoded).
+- The API never returns it — cards just show a **Private repo** chip. Click
+  the chip to replace the token (e.g. after rotating it on GitHub) or remove it.
+- Deleted with the program.
+
 ## Statuses
 
 | Status | Meaning |
@@ -129,6 +145,10 @@ How it works and what to know:
   **survives reboots** — the Pi boots straight back into the program's UI.
   No keyboard or mouse required (but a plugged-in one works, e.g. for a
   touchscreen dashboard).
+- **Hassle-free boot:** the kiosk starts *after* the program's own service,
+  pulls it in if it isn't running, and then waits (up to 3 minutes) for the
+  program's port to actually answer before opening the browser — so a slow
+  starter shows its page, not an error screen.
 - It renders `http://127.0.0.1:<port>/` locally — no login page, no proxy
   path, so absolute asset paths that break the global link are fine here.
 - Removing the program (or clearing its web port) turns the kiosk off;
@@ -190,11 +210,11 @@ All endpoints require authentication except the `/apps/` proxy for public progra
 | Endpoint | Method | Purpose |
 |---|---|---|
 | `/api/programs` | GET | List programs with status and links, plus monitor state |
-| `/api/programs` | POST | Import — `{repo_url, name?, start_command?, web_port?, monitor_command?, ota?}` |
+| `/api/programs` | POST | Import — `{repo_url, name?, start_command?, web_port?, monitor_command?, token?, ota?}` |
 | `/api/programs/updates` | GET | OTA check — local vs GitHub HEAD per program |
 | `/api/programs/{name}/action` | POST | `{action: "start" \| "stop" \| "restart"}` |
 | `/api/programs/{name}/monitor` | POST | `{on: true \| false}` — show on / clear the attached HDMI monitor |
-| `/api/programs/{name}` | PUT | Edit — `{start_command?, web_port?, monitor_command?, public?, ota?, clear_port?}` |
+| `/api/programs/{name}` | PUT | Edit — `{start_command?, web_port?, monitor_command?, token?, public?, ota?, clear_port?}` |
 | `/api/programs/{name}/secrets` | GET / PUT | Read / replace the program's `KEY=VALUE` secrets |
 | `/api/programs/{name}/update` | POST | Pull latest code, reinstall deps, restart |
 | `/api/programs/{name}` | DELETE | Stop and remove the program |
@@ -211,5 +231,10 @@ All endpoints require authentication except the `/apps/` proxy for public progra
   like the terminal.
 - The `/apps/` proxy only ever connects to `127.0.0.1:<the registered port>`;
   it cannot be pointed at other hosts or unregistered ports.
-- Registry lives at `/etc/litelayer/programs.json`; code at
-  `/opt/litelayer/programs/`; secrets at `/etc/litelayer/program-env/` (0600).
+- Registry lives at `/etc/litelayer/programs.json` (0600 — it can hold access
+  tokens); code at `/opt/litelayer/programs/`; secrets at
+  `/etc/litelayer/program-env/` (0600).
+- Access tokens for private repos are passed to git as in-memory environment
+  config — they never touch the clone's `.git/config`, the stored repo URL,
+  process argv, or any API response. Prefer fine-grained tokens scoped to the
+  one repository, read-only.

@@ -131,6 +131,10 @@ def test_monitor_kiosk(authed, monkeypatch):
     assert authed.post("/api/programs/web/monitor", json={"on": True}).status_code == 200
     unit = (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
     assert "http://127.0.0.1:3000/" in unit
+    # Boot-friendly: starts after (and pulls in) the program's unit, and waits
+    # for the port to answer before opening the browser.
+    assert "Wants=litelayer-prog-web.service" in unit
+    assert "/dev/tcp/127.0.0.1/3000" in unit
 
     listed = authed.get("/api/programs").json()
     assert listed["monitor"] == {"connected": True, "program": "web"}
@@ -142,13 +146,49 @@ def test_monitor_kiosk(authed, monkeypatch):
     unit = (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
     assert "ExecStartPre=-/bin/bash -lc './warmup.sh --once'" in unit
     authed.put("/api/programs/web", json={"monitor_command": ""})   # empty clears
-    assert "ExecStartPre" not in (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
+    assert "warmup.sh" not in (programs.UNIT_DIR / "litelayer-kiosk.service").read_text()
     assert programs._load()["web"]["monitor_command"] is None
 
     # Removing the program on the monitor turns the kiosk off too.
     assert authed.delete("/api/programs/web").status_code == 200
     assert not (programs.UNIT_DIR / "litelayer-kiosk.service").exists()
     assert authed.get("/api/programs").json()["monitor"]["program"] is None
+
+
+def test_private_repo_token(authed, monkeypatch):
+    assert authed.post("/api/programs",
+                       json={"repo_url": "o/priv", "token": "bad token!"}).status_code == 400
+
+    r = authed.post("/api/programs", json={"repo_url": "o/priv", "token": "ghp_abc123def456"})
+    assert r.status_code == 200
+    programs._imports.clear()
+    with programs._lock:
+        d = programs._load()
+        d["priv"]["status"] = "ready"
+        programs._save(d)
+
+    # The token is stored but never returned by the API.
+    p = authed.get("/api/programs").json()["programs"][0]
+    assert p["has_token"] is True
+    assert "token" not in p
+    assert programs._load()["priv"]["token"] == "ghp_abc123def456"
+
+    # git commands run with the auth header in env, not argv.
+    seen = {}
+    def fake_run(cmd, **kw):
+        if cmd[:2] == ["git", "ls-remote"]:
+            seen.update(kw.get("env") or {})
+            return 0, "cafe000011112222\tHEAD"
+        return 0, "cafe000011112222"
+    monkeypatch.setattr(programs, "_run", fake_run)
+    authed.get("/api/programs/updates")
+    assert seen["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"
+    assert "AUTHORIZATION: basic " in seen["GIT_CONFIG_VALUE_0"]
+    assert "ghp_abc123def456" not in seen["GIT_CONFIG_VALUE_0"]   # base64, not plaintext
+
+    # Clearing via edit.
+    assert authed.put("/api/programs/priv", json={"token": ""}).status_code == 200
+    assert programs._load()["priv"]["token"] is None
 
 
 def test_proxy_unknown_and_private(authed, client):

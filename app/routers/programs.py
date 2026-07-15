@@ -70,12 +70,33 @@ WantedBy=multi-user.target
 """
 
 
-def _run(cmd: list[str], cwd=None, timeout=60) -> tuple[int, str]:
+def _run(cmd: list[str], cwd=None, timeout=60, env=None) -> tuple[int, str]:
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=timeout)
+        import os
+        full_env = {**os.environ, **env} if env else None
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd,
+                           timeout=timeout, env=full_env)
         return r.returncode, (r.stdout + r.stderr).strip()
     except Exception as exc:  # noqa: BLE001 — dev box without git/systemctl
         return -1, str(exc)
+
+
+# GitHub token (classic ghp_… or fine-grained github_pat_…) for private repos.
+_TOKEN_RE = re.compile(r"^[A-Za-z0-9_.-]{8,255}$")
+
+
+def _git_env(prog: dict) -> Optional[dict]:
+    """Auth for git against a private GitHub repo, passed as environment
+    config — the token never appears in argv (visible in `ps`), in the stored
+    repo URL, or in the clone's .git/config."""
+    token = prog.get("token")
+    if not token:
+        return None
+    import base64
+    b64 = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+    return {"GIT_CONFIG_COUNT": "1",
+            "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader",
+            "GIT_CONFIG_VALUE_0": f"AUTHORIZATION: basic {b64}"}
 
 
 def _load() -> dict:
@@ -89,6 +110,8 @@ def _save(d: dict) -> None:
     try:
         REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
         REGISTRY_FILE.write_text(json.dumps(d, indent=2))
+        import os
+        os.chmod(REGISTRY_FILE, 0o600)   # holds GitHub tokens — root-only
     except OSError:
         pass
 
@@ -157,9 +180,15 @@ def _import_worker(name: str, repo_url: str, start_command: Optional[str],
                    web_port: Optional[int]) -> None:
     repo_dir = PROGRAMS_DIR / name
     try:
-        code, out = _run(["git", "clone", "--depth", "1", repo_url, str(repo_dir)], timeout=300)
+        auth = _git_env(_load().get(name) or {})
+        code, out = _run(["git", "clone", "--depth", "1", repo_url, str(repo_dir)],
+                         timeout=300, env=auth)
         if code != 0:
-            raise RuntimeError(f"git clone failed: {out[-300:]}")
+            # A private repo without a token 404s / prompts for credentials.
+            hint = (" — is the repo private? Re-import with an access token (Options)."
+                    if not auth and ("could not read Username" in out or "Repository not found" in out)
+                    else "")
+            raise RuntimeError(f"git clone failed: {out[-300:]}{hint}")
 
         err = _install_deps(name, repo_dir)
         if err:
@@ -205,12 +234,14 @@ DRM_DIR = Path("/sys/class/drm")
 _KIOSK_TEMPLATE = """\
 [Unit]
 Description=LiteLayer monitor kiosk: {name}
-After=multi-user.target
+After=multi-user.target litelayer-prog-{name}.service
+Wants=litelayer-prog-{name}.service
 
 [Service]
 Environment=WLR_LIBINPUT_NO_DEVICES=1
 WorkingDirectory={workdir}
-{pre_line}ExecStart={cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/
+{pre_line}ExecStartPre=/bin/bash -c 'for i in $(seq 90); do (exec 3<>/dev/tcp/127.0.0.1/{port}) 2>/dev/null && exit 0; sleep 2; done; exit 0'
+ExecStart={cage} -- {browser} --kiosk --no-sandbox --noerrdialogs --disable-infobars --incognito http://127.0.0.1:{port}/
 Restart=always
 RestartSec=3
 TTYPath=/dev/tty1
@@ -334,6 +365,8 @@ def _listing() -> list[dict]:
             "global_via": via if base and prog.get("web_port") else None,
             "on_monitor": name == mon,
             "monitor_command": prog.get("monitor_command"),
+            # the token itself is never returned — only that one exists
+            "has_token": bool(prog.get("token")),
         })
     return out
 
@@ -355,7 +388,8 @@ def check_updates(_: str = Depends(require_auth)):
         code, local = _run(["git", "-C", prog["dir"], "rev-parse", "HEAD"], timeout=10)
         if code != 0:
             continue
-        code, remote = _run(["git", "ls-remote", prog["repo_url"], "HEAD"], timeout=20)
+        code, remote = _run(["git", "ls-remote", prog["repo_url"], "HEAD"], timeout=20,
+                            env=_git_env(prog))
         if code != 0 or not remote:
             continue
         remote_sha = remote.split()[0]
@@ -373,6 +407,7 @@ class AddProgramRequest(BaseModel):
     start_command: Optional[str] = None
     web_port: Optional[int] = None
     monitor_command: Optional[str] = None   # runs each time the program goes on the monitor
+    token: Optional[str] = None   # GitHub access token for private repos
     ota: str = "github"   # "github" = LiteLayer checks/pulls | "self" = app updates itself
 
 
@@ -399,6 +434,9 @@ def add_program(req: AddProgramRequest, _: str = Depends(require_auth)):
     port = _clean_port(req.web_port)
     if req.ota not in ("github", "self"):
         raise HTTPException(400, "ota must be 'github' or 'self'")
+    token = (req.token or "").strip() or None
+    if token and not _TOKEN_RE.fullmatch(token):
+        raise HTTPException(400, "That doesn't look like a GitHub access token.")
     with _lock:
         d = _load()
         if name in d:
@@ -410,6 +448,7 @@ def add_program(req: AddProgramRequest, _: str = Depends(require_auth)):
             "start_command": req.start_command,
             "web_port": port,
             "monitor_command": (req.monitor_command or "").strip() or None,
+            "token": token,
             "public": True,
             "ota": req.ota,
             "status": "importing",
@@ -473,6 +512,7 @@ class EditProgramRequest(BaseModel):
     start_command: Optional[str] = None
     web_port: Optional[int] = None
     monitor_command: Optional[str] = None   # empty string clears it
+    token: Optional[str] = None   # empty string clears it
     public: Optional[bool] = None
     ota: Optional[str] = None
     clear_port: bool = False
@@ -490,6 +530,11 @@ def edit_program(name: str, req: EditProgramRequest, _: str = Depends(require_au
                 prog["status"] = "ready"
         if req.monitor_command is not None:
             prog["monitor_command"] = req.monitor_command.strip() or None
+        if req.token is not None:
+            t = req.token.strip() or None
+            if t and not _TOKEN_RE.fullmatch(t):
+                raise HTTPException(400, "That doesn't look like a GitHub access token.")
+            prog["token"] = t
         if req.clear_port:
             prog["web_port"] = None
         elif req.web_port is not None:
@@ -516,7 +561,8 @@ def update_program(name: str, _: str = Depends(require_auth)):
     """git pull the latest, reinstall declared deps, restart the unit."""
     prog = _get(name)
     repo_dir = Path(prog["dir"])
-    code, out = _run(["git", "-C", str(repo_dir), "pull", "--ff-only"], timeout=120)
+    code, out = _run(["git", "-C", str(repo_dir), "pull", "--ff-only"], timeout=120,
+                     env=_git_env(prog))
     if code != 0:
         raise HTTPException(500, f"git pull failed: {out[-300:]}")
     _imports.setdefault(name, {"phase": "installing"})
